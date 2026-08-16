@@ -7,7 +7,6 @@ plugins:
       nav_file: summary.md
   - section-index
   - git-revision-date-localized
-  - git-authors
   - mkdocstrings:
       handlers:
         python:
