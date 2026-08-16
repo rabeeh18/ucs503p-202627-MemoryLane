@@ -5,10 +5,6 @@
 \usepackage{graphicx}
 \usepackage{xcolor}
 
-% -----------------------------------------------------
-% bvraghav-tiet-ucs503p-article.sty
-% -----------------------------------------------------
-
 % Variable: Lab Instructor
 \makeatletter \newcommand{\BvrSetLabInstructor}[1]{%
   \gdef\Bvr@LabInstructor{#1}}
@@ -36,9 +32,8 @@
 \newcommand{\BvrHint}[1]{%
   {\normalfont\normalsize\itshape\hfill #1}}
 
-% -----------------------------------------------------
-
-\title{Grievance-Resolution System for a Tier-2/3 City}
+% Title and metadata
+\title{MemoryLane: Personal Browser Memory Assistant}
 
 \BvrSetLabInstructor{Dr. Raghav B. Venkataramaiyer}
 
@@ -49,194 +44,487 @@
 }
 
 \author{
-  Vidya Vaidyanathan, CSED%
-  \thanks{Roll No: \texttt{1024030xxx}, %
-    Email: \texttt{vvaidhanathan\_be24\@thapar.edu}}
+  Rabeeh Ahmad, CSED%
   \and 
-  Bhanurekha Ganesan, CSED%
-  \thanks{Roll No: \texttt{1024030xxx}, %
-    Email: \texttt{bganesan\_be24\@thapar.edu}}
+  Ishan Singhania, CSED%
 }
 
-\date{\today}
+\date{16 August 2026}
 
 \begin{document}
 \maketitle
 
 \section{Higher-order goal%
   \BvrHint{\ldots secondary framing}}
-This project aims to improve sustainable urban
-governance by reducing the time and effort required to
-resolve citizen issues. While the topic is broader than
-any single municipality, the immediate engineering
-objective is to translate \emph{efficient public
-  service delivery} into a measurable, deployable
-software solution.
+
+MemoryLane aims to serve as a personal browser memory assistant that transforms how users interact with previously encountered web content. Rather than relying on limited URL keywords or manually maintained bookmarks, users can retrieve useful information through natural language semantic searches. 
+
+While users consume vast amounts of web content daily, current browser systems lack mechanisms to effectively revisit websites without remembering their exact names or URLs. The immediate engineering objective of MemoryLane is to build a deployable browser-to-backend-to-frontend system that captures browsing information, intelligently organizes it, and enables intelligent retrieval through semantic search.
+
 
 \section{Time-to-value %
-\BvrHint{\ldots primary heuristic}}
+  \BvrHint{\ldots primary heuristic}}
+
 \begin{itemize}[leftmargin=0.7cm]
-    \item We will deliver meaningful increments quickly by prototyping the core user workflow and validating it with users within a short iteration window.
-    \item We will prioritize fast feedback over perfection by using weekly iterations (and targeting CI-backed automation early) to reduce release friction.
-    \item Success is defined by what can be delivered and measured in the first iteration, then improved based on user feedback.
+
+\item We will deliver a working end-to-end workflow by initially implementing the core pipeline:
+\textit{browse $\rightarrow$ capture $\rightarrow$ store $\rightarrow$ search}.
+
+\item Development will focus on validating the complete system workflow early, starting with webpage capture and storage before adding advanced retrieval capabilities enabling semantic search.
+
+\item Success is defined by the ability of a user to retrieve a previously visited webpage using a natural language query without remembering the exact URL, title, or keywords.
+
 \end{itemize}
+
 
 \section{Problem Statement}
-Citizens in a tier-2/3 Indian city face delays and uncertainty when reporting local issues (e.g., streetlight outages, water leakage, garbage accumulation, road potholes). Common pain points include:
+
+Users browse the web extensively and encounter useful information regularly, but often struggle to rediscover it later. Important resources such as articles, documentation, tutorials, and research material are frequently lost because users cannot remember the exact website, title, or keywords required to locate them again.
+
+Common pain points include:
+
 \begin{itemize}[leftmargin=0.7cm]
-    \item \textbf{Fragmentation:} complaints are often made via multiple channels (calls, social media, paper forms), causing lost context.
-    \item \textbf{Low transparency:} citizens cannot easily see the status of their complaint (e.g., ``received'', ``assigned'', ``in progress'', ``resolved'').
-    \item \textbf{Slow coordination:} departments/field teams lack a unified, trackable workflow with clear ownership.
-    \item \textbf{Poor data quality:} duplicate or incomplete reports force rework and extend resolution time.
+
+\item \textbf{Weak recall:} Users often remember the topic or idea of a webpage but not the exact URL, title, or search terms.
+
+\item \textbf{Browser history limitations:} Standard browser history stores only basic information such as URLs, titles, and timestamps, requiring users to already remember details about what they are searching for.
+
+\item \textbf{Bookmark friction:} Manually saving and organizing bookmarks requires effort and becomes difficult to maintain as the number of saved resources increases.
+
+\item \textbf{Search engine mismatch:} General web search retrieves information from the entire internet rather than searching the user's own previously encountered information.
+
 \end{itemize}
 
-\textbf{Why this matters now (contextual relevance):} In an urban setting with limited staff bandwidth, even small process improvements can noticeably reduce resolution delays and repeated submissions.
+\textbf{Why this matters now (contextual relevance):} As users consume increasingly diverse and voluminous online content, the gap between discovery and rediscovery grows larger. A personal browsing memory system addresses this challenge by reducing the time spent hunting for previously encountered resources while simultaneously improving information retention and accessibility.
+
 
 \section{Proposed Solution %
-\BvrHint{\ldots Software Proposition}}
+  \BvrHint{\ldots Software Proposition}}
+
 \subsection{Overview}
-Build a \textbf{web-based} ``Grievance-to-Resolution'' system with the following components:
+
+MemoryLane is a browser-based personal memory system consisting of three major components:
+
 \begin{itemize}[leftmargin=0.7cm]
-    \item \textbf{Citizen submission portal:} users submit an issue with photo (optional), category, and locality/ward.
-    \item \textbf{Automated triage:} basic duplicate detection and completeness checks.
-    \item \textbf{Department workflow:} assign issues to relevant department/team and update statuses.
-    \item \textbf{Status transparency:} citizens track status and receive notifications when resolved.
-    \item \textbf{Admin/ops dashboard:} performance summaries (resolution time, backlog).
+
+\item \textbf{Chrome Extension:} Captures webpage information including URL, title, main content, and timestamp while the user browses.
+
+\item \textbf{Backend Processing System:} Receives webpage information, extracts meaningful content, generates summaries and searchable representations, manages storage through SQLite for metadata and summaries, and stores semantic representations in ChromaDB.
+
+\item \textbf{Web Application Interface:} Allows users to search their browsing memories using natural language queries and view retrieved webpages with generated summaries.
+
 \end{itemize}
 
 \subsection{Core workflow}
+
 \begin{enumerate}[leftmargin=0.7cm]
-    \item Citizen creates a complaint and receives a complaint ID immediately.
-    \item System validates completeness and suggests possible duplicates (lightweight similarity on text/category and approximate location).
-    \item Department staff update status (Received $\rightarrow$ Assigned $\rightarrow$ In Progress $\rightarrow$ Resolved).
-    \item Citizen views status updates and resolution notes.
+
+\item The user installs the MemoryLane browser extension and browses normally. The extension captures webpage information such as URL, title, content, and timestamp.
+
+\item The captured webpage data is sent to the backend through REST APIs. The backend processes the webpage by extracting meaningful content and preparing it for storage.
+
+\item The processed webpage content is used to generate:
+\begin{itemize}
+    \item A concise summary using an LLM.
+    \item A semantic representation (embedding) using a sentence transformer model.
+\end{itemize}
+
+\item The system stores:
+\begin{itemize}
+    \item Metadata and summaries in SQLite.
+    \item Semantic representations in ChromaDB.
+\end{itemize}
+
+\item The user opens the MemoryLane web application and enters a natural language query.
+
+\item The query is converted into an embedding and compared against stored webpage embeddings to retrieve relevant memories.
+
+\item The system returns the most relevant webpages along with their summaries and metadata.
+
 \end{enumerate}
 
-\subsection{Operational constraints for an educational, tier-2/3 setting}
+
+\subsection{Operational constraints for an educational setting}
+
 \begin{itemize}[leftmargin=0.7cm]
-    \item Keep the solution usable on low-to-mid range devices via responsive web design.
-    \item Avoid dependence on advanced research algorithms; focus on workflow, automation, and system correctness.
-    \item Design for deployability using common web hosting and managed databases.
+
+\item The system will focus on building a complete working workflow rather than developing new AI models or algorithms.
+
+\item Existing libraries and pretrained models will be used for content extraction, embeddings, and summarisation.
+
+\item The project will prioritize correctness of the core pipeline:
+browser capture $\rightarrow$ processing $\rightarrow$ storage $\rightarrow$ retrieval.
+
+\item The architecture will remain modular so individual components can be improved independently.
+
 \end{itemize}
+
+
+\section{Privacy and Data Handling Considerations}
+
+\subsection{User Consent}
+
+The extension should only collect browsing information after explicit user permission. Users should be able to control when MemoryLane is active.
+
+\subsection{Sensitive Information Handling}
+
+Webpages may contain personal accounts, private documents, and work-related information. Therefore, the system should avoid storing unnecessary information and focus on relevant webpage content.
+
+\subsection{Data Storage}
+
+For the prototype, stored data is limited to the user's own browsing activity. The system is designed for controlled usage rather than large-scale deployment.
+
 
 \section{Solution Approach %
 \BvrHint{\ldots Engineering focus}}
-This is an engineering course project, so we focus on scalable administrative and workflow aspects rather than novel algorithm research.
 
-\subsection{Duplicate/quality assistance %
-\BvrHint{\ldots non-research}}
-Duplicate detection will be heuristic-based:
+This project focuses on implementing an end-to-end information retrieval system for storing information and retrieving it in the future in relatively lesser time using existing tools and models. The approach emphasizes practical system design rather than research on new AI algorithms.
+
+
+\subsection{Content extraction and processing}
+
+Webpages contain large amounts of unnecessary information such as advertisements, navigation menus, and unrelated elements.
+
+MemoryLane processes webpages to extract the main useful content.
+
+The extraction pipeline uses:
+
 \begin{itemize}[leftmargin=0.7cm]
-    \item Normalize text (category + short description keywords).
-    \item Use a simple similarity measure (e.g., token overlap / TF-IDF cosine with threshold) without claiming state-of-the-art.
-    \item Show top candidate duplicates to staff for decision; never fully auto-delete or auto-reject.
+
+\item \textbf{BeautifulSoup:} Used for HTML parsing and webpage element extraction.
+
+\item \textbf{Mozilla Readability:} Used for extracting the main article or content section from webpages.
+
 \end{itemize}
 
-\subsection{Web architecture %
-\BvrHint{\ldots web-based solution}}
-A typical 3-tier web architecture:
+For JavaScript-heavy webpages where content is dynamically generated, browser rendering tools such as Playwright or Selenium can be used before extraction (optional).
+
+
+\subsection{Semantic search}
+
+MemoryLane uses semantic search to retrieve information based on meaning rather than exact keyword matching.
+
+The process is:
+
 \begin{itemize}[leftmargin=0.7cm]
-    \item \textbf{Frontend:} responsive UI for citizens and staff (status pages, submission form, dashboard).
-    \item \textbf{Backend API:} authentication, complaint submission, status transitions, assignment logic.
-    \item \textbf{Database:} store users, complaints, status history, attachments metadata.
+
+\item Extracted webpage content is converted into embeddings using a pretrained Sentence Transformer model.
+
+\item User queries are converted into embeddings using the same model.
+
+\item Similarity search is performed between the query representation and stored webpage representations.
+
+\item The most relevant memories are returned to the user.
+
 \end{itemize}
 
-\subsection{CI/CD and fast delivery enabler}
-CI/CD will be used to:
+
+The project will use:
+
 \begin{itemize}[leftmargin=0.7cm]
-    \item Automatically build and run tests on every change.
-    \item Produce repeatable deployment artifacts to staging.
-    \item Enable safe and frequent releases of incremental features.
+
+\item \textbf{Sentence Transformers:} For generating webpage and query embeddings.
+
+\item \textbf{all-MiniLM-L6-v2:} Initial embedding model due to its balance between speed and quality.
+
+\item \textbf{ChromaDB:} Vector database used for storing embeddings and performing similarity search.
+
 \end{itemize}
+
+
+\subsection{LLM-based summarisation}
+
+MemoryLane uses an LLM as an information organization layer.
+
+The purpose is not to replace the retrieval system, but to make stored memories easier to understand.
+
+For each webpage, the system generates:
+
+\begin{itemize}[leftmargin=0.7cm]
+
+\item Short summaries.
+
+\item Important points from the content.
+
+\item Basic categorization information.
+
+\end{itemize}
+
+This allows users to quickly understand a retrieved memory without opening the original webpage immediately.
+
+
+\subsection{Web architecture}
+
+MemoryLane follows a three-component architecture:
+
+\begin{itemize}[leftmargin=0.7cm]
+
+\item \textbf{Frontend:} React application providing the search interface, displaying retrieved memories, and offering real-time control over memory storage settings directly from the browser extension.
+
+\item \textbf{Backend API:} FastAPI server responsible for webpage ingestion, processing, AI pipeline integration, and search requests.
+
+\item \textbf{Storage Layer:} SQLite stores structured metadata, while ChromaDB stores semantic representations.
+
+\end{itemize}
+
+
+\section{Data Flow}
+
+The complete data flow is:
+
+\begin{enumerate}[leftmargin=0.7cm]
+
+\item User visits a webpage.
+
+\item Chrome extension extracts webpage information.
+
+\item Extension sends webpage data to the FastAPI backend.
+
+\item Backend cleans webpage content.
+
+\item The content processing module extracts useful information.
+
+\item LLM generates summaries and important information.
+
+\item Sentence Transformer generates webpage embeddings.
+
+\item SQLite and ChromaDB store the processed information.
+
+\item User enters a query through the MemoryLane website.
+
+\item Query is converted into an embedding.
+
+\item ChromaDB performs similarity search.
+
+\item Relevant webpage memories are returned to the user.
+
+\end{enumerate}
+
 
 \section{Evaluation Criterion %
 \BvrHint{\ldots measurable and attributable}}
-We define success using measurable metrics tied to the core workflow.
 
-\subsection{Primary evaluation metric}
-\textbf{Time-to-acknowledgement (TTA):} time between complaint submission and ``Received/Assigned'' status creation in the system.
+The evaluation of MemoryLane will focus on whether the system successfully enables users to retrieve previously encountered information.
+
+
+\subsection{Memory Retrieval Effectiveness}
+
+The primary evaluation criterion will be the ability of the system to retrieve relevant webpages for natural language queries.
+
+Evaluation process:
+
 \begin{itemize}[leftmargin=0.7cm]
-    \item Target: median TTA $\le$ 2 hours during pilot window.
-    \item Attribution: measured from database timestamps (submission vs. first status update by staff).
+
+\item Create a collection of previously visited webpages.
+
+\item Create test queries describing the information contained in those webpages.
+
+\item Evaluate whether the correct or relevant webpage is retrieved.
+
 \end{itemize}
 
-\subsection{Secondary evaluation metrics}
-\begin{itemize}[leftmargin=0.7cm]
-    \item \textbf{Resolution time reduction:} reduce time-to-resolved compared to baseline process (even if baseline is collected via survey).
-    \item \textbf{Duplicate rate:} percentage of complaints flagged as duplicates and resolved without rework.
-    \item \textbf{User clarity:} citizen-reported clarity of status using a simple 1--5 feedback question.
-    \item \textbf{Reliability:} availability of staging/production for login and submission during business hours (e.g., $\ge$ 99\% uptime in pilot).
-\end{itemize}
 
-\subsection{Pilot validation plan %
-\BvrHint{\ldots high-level}}
-\begin{itemize}[leftmargin=0.7cm]
-    \item Recruit 10--20 pilot users (citizens) and 3--5 staff roles (department simulation if real staff unavailable).
-    \item Compare metrics before/after within the iteration window by logging baseline estimates via short interviews or existing process observations.
-\end{itemize}
+\subsection{Content Extraction Quality}
+
+The quality of webpage processing will be evaluated by checking whether the extracted content correctly represents the important information from the original webpage.
+
+
+\subsection{Search Relevance}
+
+The semantic search system will be evaluated based on whether retrieved memories match the user's intended query.
+
+
+\subsection{System Usability}
+
+The usability of the system will be evaluated by measuring whether users can easily capture webpage memories, search previous information, and understand retrieved results through generated summaries.
+
 
 \section{Scalability %
 \BvrHint{\ldots with foresight}}
-The proposition should scale in both theoretical and practical senses.
 
-\begin{enumerate}[leftmargin=0.7cm]
-    \item \textbf{Scalable (theoretically):} The system should support growth in number of complaints and concurrent dashboard usage by:
-    \begin{itemize}[leftmargin=0.7cm]
-        \item decoupling components (frontend/backend),
-        \item enabling pagination and indexing for common queries,
-        \item using stateless API design.
-    \end{itemize}
-    
-    \item \textbf{Operationally deployable (practically):} The system should run on common web hosting:
-    \begin{itemize}[leftmargin=0.7cm]
-        \item managed database,
-        \item containerized or platform-hosted deployment,
-        \item CI/CD pipeline for staging/production.
-    \end{itemize}
-\end{enumerate}
+The architecture of MemoryLane separates the frontend, backend, processing pipeline, and storage layers.
+
+This modular design allows individual components to be improved independently.
+
+Possible improvements include:
+
+\begin{itemize}[leftmargin=0.7cm]
+
+\item Replacing SQLite with PostgreSQL for larger multi-user deployments.
+
+\item Improving webpage extraction techniques for more complex websites.
+
+\item Supporting larger collections of stored memories.
+
+\item Improving retrieval quality with better embedding models.
+
+\item Improving the summary of memories using better LLM models.
+
+\end{itemize}
+
 
 \section{Engine availability heuristic}
-A mature set of ``engines'' (tooling/services) is available to implement this as a web-based project:
+
+The project relies on existing technologies and libraries rather than developing new algorithms.
+
+The major components are:
+
 \begin{itemize}[leftmargin=0.7cm]
-    \item Web framework for REST APIs and templated/reactive pages.
-    \item Managed relational or document database.
-    \item Authentication approach (token-based or session-based).
-    \item Object storage for optional attachments (or local storage for pilot).
-    \item Test framework for unit/integration tests.
-    \item CI runner and staging deployment target.
+
+\item \textbf{Chrome Extension APIs:} Used for browser interaction and webpage capture.
+
+\item \textbf{React + TypeScript:} Used for frontend development.
+
+\item \textbf{FastAPI:} Used for backend API development.
+
+\item \textbf{SQLite:} Used for structured data storage.
+
+\item \textbf{ChromaDB:} Used for vector storage and semantic retrieval.
+
+\item \textbf{Sentence Transformers:} Used for generating embeddings.
+
+\item \textbf{LLM API:} Used for webpage summarisation.
+
+\item \textbf{BeautifulSoup and Mozilla Readability:} Used for webpage content extraction.
+
 \end{itemize}
-We will use these mature components to focus on workflow design, correctness, and measurement rather than inventing new infrastructure.
+
 
 \section{Project scope and deliverables %
 \BvrHint{\ldots iteration-friendly}}
-\subsection{Initial deliverable %
-\BvrHint{\ldots first iteration}}
+
+The project will be developed incrementally with the following milestones:
+
+
+\subsection{Initial Prototype}
+
+The first working prototype will include:
+
 \begin{itemize}[leftmargin=0.7cm]
-    \item Citizen submission form + complaint ID generation
-    \item Staff workflow: update status and assignment
-    \item Citizen status page: view timeline/history
-    \item Basic logging and timestamps for TTA measurement
-    \item CI: build + backend unit tests + linting
-    \item CD to staging with a single command or pipeline job
+
+\item Chrome extension capable of capturing webpage information.
+
+\item FastAPI backend for receiving and processing webpage data.
+
+\item Database storage for webpage memories.
+
+\item Basic React interface for searching stored memories.
+
 \end{itemize}
 
-\subsection{Subsequent deliverables}
+
+\subsection{Intermediate Deliverables}
+
+The system will be extended with:
+
 \begin{itemize}[leftmargin=0.7cm]
-    \item Lightweight duplicate suggestions with staff review
-    \item Notification layer (email/SMS optional in later iteration; can start with in-app notifications)
-    \item Admin dashboard for metrics and backlog
-    \item Improved search/filtering and indexed queries for scale readiness
+
+\item Improved webpage content extraction.
+
+\item Semantic search using embeddings.
+
+\item ChromaDB integration.
+
+\item LLM-based summaries and information organization.
+
 \end{itemize}
+
+
+\subsection{Final Deliverable}
+
+The final system will provide:
+
+\begin{itemize}[leftmargin=0.7cm]
+
+\item Complete browser-to-website workflow.
+
+\item Natural language memory search.
+
+\item Retrieved webpages with generated summaries.
+
+\end{itemize}
+
 
 \section{Risks and mitigations}
+
+\textbf{Content Extraction Failures}
+
+Risk: Some websites render content dynamically or have complex structures that standard extraction tools cannot handle properly.
+
+Mitigation:
+
 \begin{itemize}[leftmargin=0.7cm]
-    \item \textbf{Data privacy / consent:} minimize collected data; keep attachments optional; store only what is needed.
-    \item \textbf{Staff adoption:} provide an easy UI for status updates; keep workflow steps minimal; include shortcuts.
-    \item \textbf{Evaluation measurement ambiguity:} instrument timestamps and define clear status transitions before development begins.
-    \item \textbf{Operational issues in pilot:} use staging early; ensure CI/CD produces repeatable deployments.
+
+\item Defer JavaScript-heavy site support to Phase 2.
+
+\item Implement logging for extraction errors and analysis.
+
+\item Use robust extraction tools like BeautifulSoup and Mozilla Readability.
+
+\item Add browser rendering support using Playwright or Selenium for problematic sites.
+
 \end{itemize}
 
+
+\textbf{Privacy and Data Retention}
+
+Risk: Browsing history is sensitive personal information and users need clear control over what is stored.
+
+Mitigation:
+
+\begin{itemize}[leftmargin=0.7cm]
+
+\item Minimize data collection per user intent.
+
+\item Store page content locally where possible.
+
+\item Clearly document what is transmitted to backend.
+
+\item Provide future local-only processing mode for privacy.
+
+\end{itemize}
+
+
+\textbf{Deployment and Environment Consistency}
+
+Risk: System may work reliably in development but encounter failures in production environments due to configuration differences.
+
+Mitigation:
+
+\begin{itemize}[leftmargin=0.7cm]
+
+\item Use Docker containerization from development through production.
+
+\item Establish staging environment for pre-production validation.
+
+\item Document all deployment requirements and dependencies.
+
+\item Implement CI/CD to ensure repeatable and consistent deployments across environments.
+
+\end{itemize}
+
+
+\textbf{Browser Extension Reliability}
+
+Risk: Extension may experience crashes, miss capturing pages, or fail to communicate with backend services.
+
+Mitigation:
+
+\begin{itemize}[leftmargin=0.7cm]
+
+\item Test extension thoroughly across multiple pages and browser versions.
+
+\item Implement comprehensive error logging and reporting in the extension.
+
+\item Add graceful fallback mechanisms if backend becomes unavailable.
+
+\item Provide users with clear status feedback on capture success and failures.
+
+\end{itemize}
+
+
 \section{Summary}
-This project proposes a deployable web platform to reduce grievance handling delays in a tier-2/3 city context. It meets the course criteria by emphasizing time-to-value through rapid iterations, implementing CI/CD to support frequent safe releases, and using measurable evaluation criteria (especially time-to-acknowledgement). It remains focused on engineering workflow and scalability readiness rather than research-driven novelty.
+
+MemoryLane proposes a deployable three-component system to transform browser history into a searchable personal knowledge base. It meets course criteria by emphasizing end-to-end system design and measurable evaluation metrics focused on retrieval success. By combining browser extension development, backend services, and semantic search, MemoryLane demonstrates a complete information retrieval system that addresses a real user need and grounds engineering workflow integration in practical deployment.
 
 \end{document}
