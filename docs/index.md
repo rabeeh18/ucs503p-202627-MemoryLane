@@ -1,40 +1,32 @@
-﻿![Tiet Logo](assets/tiet-logo.svg){ .tiet-logo }
+﻿# MemoryLane
 
-**UCS503: Software Engineering (Project)**  
-**TIET Patiala**
+## AI-Powered Browser Memory Assistant
 
-# The Sum Function in C++
+MemoryLane is an AI-powered browser memory assistant that allows users to search and retrieve webpages they have previously visited using natural language queries.
 
-**Author(s)**:
+The system acts as an intelligent memory layer over browsing activity, helping users rediscover useful information without remembering exact URLs or keywords.
 
-`(RGB)` Raghav B. Venkataramaiyer `<bv.raghav -at-
-thapar -dot- edu>`
+---
 
-This project creates a sum function in c++ as a sample
-to illustrate how to compile a shared library and
-distribute it for use along with the binary.
+## Problem
 
-## Installation
+Modern users consume large amounts of information online but often struggle to find previously visited webpages, articles, documentation, and resources.
 
-``` shell
-make -C code
-```
+Traditional browser history only stores URLs and titles, making retrieval difficult.
 
-This will create create a folder `dist` in `code`
-folder, with following contents
+MemoryLane solves this by understanding the meaning of previously viewed content.
 
-```
-dist
- +-lib
- |  \-libbvr_math.so
- +-bin
-    \-run
-```
+---
 
-## Usage
+## Objectives
 
-``` shell
-cd code
-export LD_LIBRARY_PATH=dist/lib
-./dist/bin/run
-```
+MemoryLane aims to:
+
+- Store previously visited webpages
+- Understand webpage content using AI
+- Enable semantic search using natural language
+- Retrieve relevant browsing memories
+
+---
+
+## How It Works

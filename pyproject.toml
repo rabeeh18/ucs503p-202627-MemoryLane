@@ -1,23 +1,19 @@
-﻿
-[build-system]
-requires = ["hatchling","hatch-vcs"]
+﻿[build-system]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
-name = "tiet-ucs503.github.io/ucs503p-202627odd-template"
+name = "ucs503p-202627-memorylane"
 version = "0.0.1"
 authors = [
-  { name="Raghav B. Venkataramaiyer", email="bv.raghav@thapar.edu" },
+  { name="Rabeeh Ahmad", email="your-email@example.com" },
 ]
-# maintainers = [
-#   { name="Raghav B. Venkataramaiyer",
-#     email="bvraghav@gmail.com" },
-# ]
-description = "UCS503 : Software Engineering : Project Sample"
+
+description = "MemoryLane - UCS503 Software Engineering Project"
 readme = "README.md"
 requires-python = ">=3.8"
+
 classifiers = [
-    # See: https://pypi.org/classifiers/
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -27,15 +23,17 @@ classifiers = [
     "Operating System :: POSIX",
     "Programming Language :: Unix Shell",
 ]
-dependencies = ["click"]
+
+dependencies = [
+    "click"
+]
 
 [project.urls]
-Homepage = "https://github.com/tiet-ucs503/ucs503p-202627odd-template"
-Issues = "https://github.com/tiet-unc512/ucs503p-202627odd-template/issues"
+Homepage = "https://github.com/rabeeh18/ucs503p-202627-MemoryLane"
+Issues = "https://github.com/rabeeh18/ucs503p-202627-MemoryLane/issues"
 
-# Adapted from https://stackoverflow.com/a/50156706
+# Pytest configuration
 [tool.pytest.ini_options]
 pythonpath = [
   "code"
 ]
-# THE END -------------------------------------------
