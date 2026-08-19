@@ -1,8 +1,7 @@
-# Bhanu’s Journal
+# Rabeeh's Journal
 
-Roll No. 1024030xxx
-Name: Bhanurekha Ganesan
+Roll No. 1024030716
+Name: Rabeeh Ahmad
 
-+  [W1 : Order of flags in compilation
-   command](./w1-ticket-resolution.md)
++  [W1 : Finalising technologiers](./w1-ticket-resolution.md)
 +  […]

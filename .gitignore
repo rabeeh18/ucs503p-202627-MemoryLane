@@ -465,4 +465,32 @@ TSWLatexianTemp*
 # option is specified. Footnotes are the stored in a file with suffix Notes.bib.
 # Uncomment the next line to have this generated file ignored.
 #*Notes.bib
- 
+ # MemoryLane runtime data
+memory.db
+chroma_db/
+
+# Environment variables
+.env
+
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+# MemoryLane local files
+chroma_db/
+.env
+memory.db
+seed_demo_data.py
+seed_progress.json
+view_chroma.py
+
+# MemoryLane local files
+chroma_db/
+.env
+memory.db
+seed_demo_data.py
+seed_progress.json
+view_chroma.py
+__pycache__/
