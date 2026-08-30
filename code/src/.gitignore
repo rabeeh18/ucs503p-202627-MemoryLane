@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.env
+*.log
+.pytest_cache/
+venv/
+.venv/
+*.egg
+evaluation/evaluation_report.json
+node_modules/
+.svelte-kit/

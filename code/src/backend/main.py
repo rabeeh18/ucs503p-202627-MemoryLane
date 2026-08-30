@@ -1,36 +1,45 @@
-# MemoryLane backend — receives a webpage from the userscript, splits it
-# into chunks, embeds each chunk, stores them in ChromaDB. The user still
-# only ever sees whole webpages later (query.py groups chunks back up) —
-# chunking here is purely a retrieval-quality optimization, not a new
-# kind of memory.
-#
-# YouTube watch pages are a special case: the userscript sends no page
-# content for these (the player UI has nothing worth extracting), and
-# this file fetches the actual video transcript instead, so a YouTube
-# video is remembered by what's said in it, not by its title alone.
-
-import re
-from urllib.parse import urlparse, parse_qs
-from datetime import datetime
-
+import logging
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from sentence_transformers import SentenceTransformer
-import chromadb
-from chromadb.config import Settings
-import os
 
-try:
-    from youtube_transcript_api import YouTubeTranscriptApi
-    from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound, VideoUnavailable
-    YOUTUBE_TRANSCRIPTS_AVAILABLE = True
-except ImportError:
-    YOUTUBE_TRANSCRIPTS_AVAILABLE = False
+from backend.config import SOLR_URL
+from backend.models import (
+    MemoryInput, SearchInput, MemoryResponse, MemoryMetadata,
+    SearchResponse, SearchResultItem, DebugSearchResultItem, HealthResponse,
+    SummarizeInput, SummarizeResponse,
+)
+from backend.url_utils import normalize_url, generate_webpage_id
+from backend.chunking import chunk_text
+from backend.embeddings import get_embedding, get_embeddings, is_model_loaded, get_model
+from backend.solr_client import get_solr_client
+from backend.retrieval import hybrid_search
+from backend.summarizer import summarize, detect_detail_level, is_gemini_available
 
-app = FastAPI(title="MemoryLane Backend")
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-# wide open CORS since this only ever runs on localhost
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Loading embedding model...")
+    try:
+        get_model()
+        logger.info("Embedding model loaded successfully")
+    except Exception as e:
+        logger.error(f"Failed to load embedding model: {e}")
+    yield
+
+
+app = FastAPI(
+    title="MemoryLane",
+    description="Personal browsing-memory retrieval system",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+# CORS for browser extension
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -39,272 +48,194 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-print("[MemoryLane] Loading Sentence Transformer model 'all-MiniLM-L6-v2'...")
-try:
-    embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-    print("[MemoryLane] ✓ Model loaded successfully")
-except Exception as e:
-    print(f"[MemoryLane] ✗ Failed to load model: {e}")
-    raise
 
-print("[MemoryLane] Initializing ChromaDB...")
-try:
-    db_path = "./chroma_db"
-    os.makedirs(db_path, exist_ok=True)
-
-    chroma_client = chromadb.PersistentClient(path=db_path)
-    # NOTE: this collection now holds CHUNKS, not whole webpages. Each
-    # chunk is its own vector so a query can hit the one paragraph that
-    # actually matters instead of a blurred whole-page average.
-    collection = chroma_client.get_or_create_collection(
-        name="memorylane",
-        metadata={"hnsw:space": "cosine"}
-    )
-    print(f"[MemoryLane] ✓ ChromaDB initialized at {db_path}")
-    print(f"[MemoryLane] ✓ Collection 'memorylane' ready")
-except Exception as e:
-    print(f"[MemoryLane] ✗ Failed to initialize ChromaDB: {e}")
-    raise
-
-
-class WebpageData(BaseModel):
-    # matches what the Tampermonkey script sends. content can be empty
-    # for YouTube watch pages — the userscript deliberately skips
-    # Readability there and lets this file fetch the transcript instead.
-    url: str
-    title: str
-    content: str = ""
-
-
-# --- YouTube transcript fetching ---
-# The userscript recognizes youtube.com/watch and /shorts/ pages and sends
-# {url, title, content: ""} for them rather than running Readability on
-# the player UI. This is where the actual video content comes from.
-
-YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be"}
-
-
-def is_youtube_watch_url(url: str) -> bool:
+@app.get("/health", response_model=HealthResponse)
+async def health_check():
+    """Health check endpoint."""
+    solr_ok = False
     try:
-        parsed = urlparse(url)
+        solr_ok = get_solr_client().ping()
     except Exception:
-        return False
-
-    host = parsed.netloc.lower()
-    if host not in YOUTUBE_HOSTS:
-        return False
-
-    if host == "youtu.be":
-        return len(parsed.path.strip("/")) > 0
-
-    return parsed.path.startswith("/watch") or parsed.path.startswith("/shorts/")
-
-
-def extract_youtube_video_id(url: str):
-    parsed = urlparse(url)
-    host = parsed.netloc.lower()
-
-    if host == "youtu.be":
-        video_id = parsed.path.strip("/").split("/")[0]
-        return video_id or None
-
-    if parsed.path.startswith("/shorts/"):
-        video_id = parsed.path[len("/shorts/"):].split("/")[0]
-        return video_id or None
-
-    query = parse_qs(parsed.query)
-    video_ids = query.get("v")
-    return video_ids[0] if video_ids else None
+        pass
+    
+    embedding_ok = is_model_loaded()
+    gemini_ok = is_gemini_available()
+    
+    status = "ok" if solr_ok and embedding_ok else "degraded"
+    
+    return HealthResponse(
+        status=status,
+        solr=solr_ok,
+        embedding_model=embedding_ok,
+        gemini=gemini_ok
+    )
 
 
-def fetch_youtube_transcript(video_id: str):
-    """Returns the transcript as plain text, or None if unavailable."""
-    if not YOUTUBE_TRANSCRIPTS_AVAILABLE:
-        print("[MemoryLane] ✗ youtube-transcript-api not installed — cannot fetch transcript")
-        return None
-
+@app.post("/memory", response_model=MemoryResponse)
+async def save_memory(memory: MemoryInput):
+    """Save a webpage to memory."""
+    logger.info(f"Memory received: {memory.url}")
+    
+    # Validate
+    if not memory.url or not memory.url.strip():
+        raise HTTPException(status_code=400, detail="URL is required")
+    if not memory.title or not memory.title.strip():
+        raise HTTPException(status_code=400, detail="Title is required")
+    if not memory.content or not memory.content.strip():
+        raise HTTPException(status_code=400, detail="Content is required")
+    
     try:
-        api = YouTubeTranscriptApi()
-        transcript = api.fetch(video_id, languages=("en",))
-        text = " ".join(snippet.text for snippet in transcript if snippet.text)
-        return text.strip() or None
-    except (TranscriptsDisabled, NoTranscriptFound, VideoUnavailable) as e:
-        print(f"[MemoryLane] No transcript available for video {video_id}: {e}")
-        return None
-    except Exception as e:
-        print(f"[MemoryLane] ✗ Transcript fetch failed for {video_id}: {e}")
-        return None
-
-
-# --- chunking ---
-# Split a webpage's extracted text into ~300-500 word pieces. Paragraph
-# boundaries first (so we don't cut mid-thought); if the page has no
-# paragraph breaks at all, fall back to splitting on sentences. Small
-# leftover paragraphs get folded into the running chunk instead of
-# becoming their own tiny, low-signal chunk.
-TARGET_MIN_WORDS = 300
-TARGET_MAX_WORDS = 500
-
-
-def chunk_webpage_content(content: str, target_min=TARGET_MIN_WORDS, target_max=TARGET_MAX_WORDS):
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", content.strip()) if p.strip()]
-
-    if len(paragraphs) <= 1:
-        # no real paragraph structure (this is also the shape a YouTube
-        # transcript comes in as — one long run of text) — split on
-        # sentence boundaries instead
-        paragraphs = [s.strip() for s in re.split(r"(?<=[.!?])\s+", content.strip()) if s.strip()]
-
-    chunks = []
-    buffer_words = []
-
-    for para in paragraphs:
-        para_words = para.split()
-
-        if buffer_words and len(buffer_words) + len(para_words) > target_max:
-            chunks.append(" ".join(buffer_words))
-            buffer_words = []
-
-        buffer_words.extend(para_words)
-
-        while len(buffer_words) > target_max:
-            chunks.append(" ".join(buffer_words[:target_max]))
-            buffer_words = buffer_words[target_max:]
-
-        if len(buffer_words) >= target_min:
-            chunks.append(" ".join(buffer_words))
-            buffer_words = []
-
-    if buffer_words:
-        if chunks and len(buffer_words) < 50:
-            chunks[-1] = chunks[-1] + " " + " ".join(buffer_words)
-        else:
-            chunks.append(" ".join(buffer_words))
-
-    return chunks if chunks else [content.strip()]
-
-
-@app.get("/health")
-def health_check():
-    return {"status": "ok", "message": "MemoryLane backend is running"}
-
-
-@app.post("/memory")
-def save_memory(data: WebpageData):
-    try:
-        if not data.url or not data.title:
-            raise HTTPException(
-                status_code=400,
-                detail="Missing required fields: url, title"
-            )
-
-        content = data.content
-
-        # a YouTube video's real content is what's said in it, not the
-        # player UI — fetch the transcript regardless of what (if
-        # anything) the userscript sent as content
-        if is_youtube_watch_url(data.url):
-            video_id = extract_youtube_video_id(data.url)
-            if video_id:
-                print(f"[MemoryLane] YouTube video detected ({video_id}) — fetching transcript...")
-                transcript = fetch_youtube_transcript(video_id)
-                if transcript:
-                    content = transcript
-                    print(f"[MemoryLane] ✓ Transcript fetched ({len(transcript)} characters)")
-                elif not content:
-                    raise HTTPException(
-                        status_code=400,
-                        detail="Could not fetch a transcript for this video (none available, and no fallback content was sent)"
-                    )
-            elif not content:
-                raise HTTPException(status_code=400, detail="Could not determine YouTube video ID from URL")
-
-        if not content:
-            raise HTTPException(status_code=400, detail="Missing required field: content")
-
-        print(f"\n[MemoryLane] ═══ RECEIVED WEBPAGE ═══")
-        print(f"[MemoryLane] Title: {data.title}")
-        print(f"[MemoryLane] URL: {data.url}")
-        print(f"[MemoryLane] Content length: {len(content)} characters")
-
-        # webpage_id derived from the url so the same page always maps to
-        # the same group of chunks, no matter how many times it's re-saved
-        webpage_id = data.url.replace("https://", "").replace("http://", "").replace("/", "_")
-        webpage_id = webpage_id[:100]
-        domain = urlparse(data.url).netloc
-
-        chunks = chunk_webpage_content(content)
-        print(f"[MemoryLane] Split into {len(chunks)} chunk(s)")
-
-        timestamp = datetime.now().isoformat()
-
-        print(f"[MemoryLane] Embedding {len(chunks)} chunk(s)...")
-        embeddings = embedding_model.encode(chunks, convert_to_numpy=True).tolist()
-
-        # revisiting a url should update its chunks, not pile up old ones
-        # next to new ones — clear out anything already stored for this
-        # webpage before writing the fresh set
-        collection.delete(where={"webpage_id": webpage_id})
-
-        chunk_ids = [f"{webpage_id}::chunk::{i}" for i in range(len(chunks))]
-        metadatas = [
-            {
+        # Normalize URL
+        normalized_url = normalize_url(memory.url)
+        webpage_id = generate_webpage_id(normalized_url)
+        logger.info(f"Normalized URL: {normalized_url}, webpage_id: {webpage_id}")
+        
+        # Parse domain
+        from urllib.parse import urlparse
+        domain = urlparse(normalized_url).netloc
+        
+        # Chunk content
+        logger.info("Chunking webpage content")
+        chunks = chunk_text(memory.content)
+        logger.info(f"Generated {len(chunks)} chunks")
+        
+        # Generate embeddings
+        logger.info("Generating embeddings")
+        embeddings = get_embeddings(chunks)
+        logger.info(f"Generated {len(embeddings)} embeddings")
+        
+        # Delete old chunks
+        solr = get_solr_client()
+        logger.info(f"Deleting old chunks for webpage_id: {webpage_id}")
+        solr.delete_by_query(f'webpage_id:"{webpage_id}"')
+        
+        # Build Solr documents
+        timestamp = datetime.now(timezone.utc).isoformat()
+        docs = []
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+            doc = {
+                "id": f"{webpage_id}::chunk::{i}",
                 "webpage_id": webpage_id,
-                "url": data.url,
-                "title": data.title,
+                "url": normalized_url,
+                "title": memory.title,
+                "domain": domain,
+                "text": chunk,
                 "chunk_id": i,
                 "total_chunks": len(chunks),
                 "timestamp": timestamp,
-                "domain": domain,
+                "embedding": embedding,
             }
-            for i in range(len(chunks))
-        ]
-
-        collection.upsert(
-            ids=chunk_ids,
-            embeddings=embeddings,
-            metadatas=metadatas,
-            documents=chunks,
+            docs.append(doc)
+        
+        # Index
+        logger.info(f"Indexing {len(docs)} documents")
+        solr.add_documents(docs)
+        logger.info("Webpage indexed successfully")
+        
+        return MemoryResponse(
+            success=True,
+            message="Memory stored successfully",
+            metadata=MemoryMetadata(
+                url=normalized_url,
+                title=memory.title,
+                id=webpage_id,
+                chunks=len(chunks),
+                timestamp=timestamp
+            )
         )
-
-        print(f"[MemoryLane] ✓ Stored {len(chunks)} chunk(s) in ChromaDB")
-        print(f"[MemoryLane] ✓ Webpage ID: {webpage_id}")
-        print(f"[MemoryLane] ═══════════════════════\n")
-
-        return {
-            "success": True,
-            "message": "Memory stored successfully",
-            "metadata": {
-                "url": data.url,
-                "title": data.title,
-                "id": webpage_id,
-                "chunks": len(chunks),
-                "timestamp": timestamp
-            }
-        }
-
     except HTTPException:
         raise
     except Exception as e:
-        print(f"[MemoryLane] ✗ Error storing memory: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to store memory: {str(e)}")
+        logger.error(f"Failed to save memory: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.on_event("startup")
-def startup_event():
-    print("\n" + "="*60)
-    print("MemoryLane Backend Started")
-    print("="*60)
-    print(f"Embedding model: all-MiniLM-L6-v2")
-    print(f"Vector database: ChromaDB (chunk-level semantic retrieval)")
-    print(f"Chunk size target: {TARGET_MIN_WORDS}-{TARGET_MAX_WORDS} words")
-    print(f"YouTube transcripts: {'enabled' if YOUTUBE_TRANSCRIPTS_AVAILABLE else 'disabled (pip install youtube-transcript-api)'}")
-    print(f"Summarization: Gemini (query.py, on demand only — not loaded here)")
-    print(f"API endpoint: http://localhost:8000")
-    print(f"Health check: http://localhost:8000/health")
-    print(f"Save memory: POST http://localhost:8000/memory")
-    print("="*60 + "\n")
+def _summary_for_webpage(query: str, webpage_id: str) -> str | None:
+    """Reuse the same Gemini path as POST /search?summarize=true, for one page."""
+    if not is_gemini_available():
+        return None
+    chunks = get_solr_client().get_chunks_by_webpage_id(webpage_id)
+    if not chunks:
+        return None
+    full_text = "\n\n".join(c.get("text") or "" for c in chunks)
+    if not full_text.strip():
+        return None
+    return summarize(query, full_text, detect_detail_level(query))
 
-# Run with: uvicorn backend.main:app --reload
-# Test with: curl http://localhost:8000/health
-# New dependency: pip install youtube-transcript-api
+
+@app.post("/summarize", response_model=SummarizeResponse)
+async def summarize_memory(body: SummarizeInput):
+    """On-demand summary for a single indexed webpage. Does not run search."""
+    if not body.query or not body.query.strip():
+        raise HTTPException(status_code=400, detail="Query is required")
+    if not body.id or not body.id.strip():
+        raise HTTPException(status_code=400, detail="id is required")
+
+    webpage_id = body.id.strip()
+    chunks = get_solr_client().get_chunks_by_webpage_id(webpage_id)
+    if not chunks:
+        raise HTTPException(status_code=404, detail="Webpage not found")
+
+    if not is_gemini_available():
+        raise HTTPException(status_code=503, detail="Summarization is unavailable")
+
+    full_text = "\n\n".join(c.get("text") or "" for c in chunks)
+    summary = summarize(body.query.strip(), full_text, detect_detail_level(body.query))
+    if not summary:
+        raise HTTPException(status_code=502, detail="Summarization failed")
+
+    return SummarizeResponse(id=webpage_id, summary=summary)
+
+
+@app.post("/search", response_model=SearchResponse)
+async def search_memory(search: SearchInput):
+    """Search saved memories."""
+    logger.info(f"Search started: {search.query}")
+    
+    if not search.query or not search.query.strip():
+        raise HTTPException(status_code=400, detail="Query is required")
+    
+    try:
+        # Hybrid search
+        results = hybrid_search(search.query, top_k=search.num_results)
+        
+        # Build response
+        response_results = []
+        for result in results:
+            summary = None
+            if search.summarize:
+                summary = _summary_for_webpage(search.query, result["webpage_id"])
+            
+            if search.debug:
+                item = DebugSearchResultItem(
+                    rank=result["rank"],
+                    id=result["webpage_id"],
+                    title=result.get("title", ""),
+                    url=result.get("url", ""),
+                    domain=result.get("domain", ""),
+                    timestamp=result.get("timestamp", ""),
+                    summary=summary,
+                    bm25_score=result.get("bm25_score", 0.0),
+                    vector_score=result.get("vector_score", 0.0),
+                    fused_score=result.get("fused_score", 0.0)
+                )
+            else:
+                item = SearchResultItem(
+                    rank=result["rank"],
+                    id=result["webpage_id"],
+                    title=result.get("title", ""),
+                    url=result.get("url", ""),
+                    domain=result.get("domain", ""),
+                    timestamp=result.get("timestamp", ""),
+                    summary=summary
+                )
+            response_results.append(item)
+        
+        logger.info(f"Returning {len(response_results)} results")
+        return SearchResponse(query=search.query, results=response_results)
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Search failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

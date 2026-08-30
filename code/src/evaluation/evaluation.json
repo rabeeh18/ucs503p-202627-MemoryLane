@@ -1,0 +1,25 @@
+{
+  "queries": [
+    {
+      "id": "q1",
+      "query": "how does hybrid BM25 and vector search work",
+      "relevant_urls": [
+        "https://solr.apache.org/guide/solr/latest/query-guide/dense-vector-search.html"
+      ]
+    },
+    {
+      "id": "q2",
+      "query": "fastapi request validation with pydantic",
+      "relevant_urls": [
+        "https://fastapi.tiangolo.com/tutorial/body/"
+      ]
+    },
+    {
+      "id": "q3",
+      "query": "sentence transformers minilm embeddings",
+      "relevant_urls": [
+        "https://www.sbert.net/docs/pretrained_models.html"
+      ]
+    }
+  ]
+}

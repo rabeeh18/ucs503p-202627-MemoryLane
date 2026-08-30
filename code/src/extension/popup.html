@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MemoryLane</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="header">
+        <h1>MemoryLane</h1>
+    </div>
+    
+    <div class="tabs">
+        <button id="tab-save" class="tab active">Save</button>
+        <button id="tab-search" class="tab">Search</button>
+    </div>
+
+    <div class="tab-content">
+        <!-- Save Tab -->
+        <div id="content-save" class="content-pane active">
+            <p>Save the current page to your browsing memory.</p>
+            <button id="btn-save" class="primary-btn">Remember this page</button>
+            <div id="save-status" class="status-msg"></div>
+        </div>
+
+        <!-- Search Tab -->
+        <div id="content-search" class="content-pane">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="Search your memories...">
+                <button id="btn-search" class="primary-btn">Search</button>
+            </div>
+            <div id="search-status" class="status-msg"></div>
+            <div id="search-results" class="results-container"></div>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
