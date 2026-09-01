@@ -15,7 +15,13 @@ function extractReadableContent() {
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message && message.type === "EXTRACT_CONTENT") {
         try {
-            sendResponse({ ok: true, content: extractReadableContent() });
+            const canonicalLink = document.querySelector("link[rel='canonical']");
+            const canonicalUrl = canonicalLink ? canonicalLink.href : null;
+            sendResponse({ 
+                ok: true, 
+                content: extractReadableContent(),
+                canonicalUrl
+            });
         } catch (error) {
             sendResponse({ ok: false, error: error.message || String(error) });
         }

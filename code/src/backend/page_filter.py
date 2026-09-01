@@ -33,6 +33,20 @@ INTERNAL_SCHEMES = (
     "brave", "devtools", "view-source", "file", "data", "javascript",
 )
 
+SEARCH_ENGINE_HOSTS = (
+    "google.com", "bing.com", "duckduckgo.com", "yahoo.com", "youtube.com",
+)
+
+UTILITY_PATH_SEGMENTS = (
+    "404", "error", "privacy", "privacy-policy", "terms", "terms-of-service",
+    "tos", "cookie", "cookies", "sitemap", "sitemap.xml",
+)
+
+IGNORED_EXTENSIONS = (
+    ".pdf", ".zip", ".exe", ".png", ".jpg", ".jpeg", ".mp4", ".mp3",
+    ".gif", ".csv", ".json", ".xml",
+)
+
 
 def _host_matches(host: str, domain: str) -> bool:
     host = host.lower().removeprefix("www.")
@@ -69,9 +83,21 @@ def is_auto_capture_eligible(url: str) -> bool:
     segments = [s.lower() for s in path.split("/") if s]
     if any(seg in LOGIN_ACCOUNT_SEGMENTS for seg in segments):
         return False
+    if any(seg in UTILITY_PATH_SEGMENTS for seg in segments):
+        return False
+        
     lowered_path = path.lower()
     if any(f"/{seg}" in lowered_path for seg in ("reset-password", "forgot-password")):
         return False
+
+    if any(lowered_path.endswith(ext) for ext in IGNORED_EXTENSIONS):
+        return False
+
+    # Search engine result pages check
+    if any(_host_matches(host, d) for d in SEARCH_ENGINE_HOSTS):
+        query = parsed.query.lower()
+        if "/search" in lowered_path or "/results" in lowered_path or "q=" in query:
+            return False
 
     if path == "/" or path == "":
         return False

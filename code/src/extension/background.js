@@ -5,6 +5,7 @@ const DEFAULT_CAPTURE_MODE = "manual";
 
 const inFlightUrls = new Set();
 const recentlyCaptured = new Map();
+const capturedTabUrls = new Map(); // tabId -> url to prevent duplicate onUpdated captures
 const RECENT_CAPTURE_MS = 60 * 1000;
 
 chrome.runtime.onInstalled.addListener(() => {
@@ -26,10 +27,12 @@ function extractViaInjection() {
 
 async function extractTabContent(tab) {
     let content = "";
+    let canonicalUrl = null;
     try {
         const extracted = await chrome.tabs.sendMessage(tab.id, { type: "EXTRACT_CONTENT" });
         if (extracted && extracted.ok) {
             content = extracted.content || "";
+            canonicalUrl = extracted.canonicalUrl || null;
         }
     } catch (_err) {
         content = "";
@@ -43,7 +46,7 @@ async function extractTabContent(tab) {
         content = injected || "";
     }
 
-    return (content || "").trim();
+    return { content: (content || "").trim(), canonicalUrl };
 }
 
 async function saveTab(tab, { skipEligibility = false } = {}) {
@@ -68,9 +71,9 @@ async function saveTab(tab, { skipEligibility = false } = {}) {
 
     inFlightUrls.add(key);
     try {
-        const content = await extractTabContent(tab);
-        if (!content) {
-            throw new Error("No text content found on page");
+        const { content, canonicalUrl } = await extractTabContent(tab);
+        if (!content || content.length < 50) {
+            return { ok: true, skipped: true, reason: "low-content" };
         }
 
         const response = await fetch(`${API_BASE}/memory`, {
@@ -80,6 +83,7 @@ async function saveTab(tab, { skipEligibility = false } = {}) {
                 url: tab.url,
                 title: tab.title || tab.url,
                 content,
+                canonical_url: canonicalUrl,
             }),
         });
 
@@ -105,6 +109,12 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status !== "complete") {
         return;
     }
+    
+    // Prevent repeated captures for the exact same URL in the same tab
+    if (capturedTabUrls.get(tabId) === tab.url) {
+        return;
+    }
+
     (async () => {
         const mode = await getCaptureMode();
         if (mode !== "automatic") {
@@ -115,10 +125,15 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         }
         try {
             await saveTab(tab, { skipEligibility: true });
+            capturedTabUrls.set(tabId, tab.url);
         } catch (error) {
             console.warn("Automatic capture failed:", error.message || error);
         }
     })();
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => {
+    capturedTabUrls.delete(tabId);
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

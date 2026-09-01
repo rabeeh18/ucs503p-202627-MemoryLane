@@ -5,6 +5,7 @@ class MemoryInput(BaseModel):
     url: str
     title: str
     content: str
+    canonical_url: Optional[str] = None
 
 class SearchInput(BaseModel):
     query: str

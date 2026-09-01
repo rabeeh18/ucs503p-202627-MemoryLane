@@ -79,14 +79,19 @@ async def save_memory(memory: MemoryInput):
     # Validate
     if not memory.url or not memory.url.strip():
         raise HTTPException(status_code=400, detail="URL is required")
-    if not memory.title or not memory.title.strip():
-        raise HTTPException(status_code=400, detail="Title is required")
-    if not memory.content or not memory.content.strip():
-        raise HTTPException(status_code=400, detail="Content is required")
+        
+    from urllib.parse import urlparse
+    domain = urlparse(memory.url).netloc
+    if not memory.title or not memory.title.strip() or memory.title.strip().lower() in ("untitled", "untitled document"):
+        memory.title = domain
+        
+    if not memory.content or len(memory.content.strip()) < 50:
+        raise HTTPException(status_code=400, detail="Content is required and must be at least 50 characters")
     
     try:
         # Normalize URL
-        normalized_url = normalize_url(memory.url)
+        base_url = memory.canonical_url.strip() if memory.canonical_url and memory.canonical_url.strip() else memory.url
+        normalized_url = normalize_url(base_url)
         webpage_id = generate_webpage_id(normalized_url)
         logger.info(f"Normalized URL: {normalized_url}, webpage_id: {webpage_id}")
 
@@ -107,8 +112,7 @@ async def save_memory(memory: MemoryInput):
                 ),
             )
 
-        # Parse domain
-        from urllib.parse import urlparse
+        # Parse domain from normalized url for storage
         domain = urlparse(normalized_url).netloc
         
         # Chunk content

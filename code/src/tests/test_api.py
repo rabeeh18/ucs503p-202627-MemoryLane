@@ -28,14 +28,23 @@ def test_health_contract(client):
 
 
 def test_memory_requires_fields(client):
-    response = client.post("/memory", json={"url": "", "title": "t", "content": "c"})
+    # Missing URL
+    response = client.post("/memory", json={"url": "", "title": "t", "content": "c" * 60})
     assert response.status_code == 400
 
-    response = client.post("/memory", json={"url": "https://ex.com", "title": "", "content": "c"})
+    # Short content
+    response = client.post("/memory", json={"url": "https://ex.com", "title": "t", "content": "too short"})
     assert response.status_code == 400
 
-    response = client.post("/memory", json={"url": "https://ex.com", "title": "t", "content": ""})
-    assert response.status_code == 400
+    # Empty title should fallback to domain
+    mock_solr = MagicMock()
+    mock_solr.get_by_url.return_value = []
+    with patch("backend.main.get_solr_client", return_value=mock_solr), \
+         patch("backend.main.chunk_text", return_value=["chunk"]), \
+         patch("backend.main.get_embeddings", return_value=[[0.1] * 384]):
+        response = client.post("/memory", json={"url": "https://ex.com/page", "title": "", "content": "c" * 60})
+        assert response.status_code == 200
+        assert response.json()["metadata"]["title"] == "ex.com"
 
 
 def test_memory_success_indexes_chunks(client):
@@ -47,7 +56,7 @@ def test_memory_success_indexes_chunks(client):
         response = client.post("/memory", json={
             "url": "https://www.example.com/guide?utm_source=x",
             "title": "Guide",
-            "content": "hello world",
+            "content": "hello world " * 10,
         })
     assert response.status_code == 200
     data = response.json()
@@ -78,7 +87,7 @@ def test_memory_skips_duplicate_normalized_url(client):
         response = client.post("/memory", json={
             "url": "https://example.com/guide/#section?utm_campaign=x",
             "title": "Guide again",
-            "content": "hello world",
+            "content": "hello world " * 10,
         })
     assert response.status_code == 200
     data = response.json()

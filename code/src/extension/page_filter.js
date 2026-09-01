@@ -25,6 +25,20 @@ const INTERNAL_SCHEMES = [
     "brave", "devtools", "view-source", "file", "data", "javascript",
 ];
 
+const SEARCH_ENGINE_HOSTS = [
+    "google.com", "bing.com", "duckduckgo.com", "yahoo.com", "youtube.com",
+];
+
+const UTILITY_PATH_SEGMENTS = [
+    "404", "error", "privacy", "privacy-policy", "terms", "terms-of-service",
+    "tos", "cookie", "cookies", "sitemap", "sitemap.xml",
+];
+
+const IGNORED_EXTENSIONS = [
+    ".pdf", ".zip", ".exe", ".png", ".jpg", ".jpeg", ".mp4", ".mp3",
+    ".gif", ".csv", ".json", ".xml",
+];
+
 function hostMatches(host, domain) {
     host = host.toLowerCase().replace(/^www\./, "");
     domain = domain.toLowerCase();
@@ -69,9 +83,24 @@ function isAutoCaptureEligible(url) {
     if (segments.some((seg) => LOGIN_ACCOUNT_SEGMENTS.includes(seg))) {
         return false;
     }
+    if (segments.some((seg) => UTILITY_PATH_SEGMENTS.includes(seg))) {
+        return false;
+    }
     const loweredPath = path.toLowerCase();
     if (loweredPath.includes("/reset-password") || loweredPath.includes("/forgot-password")) {
         return false;
+    }
+
+    if (IGNORED_EXTENSIONS.some((ext) => loweredPath.endsWith(ext))) {
+        return false;
+    }
+
+    // Search engine result pages check
+    if (SEARCH_ENGINE_HOSTS.some((d) => hostMatches(host, d))) {
+        const query = (parsed.search || "").toLowerCase();
+        if (loweredPath.includes("/search") || loweredPath.includes("/results") || query.includes("q=")) {
+            return false;
+        }
     }
 
     if (path === "/" || path === "") {
