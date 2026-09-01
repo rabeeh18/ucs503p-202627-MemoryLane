@@ -40,6 +40,7 @@ def test_memory_requires_fields(client):
 
 def test_memory_success_indexes_chunks(client):
     mock_solr = MagicMock()
+    mock_solr.get_by_url.return_value = []
     with patch("backend.main.get_solr_client", return_value=mock_solr), \
          patch("backend.main.chunk_text", return_value=["chunk-a", "chunk-b"]), \
          patch("backend.main.get_embeddings", return_value=[[0.1] * 384, [0.2] * 384]):
@@ -53,11 +54,42 @@ def test_memory_success_indexes_chunks(client):
     assert data["success"] is True
     assert data["metadata"]["chunks"] == 2
     assert data["metadata"]["url"] == "https://example.com/guide"
+    mock_solr.get_by_url.assert_called_once_with("https://example.com/guide")
     mock_solr.delete_by_query.assert_called_once()
     mock_solr.add_documents.assert_called_once()
     docs = mock_solr.add_documents.call_args[0][0]
     assert docs[0]["id"].endswith("::chunk::0")
     assert docs[1]["id"].endswith("::chunk::1")
+    assert docs[0]["url"] == "https://example.com/guide"
+
+
+def test_memory_skips_duplicate_normalized_url(client):
+    mock_solr = MagicMock()
+    mock_solr.get_by_url.return_value = [{
+        "webpage_id": "example.com_guide",
+        "url": "https://example.com/guide",
+        "title": "Guide",
+        "total_chunks": 2,
+        "timestamp": "2024-01-01T00:00:00Z",
+    }]
+    with patch("backend.main.get_solr_client", return_value=mock_solr), \
+         patch("backend.main.chunk_text") as mock_chunk, \
+         patch("backend.main.get_embeddings") as mock_embed:
+        response = client.post("/memory", json={
+            "url": "https://example.com/guide/#section?utm_campaign=x",
+            "title": "Guide again",
+            "content": "hello world",
+        })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert data["message"] == "Memory already stored"
+    assert data["metadata"]["url"] == "https://example.com/guide"
+    assert data["metadata"]["id"] == "example.com_guide"
+    mock_chunk.assert_not_called()
+    mock_embed.assert_not_called()
+    mock_solr.add_documents.assert_not_called()
+    mock_solr.delete_by_query.assert_not_called()
 
 
 def test_search_requires_query(client):

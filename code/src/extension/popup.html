@@ -19,7 +19,11 @@
     <div class="tab-content">
         <!-- Save Tab -->
         <div id="content-save" class="content-pane active">
-            <p>Save the current page to your browsing memory.</p>
+            <p id="save-description">Save the current page to your browsing memory.</p>
+            <div class="mode-toggle" role="group" aria-label="Capture mode">
+                <button id="mode-manual" class="toggle-btn active" type="button">Manual</button>
+                <button id="mode-automatic" class="toggle-btn" type="button">Automatic</button>
+            </div>
             <button id="btn-save" class="primary-btn">Remember this page</button>
             <div id="save-status" class="status-msg"></div>
         </div>

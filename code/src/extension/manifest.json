@@ -3,7 +3,7 @@
   "name": "MemoryLane",
   "version": "1.0.0",
   "description": "Save and search your browsing memories",
-  "permissions": ["activeTab", "scripting"],
+  "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "host_permissions": [
     "http://localhost:8000/*",
     "http://*/*",

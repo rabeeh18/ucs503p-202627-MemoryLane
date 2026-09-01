@@ -60,6 +60,35 @@ body {
     display: block;
 }
 
+.mode-toggle {
+    display: flex;
+    gap: 0;
+    margin: 12px 0 16px 0;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.toggle-btn {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: #f4f4f4;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #666;
+}
+
+.toggle-btn:hover {
+    color: #2c3e50;
+}
+
+.toggle-btn.active {
+    background-color: #3498db;
+    color: white;
+}
+
 .primary-btn {
     width: 100%;
     padding: 12px;

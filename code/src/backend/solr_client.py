@@ -95,6 +95,20 @@ class SolrClient:
         docs = data.get("response", {}).get("docs", [])
         return [normalize_solr_doc(doc) for doc in docs]
     
+    def get_by_url(self, url: str) -> list[dict]:
+        """Fetch chunks whose stored url matches exactly (normalized URL)."""
+        url_select = f"{self.base_url}/select"
+        params = {
+            "q": "{!term f=url}" + url,
+            "fl": "id,webpage_id,url,title,domain,text,chunk_id,total_chunks,timestamp",
+            "rows": 1,
+            "wt": "json",
+        }
+        response = self.client.get(url_select, params=params)
+        response.raise_for_status()
+        data = response.json()
+        return [normalize_solr_doc(doc) for doc in data.get("response", {}).get("docs", [])]
+
     def get_by_webpage_id(self, webpage_id: str) -> list[dict]:
         """Fetch all chunks for a given webpage_id."""
         url = f"{self.base_url}/select"

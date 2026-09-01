@@ -19,6 +19,36 @@ document.addEventListener('DOMContentLoaded', () => {
         contentSave.classList.remove('active');
     });
 
+    // Capture mode
+    const modeManual = document.getElementById('mode-manual');
+    const modeAutomatic = document.getElementById('mode-automatic');
+    const saveDescription = document.getElementById('save-description');
+
+    function applyCaptureMode(mode) {
+        const automatic = mode === 'automatic';
+        modeManual.classList.toggle('active', !automatic);
+        modeAutomatic.classList.toggle('active', automatic);
+        saveDescription.textContent = automatic
+            ? 'Automatic capture is on. Eligible pages are saved while you browse.'
+            : 'Save the current page to your browsing memory.';
+    }
+
+    chrome.runtime.sendMessage({ type: 'GET_CAPTURE_MODE' }, (response) => {
+        applyCaptureMode(response && response.captureMode);
+    });
+
+    modeManual.addEventListener('click', () => {
+        chrome.runtime.sendMessage({ type: 'SET_CAPTURE_MODE', captureMode: 'manual' }, (response) => {
+            applyCaptureMode(response && response.captureMode);
+        });
+    });
+
+    modeAutomatic.addEventListener('click', () => {
+        chrome.runtime.sendMessage({ type: 'SET_CAPTURE_MODE', captureMode: 'automatic' }, (response) => {
+            applyCaptureMode(response && response.captureMode);
+        });
+    });
+
     // Save Logic
     const btnSave = document.getElementById('btn-save');
     const saveStatus = document.getElementById('save-status');

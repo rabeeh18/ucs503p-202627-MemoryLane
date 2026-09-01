@@ -89,7 +89,24 @@ async def save_memory(memory: MemoryInput):
         normalized_url = normalize_url(memory.url)
         webpage_id = generate_webpage_id(normalized_url)
         logger.info(f"Normalized URL: {normalized_url}, webpage_id: {webpage_id}")
-        
+
+        solr = get_solr_client()
+        existing = solr.get_by_url(normalized_url)
+        if existing:
+            doc = existing[0]
+            logger.info(f"Duplicate URL skipped: {normalized_url}")
+            return MemoryResponse(
+                success=True,
+                message="Memory already stored",
+                metadata=MemoryMetadata(
+                    url=normalized_url,
+                    title=doc.get("title") or memory.title,
+                    id=doc.get("webpage_id") or webpage_id,
+                    chunks=int(doc.get("total_chunks") or 0),
+                    timestamp=doc.get("timestamp") or "",
+                ),
+            )
+
         # Parse domain
         from urllib.parse import urlparse
         domain = urlparse(normalized_url).netloc
@@ -105,7 +122,6 @@ async def save_memory(memory: MemoryInput):
         logger.info(f"Generated {len(embeddings)} embeddings")
         
         # Delete old chunks
-        solr = get_solr_client()
         logger.info(f"Deleting old chunks for webpage_id: {webpage_id}")
         solr.delete_by_query(f'webpage_id:"{webpage_id}"')
         
