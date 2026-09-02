@@ -24,7 +24,7 @@ EMBEDDING_DIM = int(os.getenv('EMBEDDING_DIM', '384'))
 
 # Gemini
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.0-flash')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.6-flash')
 
 # API
 API_HOST = os.getenv('API_HOST', '0.0.0.0')
