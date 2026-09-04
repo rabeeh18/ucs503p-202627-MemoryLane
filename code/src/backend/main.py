@@ -19,6 +19,7 @@ from backend.embeddings import get_embedding, get_embeddings, is_model_loaded, g
 from backend.solr_client import get_solr_client
 from backend.retrieval import hybrid_search
 from backend.summarizer import summarize, detect_detail_level, is_gemini_available
+from backend.youtube_utils import is_youtube_url, extract_video_id, get_youtube_transcript, is_youtube_short
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -133,7 +134,7 @@ async def save_memory(memory: MemoryInput):
     """Save a webpage to memory."""
     logger.info(f"Memory received: {memory.url}")
     
-    # Validate
+    # Validate URL early
     if not memory.url or not memory.url.strip():
         raise HTTPException(status_code=400, detail="URL is required")
         
@@ -156,9 +157,6 @@ async def save_memory(memory: MemoryInput):
     if not memory.title or not memory.title.strip() or memory.title.strip().lower() in ("untitled", "untitled document"):
         memory.title = domain
         
-    if not memory.content or (len(memory.content.strip()) < 200 and not is_youtube):
-        raise HTTPException(status_code=400, detail="Content is required and must be at least 200 characters")
-    
     try:
         # Resolve canonical URL
         base_url = memory.url
@@ -193,6 +191,25 @@ async def save_memory(memory: MemoryInput):
                     timestamp=doc.get("timestamp") or "",
                 ),
             )
+
+        # YouTube transcript extraction
+        if is_youtube_url(normalized_url):
+            if is_youtube_short(normalized_url):
+                logger.info(f"Skipping YouTube Short: {normalized_url}")
+                raise HTTPException(status_code=400, detail="YouTube Shorts are intentionally skipped.")
+                
+            video_id = extract_video_id(normalized_url)
+            if video_id:
+                logger.info(f"Detected YouTube URL with video ID: {video_id}. Attempting to fetch transcript.")
+                transcript = get_youtube_transcript(video_id)
+                if transcript:
+                    memory.content = transcript
+                    logger.info("Successfully replaced webpage content with YouTube transcript.")
+                else:
+                    logger.warning("Failed to fetch YouTube transcript, falling back to original content.")
+
+        if not memory.content or len(memory.content.strip()) < 50:
+            raise HTTPException(status_code=400, detail="Content is required and must be at least 50 characters")
 
         # Parse domain from normalized url for storage
         domain = urlparse(normalized_url).netloc
