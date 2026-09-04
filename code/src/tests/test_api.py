@@ -29,7 +29,7 @@ def test_health_contract(client):
 
 def test_memory_requires_fields(client):
     # Missing URL
-    response = client.post("/memory", json={"url": "", "title": "t", "content": "c" * 60})
+    response = client.post("/memory", json={"url": "", "title": "t", "content": "c" * 250})
     assert response.status_code == 400
 
     # Short content
@@ -42,7 +42,7 @@ def test_memory_requires_fields(client):
     with patch("backend.main.get_solr_client", return_value=mock_solr), \
          patch("backend.main.chunk_text", return_value=["chunk"]), \
          patch("backend.main.get_embeddings", return_value=[[0.1] * 384]):
-        response = client.post("/memory", json={"url": "https://ex.com/page", "title": "", "content": "c" * 60})
+        response = client.post("/memory", json={"url": "https://ex.com/page", "title": "", "content": "c" * 250})
         assert response.status_code == 200
         assert response.json()["metadata"]["title"] == "ex.com"
 
@@ -56,7 +56,7 @@ def test_memory_success_indexes_chunks(client):
         response = client.post("/memory", json={
             "url": "https://www.example.com/guide?utm_source=x",
             "title": "Guide",
-            "content": "hello world " * 10,
+            "content": "hello world " * 20,
         })
     assert response.status_code == 200
     data = response.json()
@@ -87,7 +87,7 @@ def test_memory_skips_duplicate_normalized_url(client):
         response = client.post("/memory", json={
             "url": "https://example.com/guide/#section?utm_campaign=x",
             "title": "Guide again",
-            "content": "hello world " * 10,
+            "content": "hello world " * 20,
         })
     assert response.status_code == 200
     data = response.json()
@@ -100,6 +100,101 @@ def test_memory_skips_duplicate_normalized_url(client):
     mock_solr.add_documents.assert_not_called()
     mock_solr.delete_by_query.assert_not_called()
 
+
+def test_memory_canonical_url_resolution(client):
+    mock_solr = MagicMock()
+    mock_solr.get_by_url.return_value = []
+    with patch("backend.main.get_solr_client", return_value=mock_solr), \
+         patch("backend.main.chunk_text", return_value=["chunk"]), \
+         patch("backend.main.get_embeddings", return_value=[[0.1] * 384]):
+        # Relative canonical URL
+        response = client.post("/memory", json={
+            "url": "https://example.com/blog/post-1?utm=x",
+            "title": "Post 1",
+            "content": "hello world " * 20,
+            "canonical_url": "/blog/post-1-canonical"
+        })
+        assert response.status_code == 200
+        # The stored URL should be resolved
+        docs = mock_solr.add_documents.call_args[0][0]
+        assert docs[0]["url"] == "https://example.com/blog/post-1-canonical"
+
+        response = client.post("/memory", json={
+            "url": "https://example.com/blog/post-2?utm_source=x",
+            "title": "Post 2",
+            "content": "hello world " * 20,
+            "canonical_url": "invalid://url"
+        })
+        assert response.status_code == 200
+        docs = mock_solr.add_documents.call_args[0][0]
+        assert docs[0]["url"] == "https://example.com/blog/post-2"
+
+def test_memory_youtube_ingestion(client):
+    mock_solr = MagicMock()
+    mock_solr.get_by_url.return_value = []
+    
+    with patch("backend.main.get_solr_client", return_value=mock_solr), \
+         patch("backend.main.YouTubeTranscriptApi.get_transcript", return_value=[{"text": "hello"}, {"text": "world"}]), \
+         patch("backend.main.httpx.get") as mock_get, \
+         patch("backend.main.chunk_text", side_effect=lambda text: [text]), \
+         patch("backend.main.get_embeddings", return_value=[[0.1] * 384]):
+         
+        # Mock httpx.get for duration and oembed
+        def side_effect(url, **kwargs):
+            mock_resp = MagicMock()
+            if "oembed" in url:
+                mock_resp.json.return_value = {"title": "YT Video", "author_name": "Channel"}
+            else:
+                mock_resp.text = '"lengthSeconds":"300"'
+            return mock_resp
+        mock_get.side_effect = side_effect
+        
+        response = client.post("/memory", json={
+            "url": "https://www.youtube.com/watch?v=12345",
+            "title": "dummy",
+            "content": "dummy", # YouTube doesn't need content to be 200 chars
+            "is_manual": False
+        })
+        
+        assert response.status_code == 200
+        docs = mock_solr.add_documents.call_args[0][0]
+        assert "Source: YouTube" in docs[0]["text"]
+        assert "hello world" in docs[0]["text"]
+        assert docs[0]["title"] == "YT Video"
+
+def test_memory_youtube_rejections(client):
+    with patch("backend.main.YouTubeTranscriptApi.get_transcript") as mock_transcript, \
+         patch("backend.main.httpx.get") as mock_get:
+         
+        # Missing transcript
+        mock_transcript.side_effect = Exception("No transcript")
+        response = client.post("/memory", json={"url": "https://www.youtube.com/watch?v=12345", "title": "x", "content": "x"})
+        assert response.status_code == 200
+        assert "Could not fetch transcript" in response.json()["message"]
+        
+        # Duration over 2 hours (auto mode)
+        mock_transcript.side_effect = None
+        mock_transcript.return_value = [{"text": "hello"}]
+        def side_effect_long(url, **kwargs):
+            resp = MagicMock()
+            resp.text = '"lengthSeconds":"7201"'
+            resp.json.return_value = {}
+            return resp
+        mock_get.side_effect = side_effect_long
+        
+        response = client.post("/memory", json={"url": "https://www.youtube.com/watch?v=12345", "title": "x", "content": "x", "is_manual": False})
+        assert response.status_code == 200
+        assert "Skipped: YouTube video is over 2 hours long" in response.json()["message"]
+        
+        # Duration over 2 hours (manual mode) -> should bypass
+        mock_solr = MagicMock()
+        mock_solr.get_by_url.return_value = []
+        with patch("backend.main.get_solr_client", return_value=mock_solr), \
+             patch("backend.main.chunk_text", return_value=["hello"]), \
+             patch("backend.main.get_embeddings", return_value=[[0.1] * 384]):
+            response = client.post("/memory", json={"url": "https://www.youtube.com/watch?v=12345", "title": "x", "content": "x", "is_manual": True})
+            assert response.status_code == 200
+            assert response.json()["success"] is True
 
 def test_search_requires_query(client):
     response = client.post("/search", json={"query": "   "})

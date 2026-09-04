@@ -26,7 +26,7 @@ const INTERNAL_SCHEMES = [
 ];
 
 const SEARCH_ENGINE_HOSTS = [
-    "google.com", "bing.com", "duckduckgo.com", "yahoo.com", "youtube.com",
+    "google.com", "bing.com", "duckduckgo.com", "yahoo.com",
 ];
 
 const UTILITY_PATH_SEGMENTS = [
@@ -100,6 +100,25 @@ function isAutoCaptureEligible(url) {
         const query = (parsed.search || "").toLowerCase();
         if (loweredPath.includes("/search") || loweredPath.includes("/results") || query.includes("q=")) {
             return false;
+        }
+    }
+
+    // YouTube specific checks
+    const isYouTube = hostMatches(host, "youtube.com");
+    const isYouTuBe = hostMatches(host, "youtu.be");
+    if (isYouTube || isYouTuBe) {
+        if (isYouTube) {
+            if (!loweredPath.startsWith("/watch")) {
+                return false;
+            }
+            if (!parsed.search.includes("v=")) {
+                return false;
+            }
+        }
+        if (isYouTuBe) {
+            if (path === "/" || path === "") {
+                return false;
+            }
         }
     }
 

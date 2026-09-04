@@ -6,6 +6,7 @@ class MemoryInput(BaseModel):
     title: str
     content: str
     canonical_url: Optional[str] = None
+    is_manual: bool = False
 
 class SearchInput(BaseModel):
     query: str

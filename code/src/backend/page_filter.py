@@ -34,7 +34,7 @@ INTERNAL_SCHEMES = (
 )
 
 SEARCH_ENGINE_HOSTS = (
-    "google.com", "bing.com", "duckduckgo.com", "yahoo.com", "youtube.com",
+    "google.com", "bing.com", "duckduckgo.com", "yahoo.com",
 )
 
 UTILITY_PATH_SEGMENTS = (
@@ -98,6 +98,19 @@ def is_auto_capture_eligible(url: str) -> bool:
         query = parsed.query.lower()
         if "/search" in lowered_path or "/results" in lowered_path or "q=" in query:
             return False
+
+    # YouTube specific checks
+    is_youtube = _host_matches(host, "youtube.com")
+    is_youtu_be = _host_matches(host, "youtu.be")
+    if is_youtube or is_youtu_be:
+        if is_youtube:
+            if not lowered_path.startswith("/watch"):
+                return False
+            if "v=" not in parsed.query:
+                return False
+        if is_youtu_be:
+            if path == "/" or path == "":
+                return False
 
     if path == "/" or path == "":
         return False

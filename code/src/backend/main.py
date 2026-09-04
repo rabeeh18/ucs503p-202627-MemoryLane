@@ -1,8 +1,11 @@
 import logging
+import re
+import httpx
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from youtube_transcript_api import YouTubeTranscriptApi
 
 from backend.config import SOLR_URL
 from backend.models import (
@@ -70,6 +73,60 @@ async def health_check():
         gemini=gemini_ok
     )
 
+def _process_youtube_video(url: str, is_manual: bool):
+    """
+    Returns (content, title, error_message).
+    If error_message is set, processing should be skipped/aborted.
+    """
+    from urllib.parse import urlparse, parse_qs
+    parsed = urlparse(url)
+    video_id = None
+    if "youtube.com" in parsed.netloc:
+        qs = parse_qs(parsed.query)
+        video_id = qs.get("v", [None])[0]
+    elif "youtu.be" in parsed.netloc:
+        video_id = parsed.path.strip("/")
+        
+    if not video_id:
+        return None, None, "Invalid YouTube URL"
+        
+    try:
+        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        transcript_text = " ".join([t['text'] for t in transcript])
+    except Exception as e:
+        return None, None, f"Could not fetch transcript: {e}"
+        
+    duration = None
+    title = "YouTube Video"
+    channel = "Unknown"
+    
+    try:
+        html = httpx.get(url, timeout=10.0).text
+        match_len = re.search(r'"lengthSeconds":"(\d+)"', html)
+        if match_len:
+            duration = int(match_len.group(1))
+    except Exception:
+        pass
+        
+    try:
+        oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+        oembed_data = httpx.get(oembed_url, timeout=5.0).json()
+        title = oembed_data.get("title", title)
+        channel = oembed_data.get("author_name", channel)
+    except Exception:
+        pass
+        
+    if duration is None:
+        if not is_manual:
+            return None, None, "Skipped: Could not reliably determine video duration"
+    elif duration > 7200:
+        if not is_manual:
+            return None, None, "Skipped: YouTube video is over 2 hours long"
+            
+    dur_str = f"{duration} seconds" if duration is not None else "Unknown"
+    formatted_content = f"Title: {title}\nChannel: {channel}\nDuration: {dur_str}\nSource: YouTube\n\n{transcript_text}"
+    return formatted_content, title, None
+
 
 @app.post("/memory", response_model=MemoryResponse)
 async def save_memory(memory: MemoryInput):
@@ -81,16 +138,41 @@ async def save_memory(memory: MemoryInput):
         raise HTTPException(status_code=400, detail="URL is required")
         
     from urllib.parse import urlparse
-    domain = urlparse(memory.url).netloc
+    parsed_url = urlparse(memory.url)
+    domain = parsed_url.netloc
+    
+    is_youtube = "youtube.com" in domain or "youtu.be" in domain
+    if is_youtube:
+        yt_content, yt_title, yt_err = _process_youtube_video(memory.url, memory.is_manual)
+        if yt_err:
+            return MemoryResponse(
+                success=True,
+                message=yt_err,
+                metadata=MemoryMetadata(url=memory.url, title=memory.title or domain, id="", chunks=0, timestamp="")
+            )
+        memory.content = yt_content
+        memory.title = yt_title
+    
     if not memory.title or not memory.title.strip() or memory.title.strip().lower() in ("untitled", "untitled document"):
         memory.title = domain
         
-    if not memory.content or len(memory.content.strip()) < 50:
-        raise HTTPException(status_code=400, detail="Content is required and must be at least 50 characters")
+    if not memory.content or (len(memory.content.strip()) < 200 and not is_youtube):
+        raise HTTPException(status_code=400, detail="Content is required and must be at least 200 characters")
     
     try:
+        # Resolve canonical URL
+        base_url = memory.url
+        if memory.canonical_url and memory.canonical_url.strip():
+            from urllib.parse import urljoin, urlparse
+            try:
+                resolved = urljoin(memory.url, memory.canonical_url.strip())
+                parsed = urlparse(resolved)
+                if parsed.scheme in ("http", "https") and parsed.netloc:
+                    base_url = resolved
+            except Exception:
+                pass
+                
         # Normalize URL
-        base_url = memory.canonical_url.strip() if memory.canonical_url and memory.canonical_url.strip() else memory.url
         normalized_url = normalize_url(base_url)
         webpage_id = generate_webpage_id(normalized_url)
         logger.info(f"Normalized URL: {normalized_url}, webpage_id: {webpage_id}")

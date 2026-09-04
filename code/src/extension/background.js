@@ -72,7 +72,8 @@ async function saveTab(tab, { skipEligibility = false } = {}) {
     inFlightUrls.add(key);
     try {
         const { content, canonicalUrl } = await extractTabContent(tab);
-        if (!content || content.length < 50) {
+        const isYouTube = tab.url.includes("youtube.com/watch") || tab.url.includes("youtu.be/");
+        if (!isYouTube && (!content || content.length < 200)) {
             return { ok: true, skipped: true, reason: "low-content" };
         }
 
@@ -82,8 +83,9 @@ async function saveTab(tab, { skipEligibility = false } = {}) {
             body: JSON.stringify({
                 url: tab.url,
                 title: tab.title || tab.url,
-                content,
+                content: content || "",
                 canonical_url: canonicalUrl,
+                is_manual: skipEligibility,
             }),
         });
 
