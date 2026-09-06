@@ -1,23 +1,5 @@
-site_name: "MemoryLane - UCS503 Software Engineering Project"
+site_name: "MemoryLane"
 site_url: https://rabeeh18.github.io/ucs503p-202627-MemoryLane/
-
-plugins:
-  - search
-  - literate-nav:
-      nav_file: summary.md
-  - section-index
-  - git-revision-date-localized
-  - mkdocstrings:
-      handlers:
-        python:
-          paths: [src]
-          options:
-            summary: true
-            show_symbol_type_heading: true
-            show_symbol_type_toc: true
-            show_root_full_path: true
-            show_root_heading: true
-            show_source: false
 
 theme:
   name: material
@@ -43,7 +25,6 @@ theme:
   logo: assets/tiet-logo.svg
   favicon: assets/favicon.png
 
-
 repo_url: https://github.com/rabeeh18/ucs503p-202627-MemoryLane
 repo_name: ucs503p-202627-MemoryLane
 
@@ -55,7 +36,6 @@ extra:
       link: https://github.com/rabeeh18/ucs503p-202627-MemoryLane
       name: MemoryLane GitHub Repository
 
-
 extra_css:
   - assets/stylesheets/extra.css
   - https://unpkg.com/katex@0/dist/katex.min.css
@@ -63,7 +43,6 @@ extra_css:
 extra_javascript:
   - https://unpkg.com/katex@0/dist/katex.min.js
   - javascript/arithmatex.js
-
 
 markdown_extensions:
   - abbr
@@ -82,9 +61,7 @@ markdown_extensions:
       pygments_lang_class: true
 
   - pymdownx.inlinehilite
-
   - pymdownx.snippets
-
   - pymdownx.superfences
 
   - pymdownx.tabbed:
@@ -104,3 +81,46 @@ markdown_extensions:
       toc_depth: 4
 
   - sane_lists
+
+nav:
+  - Home: index.md
+
+  - Getting Started:
+      - Overview: getting-started/index.md
+      - Installation: getting-started/installation.md
+      - Configuration: getting-started/configuration.md
+      - Running MemoryLane: getting-started/running.md
+
+  - Using MemoryLane:
+      - Automatic Capture: user-guide/automatic-capture.md
+      - Search: user-guide/search.md
+      - Voice Search: user-guide/voice-search.md
+      - YouTube Memories: user-guide/youtube.md
+      - Summarization: user-guide/summarization.md
+
+  - How It Works:
+      - Overview: how-it-works/overview.md
+      - Capturing Web Content: how-it-works/ingestion.md
+      - Content Processing: how-it-works/processing.md
+      - Storage: how-it-works/storage.md
+
+  - Architecture:
+      - System Architecture: architecture/overview.md
+      - Backend: architecture/backend.md
+      - Frontend: architecture/frontend.md
+      - Processing Architecture: architecture/processing.md
+      - Retrieval Architecture: architecture/retrieval.md
+
+  - API Reference:
+      - Overview: api/index.md
+      - Endpoints: api/endpoints.md
+
+  - Development:
+      - Project Structure: development/project-structure.md
+      - Testing: development/testing.md
+
+  - Evaluation:
+      - Methodology: evaluation/methodology.md
+      - Results: evaluation/results.md
+
+  - Privacy: privacy.md
