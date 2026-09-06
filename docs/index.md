@@ -1,6 +1,6 @@
 ﻿# MemoryLane
 
-## MemoryLane remembers so you do not have to.
+## MemoryLane remembers so you do not have to
 
 MemoryLane is a personal browser-memory system that captures useful web content and makes it searchable later. Instead of relying on an exact URL, page title, or keyword, you can describe what you remember and search through the content you previously encountered.
 
