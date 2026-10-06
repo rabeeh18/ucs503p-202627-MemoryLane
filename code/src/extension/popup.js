@@ -143,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnSearch.disabled = true;
 
         try {
-            const response = await fetch('http://localhost:8000/search', {
+            const response = await fetch('http://65.2.127.89:8000/search', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

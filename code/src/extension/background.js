@@ -1,6 +1,6 @@
 importScripts("page_filter.js");
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://65.2.127.89:8000";
 const DEFAULT_CAPTURE_MODE = "manual";
 
 const inFlightUrls = new Set();

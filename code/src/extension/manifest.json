@@ -5,7 +5,7 @@
   "description": "Save and search your browsing memories",
   "permissions": ["activeTab", "scripting", "storage", "tabs"],
   "host_permissions": [
-    "http://localhost:8000/*",
+    "http://65.2.127.89:8000/*",
     "http://*/*",
     "https://*/*"
   ],
