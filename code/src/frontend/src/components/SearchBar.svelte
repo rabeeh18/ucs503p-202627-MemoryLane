@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { searchQuery } from '../stores';
 
   export let sticky: boolean = false;
@@ -11,6 +11,8 @@
 
   let hintVisible = false;
   let isListening = false;
+  let isStarting = false;
+  let voiceError = '';
   let recognition: any = null;
   let speechTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -21,9 +23,12 @@
       recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = true;
+      recognition.lang = 'en-IN'; // change to 'en-US' if you prefer
 
       recognition.onstart = () => {
+        isStarting = false;
         isListening = true;
+        voiceError = '';
         if (speechTimeout) clearTimeout(speechTimeout);
       };
 
@@ -53,25 +58,85 @@
 
       recognition.onerror = (event: any) => {
         console.error('Speech recognition error', event.error);
+        isStarting = false;
         isListening = false;
+
+        switch (event.error) {
+          case 'not-allowed':
+          case 'service-not-allowed':
+            voiceError =
+              "Microphone access is blocked. Allow it in your browser's site settings and reload the page.";
+            break;
+          case 'network':
+            voiceError =
+              "Voice search couldn't reach the browser's speech service. Try Chrome or Edge.";
+            break;
+          case 'audio-capture':
+            voiceError = 'No microphone was found. Check your input device.';
+            break;
+          case 'no-speech':
+            voiceError = "Didn't hear anything. Please try again.";
+            break;
+          case 'aborted':
+            // User stopped it manually, not an error
+            break;
+          default:
+            voiceError = 'Voice search failed. Please try again.';
+        }
       };
 
       recognition.onend = () => {
+        isStarting = false;
         isListening = false;
       };
     }
   });
 
+  onDestroy(() => {
+    if (speechTimeout) clearTimeout(speechTimeout);
+    if (recognition) {
+      try {
+        recognition.abort();
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+
   function toggleVoiceSearch() {
     if (!recognition) {
-      alert("Voice search is not supported in this browser.");
+      voiceError = 'Voice search is not supported in this browser. Try Chrome, Edge or Safari.';
       return;
     }
-    if (isListening) {
-      recognition.stop();
-    } else {
-      searchQuery.set('');
+
+    // Already running or starting: stop it
+    if (isListening || isStarting) {
+      try {
+        recognition.abort();
+      } catch {
+        /* ignore */
+      }
+      isListening = false;
+      isStarting = false;
+      return;
+    }
+
+    voiceError = '';
+    searchQuery.set('');
+    isStarting = true;
+
+    try {
       recognition.start();
+    } catch (e) {
+      // "recognition has already started": reset so the next click works
+      console.warn('Speech start failed', e);
+      try {
+        recognition.abort();
+      } catch {
+        /* ignore */
+      }
+      isStarting = false;
+      isListening = false;
     }
   }
 
@@ -131,7 +196,7 @@
         Clear
       </button>
     {/if}
-    
+
     <!-- Microphone Button -->
     <button
       type="button"
@@ -169,6 +234,10 @@
 
   {#if hintVisible}
     <p class="hint" role="alert">Please enter a search query</p>
+  {/if}
+
+  {#if voiceError}
+    <p class="hint" role="alert">{voiceError}</p>
   {/if}
 
   {#if !sticky}
@@ -244,7 +313,7 @@
     outline: 2px solid #4a9eff;
     outline-offset: 1px;
   }
-  
+
   .mic-btn {
     display: flex;
     align-items: center;
@@ -258,19 +327,19 @@
     cursor: pointer;
     transition: all 150ms ease;
   }
-  
+
   .mic-btn:hover {
     color: #e0e0e0;
     border-color: #666666;
   }
-  
+
   .mic-btn.listening {
     color: #ff4a4a;
     border-color: #ff4a4a;
     background-color: rgba(255, 74, 74, 0.1);
     animation: pulse 1.5s infinite;
   }
-  
+
   @keyframes pulse {
     0% {
       box-shadow: 0 0 0 0 rgba(255, 74, 74, 0.4);
