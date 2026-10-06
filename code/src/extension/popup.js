@@ -81,12 +81,59 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnSearch = document.getElementById('btn-search');
     const searchStatus = document.getElementById('search-status');
     const searchResults = document.getElementById('search-results');
+    const sortSelect = document.getElementById('sort-select');
+    let currentResults = [];
 
     function showSearchStatus(message, type) {
         searchStatus.textContent = message;
         searchStatus.className = `status-msg ${type}`;
         if(type === 'info') searchResults.innerHTML = '';
     }
+
+    function renderResults() {
+        searchResults.innerHTML = '';
+        if (!currentResults || currentResults.length === 0) {
+            showSearchStatus('No results found.', 'info');
+            return;
+        }
+
+        let resultsToRender = [...currentResults];
+        if (sortSelect.value === 'recent') {
+            resultsToRender.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+        }
+
+        resultsToRender.forEach(result => {
+            const card = document.createElement('div');
+            card.className = 'result-card';
+            
+            const title = document.createElement('h3');
+            title.className = 'result-title';
+            const link = document.createElement('a');
+            link.href = result.url;
+            link.target = '_blank';
+            link.textContent = result.title || 'Untitled';
+            title.appendChild(link);
+            
+            const meta = document.createElement('div');
+            meta.className = 'result-meta';
+            const dateStr = result.timestamp ? new Date(result.timestamp).toLocaleDateString() : 'Unknown date';
+            meta.textContent = `${result.domain} • ${dateStr}`;
+            
+            card.appendChild(title);
+            card.appendChild(meta);
+
+            if (result.summary) {
+                const summary = document.createElement('div');
+                summary.className = 'result-summary';
+                summary.textContent = result.summary;
+                card.appendChild(summary);
+            }
+
+            searchResults.appendChild(card);
+        });
+    }
+
+    sortSelect.addEventListener('change', renderResults);
 
     async function performSearch() {
         const query = searchInput.value.trim();
@@ -112,42 +159,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
             
             searchStatus.className = 'status-msg'; // hide
-            searchResults.innerHTML = '';
-
-            if (!data.results || data.results.length === 0) {
-                showSearchStatus('No results found.', 'info');
-                return;
-            }
-
-            data.results.forEach(result => {
-                const card = document.createElement('div');
-                card.className = 'result-card';
-                
-                const title = document.createElement('h3');
-                title.className = 'result-title';
-                const link = document.createElement('a');
-                link.href = result.url;
-                link.target = '_blank';
-                link.textContent = result.title || 'Untitled';
-                title.appendChild(link);
-                
-                const meta = document.createElement('div');
-                meta.className = 'result-meta';
-                const dateStr = result.timestamp ? new Date(result.timestamp).toLocaleDateString() : 'Unknown date';
-                meta.textContent = `${result.domain} • ${dateStr}`;
-                
-                card.appendChild(title);
-                card.appendChild(meta);
-
-                if (result.summary) {
-                    const summary = document.createElement('div');
-                    summary.className = 'result-summary';
-                    summary.textContent = result.summary;
-                    card.appendChild(summary);
-                }
-
-                searchResults.appendChild(card);
-            });
+            currentResults = data.results || [];
+            renderResults();
 
         } catch (error) {
             showSearchStatus('Error performing search', 'error');
