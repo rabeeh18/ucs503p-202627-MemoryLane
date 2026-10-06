@@ -1,5 +1,6 @@
 name: mkdocs 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master 
@@ -8,7 +9,8 @@ permissions:
   contents: write
 jobs:
   deploy:
-    runs-on: ubuntu-latest
+    runs-on:
+  workflow_dispatch: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Configure Git Credentials
@@ -17,7 +19,8 @@ jobs:
           git config user.email 14331962+bvraghav@users.noreply.github.com
       - uses: actions/setup-python@v5
         with:
-          python-version: 3.x
+          python-version:
+  workflow_dispatch: 3.x
       - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV 
       - uses: actions/cache@v4
         with:
