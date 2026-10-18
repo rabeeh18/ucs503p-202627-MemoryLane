@@ -1,108 +1,110 @@
-/**
- * api.js — Backend communication for MemoryLane.
- *
- * Dev requests go to /api/* and Vite rewrites them to FastAPI routes on :8000.
- */
+// Backend calls. Every request carries the Cognito access token; a 401 refreshes
+// the token once and retries, and a second 401 signs the user out locally,
+// which takes them back to the sign-in screen.
+import { expireSession, getAccessToken } from './auth.js';
 
-const SEARCH_TIMEOUT_MS = 10000;
+const API_BASE = (import.meta.env.VITE_API_BASE || '/api').replace(/\/$/, '');
+const TIMEOUT_MS = 15000;
 
-function mapSearchResponse(payload) {
-    const items = payload.results ?? payload.webpages ?? [];
-  return {
-    ...payload,
-    webpages: items.map((item) => ({
-      id: item.id ?? '',
-      url: item.url ?? '',
-      title: item.title ?? '',
-      domain: item.domain ?? '',
-      timestamp: item.timestamp ?? '',
-    })),
-  };
+export class ApiError extends Error {
+  /** @param {string} message @param {number} status */
+  constructor(message, status) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
 }
 
-/**
- * Search saved webpages by semantic query.
- * @param {string} query
- * @param {AbortSignal} [signal]
- * @returns {Promise<{ webpages: Array<{ url: string, title: string, timestamp: string }> }>}
- */
-export async function search(query, signal) {
-  const timeoutController = new AbortController();
-  const timeoutId = setTimeout(() => timeoutController.abort(), SEARCH_TIMEOUT_MS);
-
-  const onCallerAbort = () => timeoutController.abort();
-  if (signal) signal.addEventListener('abort', onCallerAbort);
-
+async function send(path, { method = 'GET', body, signal, token }) {
+  const timeout = new AbortController();
+  const timer = setTimeout(() => timeout.abort(), TIMEOUT_MS);
+  const onAbort = () => timeout.abort();
+  signal?.addEventListener('abort', onAbort);
   try {
-    const response = await fetch('/api/search', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, summarize: false }),
-      signal: timeoutController.signal,
+    return await fetch(`${API_BASE}${path}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: timeout.signal,
     });
-
-    if (!response.ok) {
-      const err = new Error('Search failed');
-      err.status = response.status;
-      throw err;
-    }
-
-    return mapSearchResponse(await response.json());
   } catch (err) {
-    if (err.name === 'AbortError') {
-      if (signal?.aborted) {
-        const cancelled = new Error('Search cancelled');
-        cancelled.name = 'CancelledError';
-        throw cancelled;
-      }
-      const timeout = new Error('Search took too long. Please try again.');
-      timeout.name = 'TimeoutError';
-      throw timeout;
+    if (signal?.aborted) {
+      const cancelled = new Error('Cancelled');
+      cancelled.name = 'CancelledError';
+      throw cancelled;
     }
-    throw err;
+    if (err?.name === 'AbortError') throw new ApiError('The server took too long to respond.', 0);
+    throw new ApiError('Network error. Check your connection and try again.', 0);
   } finally {
-    clearTimeout(timeoutId);
-    if (signal) signal.removeEventListener('abort', onCallerAbort);
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', onAbort);
   }
 }
 
 /**
- * Save a webpage into memory (same Vite /api prefix as search).
- * @param {{ url: string, title: string, content: string }} payload
+ * @param {string} path
+ * @param {{ method?: string, body?: unknown, signal?: AbortSignal, raw?: boolean }} [opts]
  */
-export async function saveMemory(payload) {
-  const response = await fetch('/api/memory', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+async function request(path, opts = {}) {
+  let token = await getAccessToken();
+  if (!token) throw new ApiError('Signed out', 401);
 
-  if (!response.ok) {
-    const err = new Error('Save failed');
-    err.status = response.status;
-    throw err;
+  let response = await send(path, { ...opts, token });
+  if (response.status === 401) {
+    token = await getAccessToken({ force: true });
+    if (token) response = await send(path, { ...opts, token });
+    if (!token || response.status === 401) {
+      expireSession();
+      throw new ApiError('Signed out', 401);
+    }
   }
 
+  if (!response.ok) {
+    let detail = '';
+    try {
+      detail = (await response.json()).detail || '';
+    } catch {
+      /* not JSON */
+    }
+    throw new ApiError(typeof detail === 'string' && detail ? detail : 'Request failed', response.status);
+  }
+  if (opts.raw) return response;
+  if (response.status === 204) return null;
   return response.json();
 }
 
-/**
- * Summarize a single indexed webpage (on-demand).
- * @param {{ query: string, id: string }} payload
- * @returns {Promise<{ id: string, summary: string }>}
- */
-export async function fetchSummary({ query, id }) {
-  const response = await fetch('/api/summarize', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, id }),
-  });
+/** @returns {Promise<{ query: string, results: Array<{ rank: number, id: string, url: string, title: string, domain: string, timestamp: string, snippet: string | null }> }>} */
+export function search(query, signal) {
+  return request('/search', { method: 'POST', body: { query, num_results: 10, summarize: false }, signal });
+}
 
-  if (!response.ok) {
-    const err = new Error('Summarization failed');
-    err.status = response.status;
-    throw err;
-  }
+/** @returns {Promise<{ total: number, pages: Array<{ id: string, url: string, title: string, domain: string, timestamp: string }> }>} */
+export function listMemories(limit = 20, offset = 0, signal) {
+  return request(`/memories?limit=${limit}&offset=${offset}`, { signal });
+}
 
-  return response.json();
+/** @returns {Promise<{ id: string, summary: string }>} */
+export function fetchSummary({ query, id }) {
+  return request('/summarize', { method: 'POST', body: { query, id } });
+}
+
+/** Download every saved page as a JSON file. */
+export async function exportData() {
+  const response = await request('/me/export', { raw: true });
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `memorylane-export-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export function deleteAllData() {
+  return request('/me/data', { method: 'DELETE' });
 }

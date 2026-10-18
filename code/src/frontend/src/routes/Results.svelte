@@ -1,0 +1,257 @@
+<script>
+  import { onDestroy, tick } from 'svelte';
+  import Header from '../components/Header.svelte';
+  import SearchBar from '../components/SearchBar.svelte';
+  import ResultRow from '../components/ResultRow.svelte';
+  import Kbd from '../components/Kbd.svelte';
+  import { fetchSummary, search } from '../api.js';
+  import { navigate } from '../lib/router.js';
+  import { results, resultsError, resultsLoading, searchQuery } from '../stores';
+
+  /** The query from ?q= in the URL. */
+  export let query = '';
+
+  let searchBar;
+  let rows = [];
+  let selected = 0;
+  let controller;
+  const CLOSED = { open: false, loading: false, text: '', error: '' };
+  /** Per-result summary state, keyed by page id. */
+  let summaries = {};
+
+  async function run(q) {
+    controller?.abort();
+    controller = new AbortController();
+    const mine = controller;
+    searchQuery.set(q);
+    resultsLoading.set(true);
+    resultsError.set(null);
+    summaries = {};
+    selected = 0;
+    try {
+      const data = await search(q, mine.signal);
+      if (mine !== controller) return;
+      results.set(data.results);
+    } catch (err) {
+      if (mine !== controller || err?.name === 'CancelledError' || err?.status === 401) return;
+      results.set([]);
+      resultsError.set({ message: err?.message || 'Search failed', status: err?.status || 0 });
+    } finally {
+      if (mine === controller) resultsLoading.set(false);
+    }
+  }
+
+  $: run(query);
+  onDestroy(() => controller?.abort());
+
+  function onSubmit(event) {
+    if (event.detail === query) run(query);
+    else navigate(`/?q=${encodeURIComponent(event.detail)}`);
+  }
+
+  function clear() {
+    searchQuery.set('');
+    navigate('/');
+  }
+
+  async function toggleSummary(result) {
+    const current = summaries[result.id];
+    if (current?.open) {
+      summaries = { ...summaries, [result.id]: { ...current, open: false } };
+      return;
+    }
+    if (current?.text) {
+      summaries = { ...summaries, [result.id]: { ...current, open: true } };
+      return;
+    }
+    summaries = { ...summaries, [result.id]: { open: true, loading: true, text: '', error: '' } };
+    let next;
+    try {
+      const data = await fetchSummary({ query, id: result.id });
+      next = { open: true, loading: false, text: data.summary || '', error: data.summary ? '' : 'No summary was returned.' };
+    } catch (err) {
+      const error = err?.status === 503
+        ? "Summaries aren't available right now."
+        : err?.status === 429
+          ? "You're summarising very fast. Wait a moment and try again."
+          : "Couldn't summarise this page. Try again.";
+      next = { open: true, loading: false, text: '', error };
+    }
+    if (summaries[result.id]?.open) summaries = { ...summaries, [result.id]: next };
+  }
+
+  function isTyping(target) {
+    return target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+  }
+
+  async function move(delta) {
+    if (!$results.length) return;
+    selected = Math.max(0, Math.min($results.length - 1, selected + delta));
+    await tick();
+    rows[selected]?.focusTitle();
+  }
+
+  function onKeydown(event) {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    const typing = isTyping(event.target);
+    if (event.key === '/' && !typing) {
+      event.preventDefault();
+      searchBar?.focus();
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      move(typing ? 0 : 1);
+    } else if (event.key === 'ArrowUp' && !typing) {
+      event.preventDefault();
+      move(-1);
+    } else if (event.key === 'Enter' && !typing) {
+      const result = $results[selected];
+      if (result && !(event.target instanceof HTMLButtonElement)) {
+        event.preventDefault();
+        window.open(result.url, '_blank', 'noopener');
+      }
+    } else if (event.key === 's' && !typing) {
+      const result = $results[selected];
+      if (result) {
+        event.preventDefault();
+        toggleSummary(result);
+      }
+    } else if (event.key === 'Escape' && !typing && !document.querySelector('dialog[open]')) {
+      clear();
+    }
+  }
+
+  $: count = $results.length;
+</script>
+
+<svelte:window on:keydown={onKeydown} />
+
+<Header />
+
+<main class="results">
+  <h1 class="visually-hidden">Search results</h1>
+  <SearchBar bind:this={searchBar} kbdHint="Esc" on:submit={onSubmit} on:clear={clear} />
+
+  {#if $resultsLoading}
+    <div class="skeletons" aria-busy="true" aria-label="Loading results">
+      {#each [0, 1, 2] as _}
+        <div class="skeleton">
+          <span class="bar meta-bar"></span>
+          <span class="bar title-bar"></span>
+          <span class="bar text-bar"></span>
+        </div>
+      {/each}
+    </div>
+  {:else if $resultsError}
+    <p class="state">
+      {#if $resultsError.status === 429}
+        You're searching very fast. Wait a moment and try again.
+      {:else}
+        Something went wrong while searching.
+      {/if}
+      <button type="button" class="link-button" on:click={() => run(query)}>Try again</button>
+    </p>
+  {:else if count === 0}
+    <p class="state">No matches. Try describing the idea instead of exact words.</p>
+  {:else}
+    <p class="count" role="status">{count} result{count === 1 ? '' : 's'}</p>
+    <div class="list">
+      {#each $results as result, i (result.id)}
+        <ResultRow
+          bind:this={rows[i]}
+          {result}
+          {query}
+          selected={i === selected}
+          summary={summaries[result.id] || CLOSED}
+          on:select={() => (selected = i)}
+          on:summary={() => toggleSummary(result)}
+        />
+      {/each}
+    </div>
+  {/if}
+</main>
+
+<footer class="keys">
+  <span><Kbd>↑ ↓</Kbd> navigate</span>
+  <span><Kbd>Enter</Kbd> open</span>
+  <span><Kbd>/</Kbd> search</span>
+  <span><Kbd>Esc</Kbd> clear</span>
+</footer>
+
+<style>
+  .results {
+    flex: 1;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 40px 32px 24px;
+  }
+
+  .count {
+    margin: 28px 0 12px;
+    font-size: 13px;
+    color: var(--text-3);
+  }
+
+  .list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .state {
+    margin: 28px 0 0;
+    font-size: 14px;
+    color: var(--text-2);
+  }
+
+  .skeletons {
+    margin-top: 52px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 0 16px;
+  }
+
+  .bar {
+    display: block;
+    height: 12px;
+    border-radius: var(--radius-xs);
+    background: var(--surface);
+  }
+
+  .meta-bar { width: 30%; }
+  .title-bar { width: 65%; height: 16px; }
+  .text-bar { width: 90%; }
+
+  .keys {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    padding: 16px 32px;
+    border-top: 1px solid var(--divider-soft);
+    font-size: 12px;
+    color: var(--text-3);
+  }
+
+  .keys span {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  @media (max-width: 640px) {
+    .results {
+      padding: 24px 16px;
+    }
+
+    .keys {
+      display: none;
+    }
+  }
+</style>
