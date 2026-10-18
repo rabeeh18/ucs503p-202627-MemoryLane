@@ -1,4 +1,4 @@
-from backend.url_utils import normalize_url, generate_webpage_id
+from backend.url_utils import normalize_url, generate_page_id
 
 
 def test_lowercase_scheme_and_host():
@@ -40,24 +40,21 @@ def test_sort_query_params():
     assert normalize_url("https://example.com/a?b=2&a=1") == "https://example.com/a?a=1&b=2"
 
 
-def test_webpage_id_deterministic():
+def test_page_id_deterministic():
     url = normalize_url("https://www.example.com/docs/guide?utm_source=x")
-    first = generate_webpage_id(url)
-    second = generate_webpage_id(url)
+    first = generate_page_id("user-1", url)
+    second = generate_page_id("user-1", url)
     assert first == second
-    assert "example.com" in first
+    assert len(first) == 32
+    assert all(c in "0123456789abcdef" for c in first)
 
 
-def test_webpage_id_solr_safe():
+def test_page_id_differs_per_user():
+    url = normalize_url("https://example.com/a")
+    assert generate_page_id("user-a", url) != generate_page_id("user-b", url)
+
+
+def test_page_id_is_solr_safe_for_any_url():
     url = normalize_url("https://example.com/path with spaces/and?q=1")
-    webpage_id = generate_webpage_id(url)
-    assert " " not in webpage_id
-    assert "/" not in webpage_id
-
-
-def test_webpage_id_truncated_with_hash():
-    long_path = "/".join(["segment"] * 80)
-    url = normalize_url(f"https://example.com{long_path}")
-    webpage_id = generate_webpage_id(url)
-    assert len(webpage_id) <= 200
-    assert "_" in webpage_id
+    page_id = generate_page_id("u", url)
+    assert " " not in page_id and "/" not in page_id and '"' not in page_id

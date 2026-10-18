@@ -53,7 +53,7 @@ def main():
         
         if not args.no_summarize and is_gemini_available():
             solr = get_solr_client()
-            chunks = solr.get_chunks_by_webpage_id(result["webpage_id"])
+            chunks = solr.get_chunks_by_page_id(result["page_id"])
             if chunks:
                 full_text = "\n\n".join(c.get("text", "") for c in chunks)
                 detail_level = detect_detail_level(args.query)

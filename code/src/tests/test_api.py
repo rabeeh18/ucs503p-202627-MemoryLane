@@ -28,119 +28,99 @@ def test_health_contract(client):
     assert data["gemini"] is False
 
 
+LONG_TEXT = "hello world " * 40
+
+
+def _ingest_solr(head=None):
+    solr = MagicMock()
+    solr.get_page_head.return_value = head
+    return solr
+
+
+def _fake_embed(texts):
+    return [[0.1] * 384 for _ in texts]
+
+
 def test_memory_requires_fields(client):
     # Missing URL
     response = client.post("/memory", json={"url": "", "title": "t", "content": "c" * 250})
     assert response.status_code == 400
 
-    # Short content
-    empty_solr = MagicMock()
-    empty_solr.get_by_url.return_value = []
-    with patch("backend.main.get_solr_client", return_value=empty_solr):
+    # Too little readable text
+    with patch("backend.ingest.get_solr_client", return_value=_ingest_solr()):
         response = client.post("/memory", json={"url": "https://ex.com", "title": "t", "content": "too short"})
-    assert response.status_code == 400
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Not enough readable text on this page"
 
     # Empty title should fallback to domain
-    mock_solr = MagicMock()
-    mock_solr.get_by_url.return_value = []
-    with patch("backend.main.get_solr_client", return_value=mock_solr), \
-         patch("backend.main.chunk_text", return_value=["chunk"]), \
-         patch("backend.main.get_embeddings", return_value=[[0.1] * 384]):
-        response = client.post("/memory", json={"url": "https://ex.com/page", "title": "", "content": "c" * 250})
+    with patch("backend.ingest.get_solr_client", return_value=_ingest_solr()), \
+         patch("backend.ingest.embed_passages", side_effect=_fake_embed):
+        response = client.post("/memory", json={"url": "https://ex.com/page", "title": "", "content": LONG_TEXT})
         assert response.status_code == 200
         assert response.json()["metadata"]["title"] == "ex.com"
 
 
-def test_memory_success_indexes_chunks(client):
-    mock_solr = MagicMock()
-    mock_solr.get_by_url.return_value = []
-    with patch("backend.main.get_solr_client", return_value=mock_solr), \
-         patch("backend.main.chunk_text", return_value=["chunk-a", "chunk-b"]), \
-         patch("backend.main.get_embeddings", return_value=[[0.1] * 384, [0.2] * 384]):
+def test_memory_success_indexes_chunks_for_legacy_user(client):
+    mock_solr = _ingest_solr()
+    with patch("backend.ingest.get_solr_client", return_value=mock_solr), \
+         patch("backend.ingest.embed_passages", side_effect=_fake_embed):
         response = client.post("/memory", json={
             "url": "https://www.example.com/guide?utm_source=x",
             "title": "Guide",
-            "content": "hello world " * 20,
+            "content": LONG_TEXT,
+            "html": "<html><body>tiny</body></html>",
         })
     assert response.status_code == 200
     data = response.json()
     assert data["success"] is True
-    assert data["metadata"]["chunks"] == 2
+    assert data["status"] == "saved"
     assert data["metadata"]["url"] == "https://example.com/guide"
-    mock_solr.get_by_url.assert_called_once_with("https://example.com/guide")
     mock_solr.upsert_page_chunks.assert_called_once()
     page_id, docs = mock_solr.upsert_page_chunks.call_args[0]
     assert page_id == data["metadata"]["id"]
-    assert docs[0]["id"].endswith("::chunk::0")
-    assert docs[1]["id"].endswith("::chunk::1")
+    assert data["metadata"]["chunks"] == len(docs)
+    assert docs[0]["id"] == f"{page_id}::0"
+    assert docs[0]["user_id"] == "legacy"
     assert docs[0]["url"] == "https://example.com/guide"
 
 
-def test_memory_skips_duplicate_normalized_url(client):
-    mock_solr = MagicMock()
-    mock_solr.get_by_url.return_value = [{
-        "webpage_id": "example.com_guide",
+def test_memory_unchanged_page_is_not_reindexed(client):
+    import hashlib
+    from backend.cleaning import clean_content
+    from backend.config import EMBEDDING_MODEL
+    head = {
         "url": "https://example.com/guide",
         "title": "Guide",
         "total_chunks": 2,
         "timestamp": "2024-01-01T00:00:00Z",
-    }]
-    with patch("backend.main.get_solr_client", return_value=mock_solr), \
-         patch("backend.main.chunk_text") as mock_chunk, \
-         patch("backend.main.get_embeddings") as mock_embed:
+        "content_hash": hashlib.sha256(clean_content(None, LONG_TEXT).encode()).hexdigest(),
+        "embedding_model": EMBEDDING_MODEL,
+    }
+    mock_solr = _ingest_solr(head)
+    with patch("backend.ingest.get_solr_client", return_value=mock_solr), \
+         patch("backend.ingest.embed_passages") as mock_embed:
         response = client.post("/memory", json={
             "url": "https://example.com/guide/#section?utm_campaign=x",
             "title": "Guide again",
-            "content": "hello world " * 20,
+            "content": LONG_TEXT,
         })
     assert response.status_code == 200
     data = response.json()
-    assert data["success"] is True
+    assert data["status"] == "unchanged"
     assert data["message"] == "Memory already stored"
     assert data["metadata"]["url"] == "https://example.com/guide"
-    assert data["metadata"]["id"] == "example.com_guide"
-    mock_chunk.assert_not_called()
+    assert data["metadata"]["chunks"] == 2
     mock_embed.assert_not_called()
     mock_solr.upsert_page_chunks.assert_not_called()
 
 
-def test_memory_canonical_url_resolution(client):
-    mock_solr = MagicMock()
-    mock_solr.get_by_url.return_value = []
-    with patch("backend.main.get_solr_client", return_value=mock_solr), \
-         patch("backend.main.chunk_text", return_value=["chunk"]), \
-         patch("backend.main.get_embeddings", return_value=[[0.1] * 384]):
-        # Relative canonical URL
-        response = client.post("/memory", json={
-            "url": "https://example.com/blog/post-1?utm=x",
-            "title": "Post 1",
-            "content": "hello world " * 20,
-            "canonical_url": "/blog/post-1-canonical"
-        })
-        assert response.status_code == 200
-        # The stored URL should be resolved
-        docs = mock_solr.upsert_page_chunks.call_args[0][1]
-        assert docs[0]["url"] == "https://example.com/blog/post-1-canonical"
-
-        response = client.post("/memory", json={
-            "url": "https://example.com/blog/post-2?utm_source=x",
-            "title": "Post 2",
-            "content": "hello world " * 20,
-            "canonical_url": "invalid://url"
-        })
-        assert response.status_code == 200
-        docs = mock_solr.upsert_page_chunks.call_args[0][1]
-        assert docs[0]["url"] == "https://example.com/blog/post-2"
-
 def test_memory_youtube_ingestion(client):
-    mock_solr = MagicMock()
-    mock_solr.get_by_url.return_value = []
+    mock_solr = _ingest_solr()
     content = "Title: YT Video\nChannel: Channel\nDuration: 300 seconds\nSource: YouTube\n\nhello world"
 
-    with patch("backend.main.get_solr_client", return_value=mock_solr), \
-         patch("backend.main.process_youtube_video", return_value=(content, "YT Video", None)) as mock_yt, \
-         patch("backend.main.chunk_text", side_effect=lambda text: [text]), \
-         patch("backend.main.get_embeddings", return_value=[[0.1] * 384]):
+    with patch("backend.ingest.get_solr_client", return_value=mock_solr), \
+         patch("backend.ingest.process_youtube_video", return_value=(content, "YT Video", None)) as mock_yt, \
+         patch("backend.ingest.embed_passages", side_effect=_fake_embed):
         response = client.post("/memory", json={
             "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
             "title": "dummy",
@@ -157,28 +137,27 @@ def test_memory_youtube_ingestion(client):
 
 
 def test_memory_youtube_skip_message_is_returned(client):
-    mock_solr = MagicMock()
-    with patch("backend.main.get_solr_client", return_value=mock_solr), \
-         patch("backend.main.process_youtube_video",
+    mock_solr = _ingest_solr()
+    with patch("backend.ingest.get_solr_client", return_value=mock_solr), \
+         patch("backend.ingest.process_youtube_video",
                return_value=(None, None, "Skipped: YouTube video is over 2 hours long")):
         response = client.post("/memory", json={
             "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "title": "x", "content": "x",
         })
     assert response.status_code == 200
+    assert response.json()["status"] == "skipped"
     assert response.json()["message"] == "Skipped: YouTube video is over 2 hours long"
     mock_solr.upsert_page_chunks.assert_not_called()
 
 
 def test_memory_lookalike_youtube_host_is_not_treated_as_youtube(client):
-    mock_solr = MagicMock()
-    mock_solr.get_by_url.return_value = []
-    with patch("backend.main.get_solr_client", return_value=mock_solr), \
-         patch("backend.main.process_youtube_video") as mock_yt, \
-         patch("backend.main.chunk_text", return_value=["chunk"]), \
-         patch("backend.main.get_embeddings", return_value=[[0.1] * 384]):
+    mock_solr = _ingest_solr()
+    with patch("backend.ingest.get_solr_client", return_value=mock_solr), \
+         patch("backend.ingest.process_youtube_video") as mock_yt, \
+         patch("backend.ingest.embed_passages", side_effect=_fake_embed):
         response = client.post("/memory", json={
             "url": "https://youtube.com.evil.example/watch?v=dQw4w9WgXcQ",
-            "title": "t", "content": "hello world " * 20,
+            "title": "t", "content": LONG_TEXT,
         })
     assert response.status_code == 200
     mock_yt.assert_not_called()
@@ -196,7 +175,7 @@ def test_memory_input_limits(client):
 
 def test_search_summarize_defaults_off(client):
     hybrid_results = [{
-        "rank": 1, "webpage_id": "p", "title": "T", "url": "https://e.com/", "domain": "e.com",
+        "rank": 1, "page_id": "p", "title": "T", "url": "https://e.com/", "domain": "e.com",
         "timestamp": "t", "snippet": None,
     }]
     with patch("backend.main.hybrid_search", return_value=hybrid_results), \
@@ -233,7 +212,7 @@ def test_search_requires_query(client):
 def test_search_without_gemini_omits_summary(client):
     hybrid_results = [{
         "rank": 1,
-        "webpage_id": "example.com_guide",
+        "page_id": "example.com_guide",
         "title": "Guide",
         "url": "https://example.com/guide",
         "domain": "example.com",
@@ -260,7 +239,7 @@ def test_search_without_gemini_omits_summary(client):
 def test_search_debug_includes_ranks_and_timings(client):
     hybrid_results = [{
         "rank": 1,
-        "webpage_id": "example.com_guide",
+        "page_id": "example.com_guide",
         "title": "Guide",
         "url": "https://example.com/guide",
         "domain": "example.com",
@@ -293,7 +272,7 @@ def test_search_debug_includes_ranks_and_timings(client):
 def test_search_non_debug_has_snippet_but_no_ranks(client):
     hybrid_results = [{
         "rank": 1,
-        "webpage_id": "example.com_guide",
+        "page_id": "example.com_guide",
         "title": "Guide",
         "url": "https://example.com/guide",
         "domain": "example.com",
@@ -321,7 +300,7 @@ def test_summarize_requires_fields(client):
 
 def test_summarize_one_webpage(client):
     mock_solr = MagicMock()
-    mock_solr.get_chunks_by_webpage_id.return_value = [{"text": "Page body about AI."}]
+    mock_solr.get_chunks_by_page_id.return_value = [{"text": "Page body about AI."}]
     with patch("backend.main.get_solr_client", return_value=mock_solr), \
          patch("backend.main.is_gemini_available", return_value=True), \
          patch("backend.main.summarize", return_value="A short summary."):
@@ -333,7 +312,7 @@ def test_summarize_one_webpage(client):
     data = response.json()
     assert data["id"] == "en.wikipedia.org_wiki_Artificial_intelligence"
     assert data["summary"] == "A short summary."
-    mock_solr.get_chunks_by_webpage_id.assert_called_once_with(
+    mock_solr.get_chunks_by_page_id.assert_called_once_with(
         "en.wikipedia.org_wiki_Artificial_intelligence"
     )
 
@@ -341,7 +320,7 @@ def test_summarize_one_webpage(client):
 def test_search_still_skips_summary_when_disabled(client):
     hybrid_results = [{
         "rank": 1,
-        "webpage_id": "example.com_guide",
+        "page_id": "example.com_guide",
         "title": "Guide",
         "url": "https://example.com/guide",
         "domain": "example.com",

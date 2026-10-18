@@ -24,6 +24,7 @@ class MemoryMetadata(BaseModel):
 
 class MemoryResponse(BaseModel):
     success: bool
+    status: str = "saved"  # "saved" | "unchanged" | "skipped"
     message: str
     metadata: MemoryMetadata
 
@@ -41,6 +42,7 @@ class DebugSearchResultItem(SearchResultItem):
     bm25_rank: Optional[int] = None
     knn_rank: Optional[int] = None
     fused_score: float
+    rerank_score: Optional[float] = None
 
 class SearchResponse(BaseModel):
     query: str

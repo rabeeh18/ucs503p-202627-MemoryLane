@@ -1,7 +1,5 @@
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
-from urllib.parse import urljoin, urlparse
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,19 +8,17 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from backend.config import CORS_ORIGINS
+from backend.config import CORS_ORIGINS, LEGACY_USER_ID
 from backend.models import (
     MemoryInput, SearchInput, MemoryResponse, MemoryMetadata,
     SearchResponse, SearchResultItem, DebugSearchResultItem, HealthResponse,
     SummarizeInput, SummarizeResponse,
 )
-from backend.url_utils import normalize_url, generate_webpage_id
-from backend.chunking import chunk_text
-from backend.embeddings import get_embedding, get_embeddings, is_model_loaded, get_model
+from backend.embeddings import is_model_loaded, get_model
+from backend.ingest import IngestError, ingest_page
 from backend.solr_client import get_solr_client
 from backend.retrieval import hybrid_search
 from backend.summarizer import summarize, detect_detail_level, is_gemini_available
-from backend.youtube_utils import is_youtube_url, process_youtube_video
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -95,123 +91,41 @@ def health_check():
 def save_memory(request: Request, memory: MemoryInput):
     """Save a webpage to memory."""
     logger.info(f"Memory received: {memory.url}")
-
-    # Validate URL early
-    if not memory.url or not memory.url.strip():
-        raise HTTPException(status_code=400, detail="URL is required")
-
-    domain = urlparse(memory.url).netloc
-
-    if is_youtube_url(memory.url):
-        yt_content, yt_title, yt_skip = process_youtube_video(memory.url, memory.is_manual)
-        if yt_skip:
-            return MemoryResponse(
-                success=True,
-                message=yt_skip,
-                metadata=MemoryMetadata(url=memory.url, title=memory.title or domain, id="", chunks=0, timestamp="")
-            )
-        memory.content = yt_content
-        memory.title = yt_title
-
-    if not memory.title or not memory.title.strip() or memory.title.strip().lower() in ("untitled", "untitled document"):
-        memory.title = domain
-
     try:
-        # Resolve canonical URL
-        base_url = memory.url
-        if memory.canonical_url and memory.canonical_url.strip():
-            try:
-                resolved = urljoin(memory.url, memory.canonical_url.strip())
-                parsed = urlparse(resolved)
-                if parsed.scheme in ("http", "https") and parsed.netloc:
-                    base_url = resolved
-            except Exception:
-                pass
-
-        # Normalize URL
-        normalized_url = normalize_url(base_url)
-        webpage_id = generate_webpage_id(normalized_url)
-        logger.info(f"Normalized URL: {normalized_url}, webpage_id: {webpage_id}")
-
-        solr = get_solr_client()
-        existing = solr.get_by_url(normalized_url)
-        if existing:
-            doc = existing[0]
-            logger.info(f"Duplicate URL skipped: {normalized_url}")
-            return MemoryResponse(
-                success=True,
-                message="Memory already stored",
-                metadata=MemoryMetadata(
-                    url=normalized_url,
-                    title=doc.get("title") or memory.title,
-                    id=doc.get("webpage_id") or webpage_id,
-                    chunks=int(doc.get("total_chunks") or 0),
-                    timestamp=doc.get("timestamp") or "",
-                ),
-            )
-
-        if not memory.content or len(memory.content.strip()) < 50:
-            raise HTTPException(status_code=400, detail="Content is required and must be at least 50 characters")
-
-        # Parse domain from normalized url for storage
-        domain = urlparse(normalized_url).netloc
-
-        # Chunk content
-        logger.info("Chunking webpage content")
-        chunks = chunk_text(memory.content)
-        logger.info(f"Generated {len(chunks)} chunks")
-
-        # Generate embeddings
-        logger.info("Generating embeddings")
-        embeddings = get_embeddings(chunks)
-        logger.info(f"Generated {len(embeddings)} embeddings")
-
-        # Build Solr documents
-        timestamp = datetime.now(timezone.utc).isoformat()
-        docs = []
-        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-            doc = {
-                "id": f"{webpage_id}::chunk::{i}",
-                "webpage_id": webpage_id,
-                "url": normalized_url,
-                "title": memory.title,
-                "domain": domain,
-                "text": chunk,
-                "chunk_id": i,
-                "total_chunks": len(chunks),
-                "timestamp": timestamp,
-                "embedding": embedding,
-            }
-            docs.append(doc)
-
-        # Overwrite chunks in place, then drop any stale higher-numbered ones
-        logger.info(f"Upserting {len(docs)} documents")
-        solr.upsert_page_chunks(webpage_id, docs)
-        logger.info("Webpage indexed successfully")
-
-        return MemoryResponse(
-            success=True,
-            message="Memory stored successfully",
-            metadata=MemoryMetadata(
-                url=normalized_url,
-                title=memory.title,
-                id=webpage_id,
-                chunks=len(chunks),
-                timestamp=timestamp
-            )
+        result = ingest_page(
+            LEGACY_USER_ID,
+            memory.url,
+            memory.title,
+            memory.content,
+            html=memory.html,
+            canonical_url=memory.canonical_url,
+            is_manual=memory.is_manual,
         )
-    except HTTPException:
-        raise
+    except IngestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.detail)
     except Exception as e:
         logger.error(f"Failed to save memory: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+    return MemoryResponse(
+        success=True,
+        status=result.status,
+        message=result.message,
+        metadata=MemoryMetadata(
+            url=result.url,
+            title=result.title,
+            id=result.page_id,
+            chunks=result.chunks,
+            timestamp=result.timestamp,
+        ),
+    )
 
-def _summary_for_webpage(query: str, webpage_id: str) -> str | None:
+
+def _summary_for_webpage(query: str, page_id: str) -> str | None:
     """Reuse the same Gemini path as POST /search?summarize=true, for one page."""
     if not is_gemini_available():
         return None
-    chunks = get_solr_client().get_chunks_by_webpage_id(webpage_id)
+    chunks = get_solr_client().get_chunks_by_page_id(page_id)
     if not chunks:
         return None
     full_text = "\n\n".join(c.get("text") or "" for c in chunks)
@@ -229,8 +143,8 @@ def summarize_memory(request: Request, body: SummarizeInput):
     if not body.id or not body.id.strip():
         raise HTTPException(status_code=400, detail="id is required")
 
-    webpage_id = body.id.strip()
-    chunks = get_solr_client().get_chunks_by_webpage_id(webpage_id)
+    page_id = body.id.strip()
+    chunks = get_solr_client().get_chunks_by_page_id(page_id)
     if not chunks:
         raise HTTPException(status_code=404, detail="Webpage not found")
 
@@ -242,7 +156,7 @@ def summarize_memory(request: Request, body: SummarizeInput):
     if not summary:
         raise HTTPException(status_code=502, detail="Summarization failed")
 
-    return SummarizeResponse(id=webpage_id, summary=summary)
+    return SummarizeResponse(id=page_id, summary=summary)
 
 
 @app.post("/search", response_model=SearchResponse)
@@ -264,11 +178,11 @@ def search_memory(request: Request, search: SearchInput):
         for result in results:
             summary = None
             if search.summarize:
-                summary = _summary_for_webpage(search.query, result["webpage_id"])
+                summary = _summary_for_webpage(search.query, result["page_id"])
             
             fields = dict(
                 rank=result["rank"],
-                id=result["webpage_id"],
+                id=result["page_id"],
                 title=result.get("title", ""),
                 url=result.get("url", ""),
                 domain=result.get("domain", ""),
@@ -282,6 +196,7 @@ def search_memory(request: Request, search: SearchInput):
                     bm25_rank=result.get("bm25_rank"),
                     knn_rank=result.get("knn_rank"),
                     fused_score=result.get("fused_score", 0.0),
+                    rerank_score=result.get("rerank_score"),
                 )
             else:
                 item = SearchResultItem(**fields)

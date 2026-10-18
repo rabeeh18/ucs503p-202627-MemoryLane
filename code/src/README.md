@@ -4,7 +4,7 @@ Personal browsing-memory retrieval: save pages you visit, then search them with 
 
 ## 1. Overview
 
-MemoryLane stores readable webpage text as overlapping-size chunks, embeds each chunk with `all-MiniLM-L6-v2` (384 dimensions), and indexes both lexical fields and vectors in a Solr standalone core named `memorylane`. Search fuses BM25 and KNN scores, groups hits by webpage, and can summarize the winning page with Gemini.
+MemoryLane stores readable webpage text as overlapping-size chunks, embeds each chunk with `BAAI/bge-small-en-v1.5` by default (384 dimensions), and indexes both lexical fields and vectors in a Solr standalone core named `memorylane_v2`. Search fuses BM25 and KNN rankings with Reciprocal Rank Fusion, groups hits by webpage, and can summarize the winning page with Gemini.
 
 ## 2. Architecture
 
@@ -52,24 +52,30 @@ Copy `.env.example` to `.env`. Variables:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `SOLR_URL` | `http://localhost:8983/solr/memorylane` | Core URL |
+| `SOLR_URL` | `http://localhost:8983/solr/memorylane_v2` | Core URL |
 | `DEFAULT_TOP_K` | `5` | Grouped results to return |
-| `DEFAULT_CANDIDATE_POOL` | `30` | BM25 and KNN candidate size |
-| `BM25_WEIGHT` / `VECTOR_WEIGHT` | `0.5` / `0.5` | Fusion weights |
-| `TARGET_MIN_WORDS` / `TARGET_MAX_WORDS` | `300` / `500` | Chunk size |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | SentenceTransformer name |
+| `DEFAULT_CANDIDATE_POOL` | `50` | BM25 and KNN candidate size |
+| `RRF_K` | `60` | Reciprocal Rank Fusion constant |
+| `BM25_WEIGHT` / `VECTOR_WEIGHT` | `1.0` / `1.0` | RRF weights |
+| `PAGE_SECOND_CHUNK_WEIGHT` | `0.3` | Weight of a page's second-best chunk |
+| `RERANK_ENABLED` / `RERANK_MODEL` / `RERANK_TOP_N` | `false` / `cross-encoder/ms-marco-MiniLM-L-6-v2` / `20` | Optional cross-encoder reranker |
+| `CHUNK_MAX_WORDS` / `CHUNK_MIN_WORDS` / `CHUNK_OVERLAP_WORDS` | `150` / `40` / `30` | Chunk size, short-tail merge, overlap |
+| `EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | SentenceTransformer name (`all-MiniLM-L6-v2` also works) |
 | `EMBEDDING_DIM` | `384` | Must match Solr `DenseVectorField` |
+| `EMBEDDING_QUERY_PREFIX` | BGE instruction for BGE models, else empty | Prepended to queries only |
+| `LEGACY_USER_ID` | `legacy` | Owner of saved pages until sign-in exists |
+| `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
 | `GEMINI_API_KEY` | empty | Leave empty to disable summaries |
 | `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model id |
 | `API_HOST` / `API_PORT` | `0.0.0.0` / `8000` | Uvicorn bind |
 
 ## 6. Solr setup
 
-Start Solr 9.x (local install or Docker). Then install the `memorylane` core and schema:
+Start Solr 9.x (local install or Docker). Then install the core (`CORE_NAME`, default `memorylane_v2`) and schema:
 
 ```bash
 # Unix
-./scripts/setup_solr.sh
+CORE_NAME=memorylane_v2 ./scripts/setup_solr.sh
 
 # Windows PowerShell
 .\scripts\setup_solr.ps1
@@ -79,9 +85,15 @@ Start Solr 9.x (local install or Docker). Then install the `memorylane` core and
 .\scripts\setup_solr.ps1 -Reset
 ```
 
-The script is idempotent: it checks Solr is up, requires version 9+, creates the core if missing, applies the schema via the Schema API, reloads, then verifies ping, indexing, BM25, and KNN. Paths are resolved from the script location.
+The script is idempotent: it checks Solr is up, requires version 9+, creates the core if missing, applies the schema via the Schema API, reloads, then verifies ping, indexing, BM25 (including stemming), and KNN with a `user_id` filter.
 
-`scripts/setup_solr.sh` is the single source of truth for the schema (`scripts/setup_solr.ps1` mirrors it). It applies these fields on top of Solr's `_default` configset (`id`, `webpage_id`, `url`, `domain`, `title`, `text`, `chunk_id`, `total_chunks`, `timestamp` as string, `embedding` cosine 384-d). `text_general` uses BM25 similarity.
+`scripts/setup_solr.sh` is the single source of truth for the schema (`scripts/setup_solr.ps1` mirrors it). It applies these fields on top of Solr's `_default` configset: `id` (`{page_id}::{n}`), `user_id`, `page_id`, `url`, `domain`, `title` and `text` (`text_en`: stopwords and Porter stemming), `chunk_id`, `total_chunks`, `timestamp` (`pdate`), `content_hash`, `embedding_model`, and `embedding` (cosine 384-d, not stored).
+
+To move pages from an old core into a new one (the source core is never modified):
+
+```bash
+python -m scripts.reindex --source-core memorylane --target-core memorylane_v2 --user-id legacy [--delete-user <id>] [--dry-run]
+```
 
 ## 7. Running the API
 
@@ -101,33 +113,31 @@ Returns Solr, embedding-model, and Gemini status. Overall `status` is `ok` when 
 
 ## 8. Indexing (`POST /memory`)
 
-Body: `{ "url", "title", "content" }`.
+Body: `{ "url", "title", "content", "html"?, "canonical_url"?, "is_manual" }`.
 
-Pipeline: normalize URL → `webpage_id` → paragraph/sentence chunking → embeddings → delete existing chunks for that `webpage_id` → index `{webpage_id}::chunk::{n}`. Re-saving the same URL replaces chunks instead of duplicating them.
+Pipeline (`backend/ingest.py`): canonical + normalized URL → `page_id = sha256(user_id|url)[:32]` → YouTube transcript, or `trafilatura` cleaning of `html` (falling back to `content`) → reject with 422 below 50 words → skip as `unchanged` if the content hash and embedding model match → sentence chunking → embed `title + chunk` → upsert `{page_id}::{n}` and delete stale higher-numbered chunks. Re-saving a changed page updates it with no duplicate chunks.
 
 ## 9. Search (`POST /search`)
 
-Body: `{ "query", "num_results": 5, "summarize": true, "debug": false }`.
+Body: `{ "query", "num_results": 5, "summarize": false, "debug": false }`.
 
-Uses the same hybrid pipeline as the CLI. Set `debug` to include normalized BM25, vector, and fused scores.
+Uses the same hybrid pipeline as the CLI. Each result has a plain-text `snippet`. Set `debug` to include `bm25_rank`, `knn_rank`, `fused_score` and per-stage `timings`.
 
 ## 10. Hybrid retrieval and fusion
 
-1. BM25 on `text` and `title^2` (edismax)
-2. Query embedding
-3. Solr `{!knn f=embedding topK=...}`
-4. Min-max normalize each list (empty → {}; identical or single scores → 1.0)
-5. Fuse: `0.5 * bm25_norm + 0.5 * vector_norm` (missing method → 0.0)
-6. Group by `webpage_id` (highest chunk score wins)
-7. Return top-K pages
+1. BM25 on `title^2 text` with phrase boost `pf=text^2 title^3` (edismax, field queries disabled), concurrently with query embedding (cached) → Solr `{!knn f=embedding topK=...}`
+2. Reciprocal Rank Fusion: `w_bm25 / (k + rank_bm25) + w_knn / (k + rank_knn)`; a chunk missing from one list gets nothing from it
+3. Optional cross-encoder rerank of the top `RERANK_TOP_N` chunks
+4. Group by `page_id`: best chunk + `PAGE_SECOND_CHUNK_WEIGHT` × second-best chunk
+5. Return top-K pages with snippets
 
 ## 11. URL normalization
 
-Lowercase scheme/host, strip `www.`, drop fragments, drop trailing slashes (except `/`), strip `utm_*`, `fbclid`, `gclid`, `ref`, `ref_src`, sort remaining query params. `webpage_id` is a Solr-safe `domain_path` string with a hash suffix when too long.
+Lowercase scheme/host, strip `www.`, drop fragments, drop trailing slashes (except `/`), strip `utm_*`, `fbclid`, `gclid`, `ref`, `ref_src`, sort remaining query params. `page_id` is the first 32 hex characters of `sha256("{user_id}|{normalized_url}")`.
 
 ## 12. Chunking and embeddings
 
-Paragraphs accumulate toward 300–500 words. Oversized paragraphs split on sentences, then hard-split by word count. Tiny trailing chunks merge into the previous chunk. Embeddings are L2-normalized 384-d vectors; dimension mismatches raise an error.
+Text splits into paragraphs, then sentences, packed into chunks of at most 150 words. Each chunk starts with about 30 words of trailing sentences from the previous one. Over-long sentences are hard-split; a final chunk under 40 new words merges into the previous chunk. Passages are embedded as `title + chunk` in batches of 32; queries get `EMBEDDING_QUERY_PREFIX`. Embeddings are L2-normalized 384-d vectors; dimension mismatches raise an error.
 
 ## 13. Gemini summarization
 
@@ -136,7 +146,7 @@ If `GEMINI_API_KEY` is set, search asks Gemini to summarize **only** the stored 
 ## 14. CLI
 
 ```bash
-python -m backend.cli "your query" --top-k 5 --candidates 30 --debug --no-summarize
+python -m backend.cli "your query" --top-k 5 --candidates 50 --debug --no-summarize
 ```
 
 ## 15. Browser extension

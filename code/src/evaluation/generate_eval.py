@@ -23,17 +23,17 @@ def generate(limit: int) -> dict:
     url = f"{solr.base_url}/select"
     params = {
         "q": "*:*",
-        "fl": "url,title,text,webpage_id",
+        "fl": "url,title,text,page_id",
         "rows": limit,
         "sort": "timestamp desc",
         "wt": "json",
         "group": "true",
-        "group.field": "webpage_id",
+        "group.field": "page_id",
         "group.limit": 1,
     }
     response = solr.client.get(url, params=params)
     response.raise_for_status()
-    groups = response.json().get("grouped", {}).get("webpage_id", {}).get("groups", [])
+    groups = response.json().get("grouped", {}).get("page_id", {}).get("groups", [])
 
     queries = []
     for i, group in enumerate(groups, start=1):

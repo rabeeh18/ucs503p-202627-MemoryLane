@@ -40,7 +40,7 @@ def test_rrf_weights():
 def _chunk(doc_id, page, **extra):
     doc = {
         "id": doc_id,
-        "webpage_id": page,
+        "page_id": page,
         "url": f"https://example.com/{page}",
         "title": page.title(),
         "domain": "example.com",
@@ -63,13 +63,13 @@ def test_group_by_webpage_highest_chunk_wins():
         "page2::chunk::0": 0.40,
     }
     grouped = group_by_webpage(candidates, fused, second_chunk_weight=0.0)
-    assert grouped[0]["webpage_id"] == "page1"
+    assert grouped[0]["page_id"] == "page1"
     assert grouped[0]["fused_score"] == 0.85
     assert grouped[0]["id"] == "page1::chunk::1"
     assert grouped[0]["text"] == "text of page1::chunk::1"
     assert grouped[0]["bm25_rank"] == 1
     assert grouped[0]["knn_rank"] == 2
-    assert grouped[1]["webpage_id"] == "page2"
+    assert grouped[1]["page_id"] == "page2"
 
 
 def test_group_by_webpage_adds_weighted_second_chunk():
@@ -81,16 +81,16 @@ def test_group_by_webpage_adds_weighted_second_chunk():
     ]
     fused = {"a::0": 0.2, "a::1": 0.5, "a::2": 0.1, "b::0": 0.6}
     grouped = group_by_webpage(candidates, fused, second_chunk_weight=0.3)
-    by_page = {g["webpage_id"]: g for g in grouped}
+    by_page = {g["page_id"]: g for g in grouped}
     # best 0.5 + 0.3 * second-best 0.2; the third chunk is ignored
     assert by_page["a"]["fused_score"] == pytest.approx(0.56)
     assert by_page["a"]["id"] == "a::1"
     # single-chunk page gets no second-chunk bonus
     assert by_page["b"]["fused_score"] == pytest.approx(0.6)
-    assert [g["webpage_id"] for g in grouped] == ["b", "a"]
+    assert [g["page_id"] for g in grouped] == ["b", "a"]
 
     grouped = group_by_webpage(candidates, {**fused, "a::0": 0.4}, second_chunk_weight=0.3)
-    assert grouped[0]["webpage_id"] == "a"  # 0.5 + 0.12 = 0.62 > 0.6
+    assert grouped[0]["page_id"] == "a"  # 0.5 + 0.12 = 0.62 > 0.6
 
 
 def test_snippet_picks_first_sentence_with_query_term():
@@ -147,9 +147,9 @@ def test_hybrid_search_fuses_ranks_and_reports_timings():
     retrieval._cached_query_embedding.cache_clear()
     timings = {}
     with patch("backend.retrieval.get_solr_client", return_value=solr), \
-         patch("backend.retrieval.get_embedding", return_value=[0.1] * 384):
+         patch("backend.retrieval.embed_query", return_value=[0.1] * 384):
         results = retrieval.hybrid_search("sleep memory", top_k=3, candidate_pool=10, timings=timings)
-    assert [r["webpage_id"] for r in results] == ["p2", "p1", "p3"]
+    assert [r["page_id"] for r in results] == ["p2", "p1", "p3"]
     assert results[0]["bm25_rank"] == 2 and results[0]["knn_rank"] == 1
     assert results[1]["knn_rank"] is None
     assert results[2]["bm25_rank"] is None
@@ -160,7 +160,7 @@ def test_hybrid_search_fuses_ranks_and_reports_timings():
 
 def test_query_embedding_is_cached():
     retrieval._cached_query_embedding.cache_clear()
-    with patch("backend.retrieval.get_embedding", return_value=[0.5] * 384) as mock_embed:
+    with patch("backend.retrieval.embed_query", return_value=[0.5] * 384) as mock_embed:
         first = retrieval._cached_query_embedding("same query")
         second = retrieval._cached_query_embedding("same query")
     assert first == second
@@ -185,7 +185,7 @@ def test_normalize_solr_doc_flattens_string_fields():
         "title": ["Artificial Intelligence"],
         "url": ["https://example.com/ai"],
         "domain": ["example.com"],
-        "webpage_id": ["example.com_ai"],
+        "page_id": ["example.com_ai"],
         "text": ["Some page text"],
         "timestamp": ["2024-01-01T00:00:00Z"],
         "chunk_id": [0],
@@ -196,7 +196,7 @@ def test_normalize_solr_doc_flattens_string_fields():
     assert doc["title"] == "Artificial Intelligence"
     assert doc["url"] == "https://example.com/ai"
     assert doc["domain"] == "example.com"
-    assert doc["webpage_id"] == "example.com_ai"
+    assert doc["page_id"] == "example.com_ai"
     assert doc["text"] == "Some page text"
     assert doc["timestamp"] == "2024-01-01T00:00:00Z"
     assert doc["chunk_id"] == 0
@@ -208,7 +208,7 @@ def test_normalize_solr_doc_flattens_string_fields():
 def test_group_by_webpage_accepts_solr_list_fields():
     raw = {
         "id": "page1::chunk::0",
-        "webpage_id": ["page1"],
+        "page_id": ["page1"],
         "url": ["https://example.com/1"],
         "title": ["Artificial Intelligence"],
         "domain": ["example.com"],
@@ -217,4 +217,4 @@ def test_group_by_webpage_accepts_solr_list_fields():
     doc = normalize_solr_doc(raw)
     grouped = group_by_webpage([doc], {doc["id"]: 0.9})
     assert grouped[0]["title"] == "Artificial Intelligence"
-    assert grouped[0]["webpage_id"] == "page1"
+    assert grouped[0]["page_id"] == "page1"

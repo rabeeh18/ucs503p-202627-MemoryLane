@@ -1,6 +1,5 @@
 import urllib.parse
 import hashlib
-import re
 
 # Exact query keys dropped during normalization (utm_* is handled by prefix).
 TRACKING_PARAMS = {
@@ -37,22 +36,6 @@ def normalize_url(url: str) -> str:
     normalized = urllib.parse.urlunparse((scheme, netloc, path, parsed.params, query, ''))
     return normalized
 
-def generate_webpage_id(normalized_url: str) -> str:
-    parsed = urllib.parse.urlparse(normalized_url)
-    domain = parsed.netloc
-    path = parsed.path
-
-    raw_id = f"{domain}_{path}"
-    if parsed.query:
-        query_hash = hashlib.sha256(parsed.query.encode('utf-8')).hexdigest()[:8]
-        raw_id = f"{raw_id}_{query_hash}"
-    raw_id = raw_id.replace('/', '_')
-    raw_id = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', raw_id)
-    raw_id = re.sub(r'_+', '_', raw_id)
-    raw_id = raw_id.strip('_')
-
-    if len(raw_id) > 200:
-        hash_str = hashlib.sha256(normalized_url.encode('utf-8')).hexdigest()[:16]
-        raw_id = f"{raw_id[:180]}_{hash_str}"
-
-    return raw_id
+def generate_page_id(user_id: str, normalized_url: str) -> str:
+    """Deterministic per-user page id, so two users saving one URL get separate pages."""
+    return hashlib.sha256(f"{user_id}|{normalized_url}".encode('utf-8')).hexdigest()[:32]
