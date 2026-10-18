@@ -10,16 +10,17 @@ MemoryLane stores readable webpage text as overlapping-size chunks, embeds each 
 
 ```mermaid
 graph TD
-    A[Browser Extension] -->|URL + title + content| B[FastAPI API]
-    B --> C[URL Normalization + Chunking]
-    C --> D[SentenceTransformer all-MiniLM-L6-v2]
-    D --> E[Apache Solr Standalone Core]
+    X[Web app + Extension] -->|Cognito access token| CA[Caddy: HTTPS, /api proxy]
+    CA --> B[FastAPI API: verifies token, user_id = sub]
+    B --> C[Cleaning + URL Normalization + Chunking]
+    C --> D[SentenceTransformer bge-small-en-v1.5]
+    D --> E[Apache Solr core memorylane_v2, filtered by user_id]
     E --> F[BM25 Search]
     E --> G[Vector KNN Search]
-    F --> H[Score Normalization]
+    F --> H[Reciprocal Rank Fusion]
     G --> H
-    H --> I[50/50 Fusion]
-    I --> J[Webpage Grouping]
+    H --> R[Optional cross-encoder rerank]
+    R --> J[Webpage Grouping + Snippets]
     J --> K[Optional Gemini Summary]
     K --> L[Results]
 ```
@@ -63,7 +64,7 @@ Copy `.env.example` to `.env`. Variables:
 | `EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | SentenceTransformer name (`all-MiniLM-L6-v2` also works) |
 | `EMBEDDING_DIM` | `384` | Must match Solr `DenseVectorField` |
 | `EMBEDDING_QUERY_PREFIX` | BGE instruction for BGE models, else empty | Prepended to queries only |
-| `LEGACY_USER_ID` | `legacy` | Owner of saved pages until sign-in exists |
+| `COGNITO_REGION` / `COGNITO_USER_POOL_ID` / `COGNITO_APP_CLIENT_ID` | required | Cognito pool whose access tokens the API accepts; the API refuses to start without them |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
 | `GEMINI_API_KEY` | empty | Leave empty to disable summaries |
 | `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model id |
@@ -111,6 +112,22 @@ curl http://localhost:8000/health
 
 Returns Solr, embedding-model, and Gemini status. Overall `status` is `ok` when Solr and the embedding model are ready; Gemini is optional.
 
+### Authentication and API
+
+Every endpoint except `/health` needs `Authorization: Bearer <Cognito access token>`. The API verifies the RS256 signature against the pool's JWKS, plus `exp`, `iss`, `token_use == "access"` and `client_id`. The user id is the token's `sub`; no endpoint accepts a user id from the client, and every Solr read, write and delete is filtered by it. Behind Caddy the API is served under `/api`.
+
+| Method & path | Purpose |
+|---|---|
+| `GET /health` | Public status |
+| `POST /memory` | Save a page → `{status: saved\|unchanged\|skipped, message, page}`; 422 if too little text |
+| `GET /memory/status?url=[&canonical_url=]` | `{saved, page?}` |
+| `DELETE /memory/{page_id}` | 204, or 404 if not the caller's |
+| `GET /memories?limit=20&offset=0` | `{total, pages}`, newest first |
+| `POST /search` | `{query, num_results, summarize, debug}` → `{query, results}` |
+| `POST /summarize` | `{query, id}` → `{id, summary}`; 404 if not the caller's |
+| `GET /me/export` | JSON download of all the caller's pages |
+| `DELETE /me/data` | 204; deletes all the caller's chunks |
+
 ## 8. Indexing (`POST /memory`)
 
 Body: `{ "url", "title", "content", "html"?, "canonical_url"?, "is_manual" }`.
@@ -146,25 +163,25 @@ If `GEMINI_API_KEY` is set, search asks Gemini to summarize **only** the stored 
 ## 14. CLI
 
 ```bash
-python -m backend.cli "your query" --top-k 5 --candidates 50 --debug --no-summarize
+python -m backend.cli "your query" --user-id <cognito-sub> --top-k 5 --candidates 50 --debug --no-summarize
 ```
 
 ## 15. Browser extension
 
-Load unpacked from `extension/` in `chrome://extensions` (Developer mode).
+Load unpacked from `extension/` in `chrome://extensions` (Developer mode). The extension ID is pinned to `igdbkkmpnplmboeccgigbjgoefecdhck` by the `key` in `manifest.json`.
 
-- **Remember this page** — content script extracts readable text (scripts, styles, nav noise removed); background worker posts to `/memory`.
-- **Search** — popup posts to `/search` and lists titles, domains, dates, and summaries.
-
-The API must be at `http://localhost:8000`.
+The popup is capture-only: sign in, **Remember this page**, undo, and an optional auto-capture with excluded sites. Searching opens the website. Endpoints live in `extension/config.js`. See `extension/README.md`.
 
 ## 16. Evaluation
 
-Sample queries: `evaluation/evaluation.json`.
+Evaluation runs in-process (`ingest_page` + `hybrid_search`) under the user id `eval`, in a separate core (`--core`, default `memorylane_eval`), so benchmark data never mixes with real users.
 
 ```bash
-python -m evaluation.generate_eval   # build queries from indexed pages
-python -m evaluation.evaluate        # Recall@1/3/5/10 and MRR
+CORE_NAME=memorylane_eval ./scripts/setup_solr.sh
+python -m evaluation.scifact_ingest      # index the SciFact corpus
+python -m evaluation.scifact_evaluate    # hybrid vs BM25-only vs vector-only: MRR, Recall, nDCG @10
+python -m evaluation.generate_eval       # build queries from indexed pages
+python -m evaluation.evaluate            # Recall@1/3/5/10 and MRR
 ```
 
 Metrics use the production `hybrid_search` path. Relevant URLs are compared after normalization.
@@ -177,14 +194,17 @@ pytest tests/ -v
 
 Unit tests cover URL ids, chunking edge cases, score fusion/grouping, and API contracts (including Gemini-off summaries). They do not require a live Solr instance.
 
-## 18. Docker Compose
+## 18. Deployment (Docker Compose + Caddy)
+
+`docker-compose.yml` runs Solr 9.7 (localhost only), the FastAPI backend (`backend/Dockerfile`, no published port) and Caddy (`deploy/caddy/`), which gets HTTPS certificates, serves the built frontend and proxies `/api/*` to the backend. Step-by-step instructions, including moving from the old setup without losing the old core, are in [`deploy/README.md`](deploy/README.md).
 
 ```bash
-docker compose up -d
-.\scripts\setup_solr.ps1
+cp .env.example .env              # fill in
+docker compose up -d solr
+docker compose exec solr solr create -c memorylane_v2 -d _default
+CORE_NAME=memorylane_v2 bash scripts/setup_solr.sh
+docker compose up -d --build
 ```
-
-`docker-compose.yml` runs Solr **9.7** and precreates the `memorylane` core. You still need `setup_solr` so DenseVectorField and custom fields exist.
 
 ---
 
@@ -197,4 +217,4 @@ docker compose up -d
 5. Re-index the same URL → chunk count stable, no duplicates
 6. Semantic query using different wording than the page
 7. Gemini key set → summaries present
-8. Load the extension → save and search
+8. Load the extension → sign in → save a page → find it on the website

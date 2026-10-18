@@ -96,3 +96,29 @@ def chunk_text(text: str, max_words: int = None, min_words: int = None,
             chunks[-1] = (prev_units + last_units[last_overlap:], prev_overlap)
 
     return [_join(units) for units, _ in chunks]
+
+
+def join_chunks(chunks: list[str], max_overlap_words: int = 200) -> str:
+    """Rebuild text from consecutive chunks, dropping the overlap each chunk repeats
+    from the end of the previous one."""
+    out_words: list[str] = []
+    parts: list[str] = []
+    for chunk in chunks:
+        words = chunk.split()
+        overlap = 0
+        for k in range(min(len(words), len(out_words), max_overlap_words), 0, -1):
+            if out_words[-k:] == words[:k]:
+                overlap = k
+                break
+        if overlap:
+            # Drop the repeated leading words, keeping the rest of the chunk's formatting.
+            rest = chunk
+            for word in words[:overlap]:
+                rest = rest[rest.index(word) + len(word):]
+            rest = rest.lstrip()
+        else:
+            rest = chunk
+        if rest:
+            parts.append(rest)
+        out_words.extend(words[overlap:])
+    return "\n\n".join(parts)

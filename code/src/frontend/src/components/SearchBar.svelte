@@ -1,115 +1,98 @@
-<script lang="ts">
+<script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
+  import Kbd from './Kbd.svelte';
   import { searchQuery } from '../stores';
 
-  export let sticky: boolean = false;
+  /** Key hint shown inside the input ('/' on Home, 'Esc' on Results). */
+  export let kbdHint = '/';
+  export let autofocus = false;
 
-  const dispatch = createEventDispatcher<{
-    submit: string;
-    clear: void;
-  }>();
+  const dispatch = createEventDispatcher();
 
+  let input;
   let hintVisible = false;
+  let voiceSupported = false;
   let isListening = false;
   let isStarting = false;
   let voiceError = '';
-  let recognition: any = null;
-  let speechTimeout: ReturnType<typeof setTimeout> | null = null;
+  let recognition = null;
+  let speechTimeout = null;
+
+  export function focus() {
+    input?.focus();
+    input?.select();
+  }
 
   onMount(() => {
-    const w = window as any;
-    const SpeechRecognition = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.lang = 'en-IN'; // change to 'en-US' if you prefer
+    if (autofocus) input?.focus();
 
-      recognition.onstart = () => {
-        isStarting = false;
-        isListening = true;
-        voiceError = '';
-        if (speechTimeout) clearTimeout(speechTimeout);
-      };
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    voiceSupported = true;
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = navigator.language || 'en-US';
 
-      recognition.onresult = (event: any) => {
-        let transcript = '';
-        let isFinal = false;
+    recognition.onstart = () => {
+      isStarting = false;
+      isListening = true;
+      voiceError = '';
+      if (speechTimeout) clearTimeout(speechTimeout);
+    };
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          transcript += event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            isFinal = true;
-          }
-        }
+    recognition.onresult = (event) => {
+      let transcript = '';
+      let isFinal = false;
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        transcript += event.results[i][0].transcript;
+        if (event.results[i].isFinal) isFinal = true;
+      }
+      if (transcript) searchQuery.set(transcript);
+      if (speechTimeout) clearTimeout(speechTimeout);
+      if (isFinal) speechTimeout = setTimeout(handleSubmit, 800);
+    };
 
-        if (transcript) {
-          searchQuery.set(transcript);
-        }
+    recognition.onerror = (event) => {
+      isStarting = false;
+      isListening = false;
+      switch (event.error) {
+        case 'not-allowed':
+        case 'service-not-allowed':
+          voiceError = "Microphone access is blocked. Allow it in your browser's site settings and reload the page.";
+          break;
+        case 'network':
+          voiceError = "Voice search couldn't reach the browser's speech service. Try Chrome or Edge.";
+          break;
+        case 'audio-capture':
+          voiceError = 'No microphone was found. Check your input device.';
+          break;
+        case 'no-speech':
+          voiceError = "Didn't hear anything. Please try again.";
+          break;
+        case 'aborted':
+          break;
+        default:
+          voiceError = 'Voice search failed. Please try again.';
+      }
+    };
 
-        if (speechTimeout) clearTimeout(speechTimeout);
-
-        if (isFinal) {
-          speechTimeout = setTimeout(() => {
-            handleSubmit();
-          }, 800);
-        }
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error('Speech recognition error', event.error);
-        isStarting = false;
-        isListening = false;
-
-        switch (event.error) {
-          case 'not-allowed':
-          case 'service-not-allowed':
-            voiceError =
-              "Microphone access is blocked. Allow it in your browser's site settings and reload the page.";
-            break;
-          case 'network':
-            voiceError =
-              "Voice search couldn't reach the browser's speech service. Try Chrome or Edge.";
-            break;
-          case 'audio-capture':
-            voiceError = 'No microphone was found. Check your input device.';
-            break;
-          case 'no-speech':
-            voiceError = "Didn't hear anything. Please try again.";
-            break;
-          case 'aborted':
-            // User stopped it manually, not an error
-            break;
-          default:
-            voiceError = 'Voice search failed. Please try again.';
-        }
-      };
-
-      recognition.onend = () => {
-        isStarting = false;
-        isListening = false;
-      };
-    }
+    recognition.onend = () => {
+      isStarting = false;
+      isListening = false;
+    };
   });
 
   onDestroy(() => {
     if (speechTimeout) clearTimeout(speechTimeout);
-    if (recognition) {
-      try {
-        recognition.abort();
-      } catch {
-        /* ignore */
-      }
+    try {
+      recognition?.abort();
+    } catch {
+      /* ignore */
     }
   });
 
   function toggleVoiceSearch() {
-    if (!recognition) {
-      voiceError = 'Voice search is not supported in this browser. Try Chrome, Edge or Safari.';
-      return;
-    }
-
-    // Already running or starting: stop it
     if (isListening || isStarting) {
       try {
         recognition.abort();
@@ -120,16 +103,13 @@
       isStarting = false;
       return;
     }
-
     voiceError = '';
     searchQuery.set('');
     isStarting = true;
-
     try {
       recognition.start();
-    } catch (e) {
+    } catch {
       // "recognition has already started": reset so the next click works
-      console.warn('Speech start failed', e);
       try {
         recognition.abort();
       } catch {
@@ -143,7 +123,6 @@
   function handleSubmit() {
     const trimmed = $searchQuery.trim();
     if (!trimmed) {
-      // Empty query: don't call API, show a gentle inline hint instead.
       hintVisible = true;
       return;
     }
@@ -151,217 +130,157 @@
     dispatch('submit', trimmed);
   }
 
-  function handleKeydown(event: KeyboardEvent) {
+  function handleKeydown(event) {
     if (event.key === 'Enter') {
       event.preventDefault();
       handleSubmit();
     } else if (event.key === 'Escape') {
-      handleClear();
-    }
-  }
-
-  function handleClear() {
-    hintVisible = false;
-    dispatch('clear');
-  }
-
-  function handleInput() {
-    if (hintVisible && $searchQuery.trim()) {
+      event.preventDefault();
       hintVisible = false;
+      dispatch('clear');
     }
   }
+
+  $: if (hintVisible && $searchQuery.trim()) hintVisible = false;
 </script>
 
-<div class="search-wrap" class:sticky>
-  <div class="search-row">
-    <input
-      type="text"
-      class="search-input"
-      bind:value={$searchQuery}
-      on:keydown={handleKeydown}
-      on:input={handleInput}
-      placeholder="Search your memories..."
-      aria-label="Search your memories"
-      autocomplete="off"
-      spellcheck="false"
-    />
-
-    {#if $searchQuery.length > 0}
-      <button
-        type="button"
-        class="clear-btn"
-        on:click={handleClear}
-        aria-label="Clear search"
-      >
-        Clear
-      </button>
-    {/if}
-
-    <!-- Microphone Button -->
-    <button
-      type="button"
-      class="mic-btn {isListening ? 'listening' : ''}"
-      on:click={toggleVoiceSearch}
-      aria-label="Voice Search"
-      title="Voice Search"
-    >
-      {#if isListening}
-        <!-- Recording icon -->
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="2" width="6" height="12" rx="3"></rect>
-          <path d="M5 10v2a7 7 0 0 0 14 0v-2"></path>
-          <line x1="12" y1="19" x2="12" y2="22"></line>
-        </svg>
-      {:else}
-        <!-- Default mic icon -->
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
-          <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
-          <line x1="12" y1="19" x2="12" y2="22"></line>
-        </svg>
+<form class="search" role="search" on:submit|preventDefault={handleSubmit}>
+  <div class="row">
+    <div class="field">
+      <label for="search-input" class="visually-hidden">Search your saved pages</label>
+      <input
+        bind:this={input}
+        id="search-input"
+        type="text"
+        bind:value={$searchQuery}
+        on:keydown={handleKeydown}
+        placeholder="that article about sleep and memory…"
+        autocomplete="off"
+        spellcheck="false"
+        enterkeyhint="search"
+      />
+      <span class="hint-key"><Kbd>{kbdHint}</Kbd></span>
+    </div>
+    <div class="buttons">
+      {#if voiceSupported}
+        <button
+          type="button"
+          class="mic"
+          class:listening={isListening}
+          on:click={toggleVoiceSearch}
+          aria-label={isListening ? 'Stop voice search' : 'Search by voice'}
+          aria-pressed={isListening}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="3" width="6" height="11" rx="3" />
+            <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+          </svg>
+        </button>
       {/if}
-    </button>
-
-    <button
-      type="button"
-      class="search-btn"
-      on:click={handleSubmit}
-      aria-label="Search"
-    >
-      Search
-    </button>
+      <button type="submit" class="btn btn-primary">Search</button>
+    </div>
   </div>
 
   {#if hintVisible}
-    <p class="hint" role="alert">Please enter a search query</p>
+    <p class="message" role="alert">Type what you're looking for first.</p>
   {/if}
-
+  {#if isListening}
+    <p class="message" role="status">Listening…</p>
+  {/if}
   {#if voiceError}
-    <p class="hint" role="alert">{voiceError}</p>
+    <p class="message" role="alert">{voiceError}</p>
   {/if}
-
-  {#if !sticky}
-    <p class="subtitle">Type to search across all saved webpages</p>
-  {/if}
-</div>
+</form>
 
 <style>
-  .search-wrap {
+  .search {
     width: 100%;
   }
 
-  .search-row {
+  .row {
     display: flex;
-    align-items: center;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .field {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+  }
+
+  input {
+    width: 100%;
+    height: 48px;
+    padding: 0 56px 0 16px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    font-size: 15px;
+  }
+
+  input::placeholder {
+    color: var(--text-3);
+  }
+
+  .hint-key {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  .buttons {
+    display: flex;
     gap: 8px;
   }
 
-  .search-input {
-    flex: 1;
-    height: 44px;
-    padding: 12px 16px;
-    font-size: 16px;
-    line-height: 1.5;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #ffffff;
-    background: transparent;
-    border: 1px solid #444444;
-    border-radius: 6px;
-    outline: none;
-    transition: border-color 150ms ease, background-color 150ms ease;
-  }
-
-  .sticky .search-input {
-    background: #222222;
-  }
-
-  .search-input::placeholder {
-    color: #666666;
-    opacity: 0.7;
-  }
-
-  .search-input:focus {
-    outline: 2px solid #4a9eff;
-    outline-offset: 1px;
-    border-color: #4a9eff;
-  }
-
-  .search-btn,
-  .clear-btn {
-    height: 44px;
-    padding: 0 18px;
-    font-size: 14px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background: transparent;
-    border: 1px solid #444444;
-    border-radius: 6px;
-    color: #999999;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: color 150ms ease, border-color 150ms ease;
-  }
-
-  .search-btn:hover,
-  .clear-btn:hover {
-    color: #e0e0e0;
-    border-color: #666666;
-  }
-
-  .search-btn:focus,
-  .clear-btn:focus,
-  .mic-btn:focus {
-    outline: 2px solid #4a9eff;
-    outline-offset: 1px;
-  }
-
-  .mic-btn {
+  .mic {
+    flex: none;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     background: transparent;
-    border: 1px solid #444444;
-    border-radius: 6px;
-    color: #999999;
-    cursor: pointer;
-    transition: all 150ms ease;
+    color: var(--text);
   }
 
-  .mic-btn:hover {
-    color: #e0e0e0;
-    border-color: #666666;
+  .mic:hover {
+    background: var(--surface);
   }
 
-  .mic-btn.listening {
-    color: #ff4a4a;
-    border-color: #ff4a4a;
-    background-color: rgba(255, 74, 74, 0.1);
-    animation: pulse 1.5s infinite;
+  .mic.listening {
+    border-color: var(--text-2);
+    background: var(--surface-active);
   }
 
-  @keyframes pulse {
-    0% {
-      box-shadow: 0 0 0 0 rgba(255, 74, 74, 0.4);
+  .message {
+    margin: 10px 2px 0;
+    font-size: 13px;
+    color: var(--text-2);
+  }
+
+  @media (max-width: 640px) {
+    .row {
+      flex-wrap: wrap;
     }
-    70% {
-      box-shadow: 0 0 0 6px rgba(255, 74, 74, 0);
-    }
-    100% {
-      box-shadow: 0 0 0 0 rgba(255, 74, 74, 0);
-    }
-  }
 
-  .hint {
-    margin: 8px 2px 0;
-    font-size: 12px;
-    color: #999999;
-  }
+    .field {
+      flex-basis: 100%;
+    }
 
-  .subtitle {
-    margin: 16px 0 0;
-    text-align: center;
-    font-size: 14px;
-    color: #999999;
+    .buttons {
+      flex: 1;
+      justify-content: flex-end;
+    }
+
+    .buttons .btn {
+      flex: 1;
+    }
   }
 </style>

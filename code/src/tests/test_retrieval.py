@@ -148,7 +148,7 @@ def test_hybrid_search_fuses_ranks_and_reports_timings():
     timings = {}
     with patch("backend.retrieval.get_solr_client", return_value=solr), \
          patch("backend.retrieval.embed_query", return_value=[0.1] * 384):
-        results = retrieval.hybrid_search("sleep memory", top_k=3, candidate_pool=10, timings=timings)
+        results = retrieval.hybrid_search("sleep memory", "user-a", top_k=3, candidate_pool=10, timings=timings)
     assert [r["page_id"] for r in results] == ["p2", "p1", "p3"]
     assert results[0]["bm25_rank"] == 2 and results[0]["knn_rank"] == 1
     assert results[1]["knn_rank"] is None
@@ -218,3 +218,14 @@ def test_group_by_webpage_accepts_solr_list_fields():
     grouped = group_by_webpage([doc], {doc["id"]: 0.9})
     assert grouped[0]["title"] == "Artificial Intelligence"
     assert grouped[0]["page_id"] == "page1"
+
+
+def test_hybrid_search_passes_user_to_both_searches():
+    solr = MagicMock()
+    solr.bm25_search.return_value = []
+    solr.knn_search.return_value = []
+    retrieval._cached_query_embedding.cache_clear()
+    with patch("backend.retrieval.embed_query", return_value=[0.1] * 384):
+        assert retrieval.hybrid_search("q", "user-a", solr=solr) == []
+    assert solr.bm25_search.call_args.args[1] == "user-a"
+    assert solr.knn_search.call_args.args[1] == "user-a"

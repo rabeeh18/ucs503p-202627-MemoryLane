@@ -2,7 +2,7 @@
 
 Usage (from project root):
     python -m evaluation.evaluate
-    python -m evaluation.evaluate --eval-file evaluation/evaluation.json --top-k 10
+    python -m evaluation.evaluate --eval-file evaluation/evaluation.json --top-k 10 [--core memorylane_eval]
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from backend.retrieval import hybrid_search
+from evaluation.common import add_core_args, eval_solr
 from backend.url_utils import normalize_url
 
 
@@ -34,7 +35,7 @@ def reciprocal_rank(ranked_urls: list[str], relevant: set[str]) -> float:
     return 0.0
 
 
-def evaluate(eval_path: Path, top_k: int, candidate_pool: int) -> dict:
+def evaluate(eval_path: Path, top_k: int, candidate_pool: int, solr, user_id: str) -> dict:
     payload = json.loads(eval_path.read_text(encoding="utf-8"))
     queries = payload.get("queries", [])
 
@@ -46,7 +47,7 @@ def evaluate(eval_path: Path, top_k: int, candidate_pool: int) -> dict:
     for item in queries:
         query = item["query"]
         relevant = {normalize_url(u) for u in item.get("relevant_urls", [])}
-        results = hybrid_search(query, top_k=max(top_k, 10), candidate_pool=candidate_pool)
+        results = hybrid_search(query, user_id, top_k=max(top_k, 10), candidate_pool=candidate_pool, solr=solr)
         ranked = [normalize_url(r.get("url", "")) for r in results]
 
         row = {
@@ -74,11 +75,12 @@ def main():
     parser = argparse.ArgumentParser(description="Evaluate MemoryLane hybrid retrieval")
     parser.add_argument("--eval-file", default=str(ROOT / "evaluation" / "evaluation.json"))
     parser.add_argument("--top-k", type=int, default=10)
-    parser.add_argument("--candidates", type=int, default=30)
+    parser.add_argument("--candidates", type=int, default=50)
+    add_core_args(parser)
     parser.add_argument("--out", default=str(ROOT / "evaluation" / "evaluation_report.json"))
     args = parser.parse_args()
 
-    report = evaluate(Path(args.eval_file), args.top_k, args.candidates)
+    report = evaluate(Path(args.eval_file), args.top_k, args.candidates, eval_solr(args), args.user_id)
     Path(args.out).write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     print("MemoryLane evaluation")

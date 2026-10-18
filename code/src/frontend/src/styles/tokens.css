@@ -1,0 +1,143 @@
+/* MemoryLane design tokens. Every colour in the app comes from here, so a light
+   theme can be added later by redefining these variables. */
+:root {
+  --bg: #161616;            /* page */
+  --surface: #1c1c1c;       /* inputs, cards, selected row */
+  --surface-active: #242424;/* selected segment in toggles */
+  --border-strong: #3a3a3a; /* inputs, selected row, outline buttons */
+  --border: #2e2e2e;        /* icon buttons, kbd, account button */
+  --divider: #2a2a2a;       /* section rules */
+  --divider-soft: #232323;  /* list rows, header/footer rules */
+  --text: #ededed;          /* primary text, primary button bg */
+  --text-2: #a8a8a8;        /* secondary text, links */
+  --text-3: #8c8c8c;        /* meta: domains, dates, counts */
+  --on-primary: #161616;    /* text on primary button */
+  --radius: 10px; --radius-sm: 8px; --radius-xs: 5px;
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a {
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--text);
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+:focus-visible {
+  outline: 2px solid var(--text-2);
+  outline-offset: 2px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Shared buttons. The primary button is the one bright element per screen. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 22px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  border: 0;
+  background: var(--text);
+  color: var(--on-primary);
+  font-weight: 500;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+}
+
+.btn-outline {
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text);
+}
+
+.btn-outline:hover {
+  background: var(--surface);
+}
+
+.btn-small {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  border: 1px solid var(--border);
+}
+
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.link-button:hover {
+  color: var(--text);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}

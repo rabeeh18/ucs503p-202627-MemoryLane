@@ -1,51 +1,28 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MemoryLane</title>
-    <link rel="stylesheet" href="popup.css">
+  <meta charset="utf-8">
+  <title>MemoryLane</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-    <div class="header">
-        <h1>MemoryLane</h1>
-    </div>
-    
-    <div class="tabs">
-        <button id="tab-save" class="tab active">Save</button>
-        <button id="tab-search" class="tab">Search</button>
-    </div>
-
-    <div class="tab-content">
-        <!-- Save Tab -->
-        <div id="content-save" class="content-pane active">
-            <p id="save-description">Save the current page to your browsing memory.</p>
-            <div class="mode-toggle" role="group" aria-label="Capture mode">
-                <button id="mode-manual" class="toggle-btn active" type="button">Manual</button>
-                <button id="mode-automatic" class="toggle-btn" type="button">Automatic</button>
-            </div>
-            <button id="btn-save" class="primary-btn">Remember this page</button>
-            <div id="save-status" class="status-msg"></div>
+  <div class="popup">
+    <header class="header">
+      <span class="wordmark">MemoryLane</span>
+      <div class="account" id="account" hidden>
+        <button type="button" class="account-button" id="account-button" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu"></button>
+        <div class="menu" id="account-menu" role="menu" hidden>
+          <div class="menu-email" id="menu-email" role="presentation"></div>
+          <button type="button" role="menuitem" id="sign-out">Sign out</button>
         </div>
+      </div>
+    </header>
 
-        <!-- Search Tab -->
-        <div id="content-search" class="content-pane">
-            <div class="search-box">
-                <input type="text" id="search-input" placeholder="Search your memories...">
-                <button id="btn-search" class="primary-btn">Search</button>
-            </div>
-            <div class="search-options" style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
-                <label for="sort-select" style="font-size: 0.9em; color: #555;">Sort by:</label>
-                <select id="sort-select" style="padding: 4px; border-radius: 4px; border: 1px solid #ccc;">
-                    <option value="relevance">Relevance</option>
-                    <option value="recent">Recently Visited</option>
-                </select>
-            </div>
-            <div id="search-status" class="status-msg"></div>
-            <div id="search-results" class="results-container"></div>
-        </div>
-    </div>
+    <main class="body" id="body" aria-live="polite"></main>
 
-    <script src="popup.js"></script>
+    <footer class="footer" id="footer"></footer>
+  </div>
+  <script type="module" src="popup.js"></script>
 </body>
 </html>

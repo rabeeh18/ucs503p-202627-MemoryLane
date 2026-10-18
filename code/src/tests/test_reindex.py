@@ -6,7 +6,7 @@ from scripts import reindex
 
 def _source(docs):
     source = MagicMock()
-    source.scan.return_value = iter(docs)
+    source.scan_unscoped.return_value = iter(docs)
     return source
 
 

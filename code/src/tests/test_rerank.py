@@ -21,7 +21,7 @@ def _search(rerank_enabled, scores=None, top_n=20):
          patch("backend.retrieval.RERANK_ENABLED", rerank_enabled), \
          patch("backend.retrieval.RERANK_TOP_N", top_n), \
          patch("backend.rerank.rerank_scores", side_effect=scores) as mock_scores:
-        results = retrieval.hybrid_search("query", top_k=3, candidate_pool=10, timings=timings)
+        results = retrieval.hybrid_search("query", "user-a", top_k=3, candidate_pool=10, timings=timings)
     return results, timings, mock_scores
 
 

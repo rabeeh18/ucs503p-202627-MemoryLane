@@ -1,56 +1,40 @@
-# MemoryLane
+# MemoryLane web app
 
-A semantic webpage memory search frontend, built with Svelte + Tailwind.
+Svelte 4 + Vite. Signed-out visitors see the landing page; signed-in users search their saved pages, browse the library, and export or delete their data.
 
 ## Setup
 
 ```bash
 npm install
-npm run dev
+npm run dev        # http://localhost:5173, proxies /api -> http://127.0.0.1:8000
+npm run build      # static files in dist/
+npm run check      # svelte-check
 ```
 
-The dev server proxies `/api/*` requests to `http://localhost:8000` (see `vite.config.js`) —
-point that at your backend, or change the target to match your setup.
+Configuration comes from `VITE_*` variables in the project-root `.env` (`envDir: '..'` in `vite.config.js`):
 
-## Build
-
-```bash
-npm run build
-npm run preview
-```
-
-## Backend contract
-
-- `POST /api/search`
-- Request body: `{ "query": "string" }`
-- Response body: `{ "webpages": [{ "url": "string", "title": "string", "timestamp": "ISO 8601" }] }`
-
-Adjust `src/api.js` if your backend's shape differs.
+| Variable | Example |
+|---|---|
+| `VITE_COGNITO_DOMAIN` | `https://<prefix>.auth.ap-south-1.amazoncognito.com` |
+| `VITE_COGNITO_CLIENT_ID` | the Cognito app client id |
+| `VITE_REDIRECT_URI` | `http://localhost:5173/auth/callback` locally |
+| `VITE_LOGOUT_URI` | `http://localhost:5173/` locally |
+| `VITE_API_BASE` | `/api` |
 
 ## Structure
 
 ```
 src/
-  App.svelte              main layout, state orchestration
-  api.js                  backend calls (search, with timeout + cancellation)
-  stores.ts               svelte stores (query, results, loading, error, etc.)
-  utils.js                relative-timestamp formatter
-  components/
-    SearchBar.svelte      centered → sticky search input
-    ResultList.svelte     loading / empty / error / results states
-    ResultCard.svelte     single result (title, url, relative timestamp)
-  styles/
-    global.css            Tailwind imports + base dark theme
-  main.js                 entry point
+  main.js              fonts, tokens.css, mounts App
+  App.svelte           auth gate + router (/, /library, /auth/callback, /privacy)
+  auth.js              Cognito authorization code + PKCE, token refresh, sign-out
+  api.js               fetch wrapper: Bearer token, 401 -> refresh once -> retry -> signed out
+  stores.ts            query, results, recent pages, loading and error state
+  styles/tokens.css    design tokens; no colours outside this file
+  lib/                 time.js (relative times), highlight.js (snippet emphasis), router.js
+  routes/              Landing, Home, Results, Library, Callback, Privacy
+  components/          Header, AccountMenu, SearchBar, ResultRow, PageRow, Kbd, LetterTile,
+                       EmptyState, ConfirmDialog
 ```
 
-## Notes on implementation choices
-
-- Rapid re-searches abort the previous in-flight request via `AbortController`,
-  so a stale response can never overwrite a newer one.
-- A 10s client-side timeout surfaces "Search took too long. Please try again."
-  independent of what the backend does.
-- All interactive elements (input, buttons, result links) have a visible
-  focus outline (`#4a9eff`) for keyboard users.
-- Long titles/URLs wrap rather than truncate; URLs use `word-break: break-all`
-  as a fallback for unbroken long strings.
+The app never renders HTML from the server (`{@html}` is not used anywhere).

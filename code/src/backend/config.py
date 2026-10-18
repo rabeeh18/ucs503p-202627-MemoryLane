@@ -28,8 +28,10 @@ CHUNK_OVERLAP_WORDS = int(os.getenv('CHUNK_OVERLAP_WORDS', '30'))
 
 # Ingestion
 MIN_CONTENT_WORDS = 50
-# Owner of every page until authentication exists (removed in Phase 4).
-LEGACY_USER_ID = os.getenv('LEGACY_USER_ID', 'legacy')
+# Cognito (access tokens are verified against this pool and app client)
+COGNITO_REGION = os.getenv('COGNITO_REGION', '')
+COGNITO_USER_POOL_ID = os.getenv('COGNITO_USER_POOL_ID', '')
+COGNITO_APP_CLIENT_ID = os.getenv('COGNITO_APP_CLIENT_ID', '')
 
 # Embeddings
 EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'BAAI/bge-small-en-v1.5')

@@ -10,6 +10,7 @@ from backend.embeddings import get_model
 def main():
     parser = argparse.ArgumentParser(description="MemoryLane CLI - Search your browsing memories")
     parser.add_argument("query", help="Search query")
+    parser.add_argument("--user-id", required=True, help="Whose pages to search (Cognito sub)")
     parser.add_argument("--top-k", type=int, default=5, help="Number of results (default: 5)")
     parser.add_argument("--candidates", type=int, default=None, help="Candidate pool size (default: DEFAULT_CANDIDATE_POOL)")
     parser.add_argument("--debug", action="store_true", help="Show debug scores")
@@ -28,7 +29,7 @@ def main():
     print(f"\nSearching for: \"{args.query}\"\n")
     
     try:
-        results = hybrid_search(args.query, top_k=args.top_k, candidate_pool=args.candidates)
+        results = hybrid_search(args.query, args.user_id, top_k=args.top_k, candidate_pool=args.candidates)
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
@@ -53,7 +54,7 @@ def main():
         
         if not args.no_summarize and is_gemini_available():
             solr = get_solr_client()
-            chunks = solr.get_chunks_by_page_id(result["page_id"])
+            chunks = solr.get_chunks_by_page_id(result["page_id"], args.user_id)
             if chunks:
                 full_text = "\n\n".join(c.get("text", "") for c in chunks)
                 detail_level = detect_detail_level(args.query)

@@ -7,7 +7,7 @@ from datasets import load_dataset
 from backend.url_utils import normalize_url
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA_DIR = ROOT / "evaluation" / "msmarco_data"
+DATA_DIR = ROOT / "evaluation" / "scifact_data"
 
 TARGET_QUERIES = 100
 TARGET_DOCS = 1000

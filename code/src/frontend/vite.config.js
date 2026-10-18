@@ -13,6 +13,8 @@ const backendProxy = {
 
 export default defineConfig({
   plugins: [svelte()],
+  // VITE_* variables live in the project-root .env next to the backend's settings.
+  envDir: '..',
   server: {
     port: 5173,
     proxy: backendProxy,

@@ -60,8 +60,10 @@ fi
 # Step 4: Create core if needed
 if [ "$CORE_EXISTS" = "false" ]; then
     info "Creating core '${CORE_NAME}'..."
-    RESPONSE=$(curl -sf "${SOLR_BASE}/admin/cores?action=CREATE&name=${CORE_NAME}&configSet=_default")
-    echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if 'error' not in d else 1)" || error "Failed to create core: $RESPONSE"
+    RESPONSE=$(curl -s "${SOLR_BASE}/admin/cores?action=CREATE&name=${CORE_NAME}&configSet=_default")
+    echo "$RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if 'error' not in d else 1)" 2>/dev/null || error "Failed to create core: $RESPONSE
+In the Solr Docker image, create it with the bundled CLI instead, then re-run this script:
+  docker compose exec solr solr create -c ${CORE_NAME} -d _default"
     info "Core created."
 else
     info "Core '${CORE_NAME}' already exists."

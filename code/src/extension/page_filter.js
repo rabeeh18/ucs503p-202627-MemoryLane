@@ -45,7 +45,7 @@ function hostMatches(host, domain) {
     return host === domain || host.endsWith("." + domain);
 }
 
-function isAutoCaptureEligible(url) {
+export function isAutoCaptureEligible(url) {
     if (!url || !String(url).trim()) {
         return false;
     }
@@ -127,4 +127,55 @@ function isAutoCaptureEligible(url) {
     }
 
     return true;
+}
+
+
+/** Pages the extension can save at all (manual save): http(s) documents that aren't files like PDFs. */
+export function isSaveableUrl(url) {
+    let parsed;
+    try {
+        parsed = new URL(String(url || "").trim());
+    } catch (_err) {
+        return false;
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        return false;
+    }
+    if (hostMatches(parsed.hostname, "chromewebstore.google.com") ||
+        (hostMatches(parsed.hostname, "chrome.google.com") && parsed.pathname.startsWith("/webstore"))) {
+        return false; // Chrome blocks scripts on the Web Store
+    }
+    const path = parsed.pathname.toLowerCase();
+    return !IGNORED_EXTENSIONS.some((ext) => path.endsWith(ext));
+}
+
+/**
+ * "https://www.Example.com/a?b" or "WWW.example.com" -> "example.com".
+ * Returns "" when the input isn't a usable hostname.
+ */
+export function normalizeHost(input) {
+    let value = String(input || "").trim().toLowerCase();
+    if (!value) {
+        return "";
+    }
+    if (!/^[a-z][a-z0-9+.-]*:\/\//.test(value)) {
+        value = `http://${value}`;
+    }
+    let host;
+    try {
+        host = new URL(value).hostname;
+    } catch (_err) {
+        return "";
+    }
+    host = host.replace(/^www\./, "").replace(/\.$/, "");
+    if (!host || !/^[a-z0-9.-]+$/.test(host) || !host.includes(".") || host.startsWith(".") || host.includes("..")) {
+        return "";
+    }
+    return host;
+}
+
+/** True when url's host is an excluded site or a subdomain of one. */
+export function isExcluded(url, excludedSites) {
+    const host = normalizeHost(url);
+    return Boolean(host) && (excludedSites || []).some((site) => host === site || host.endsWith(`.${site}`));
 }
