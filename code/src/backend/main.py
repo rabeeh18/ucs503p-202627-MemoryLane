@@ -1,13 +1,16 @@
 import logging
-import re
-import httpx
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from youtube_transcript_api import YouTubeTranscriptApi
+from urllib.parse import urljoin, urlparse
 
-from backend.config import SOLR_URL
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
+from backend.config import CORS_ORIGINS
 from backend.models import (
     MemoryInput, SearchInput, MemoryResponse, MemoryMetadata,
     SearchResponse, SearchResultItem, DebugSearchResultItem, HealthResponse,
@@ -19,7 +22,7 @@ from backend.embeddings import get_embedding, get_embeddings, is_model_loaded, g
 from backend.solr_client import get_solr_client
 from backend.retrieval import hybrid_search
 from backend.summarizer import summarize, detect_detail_level, is_gemini_available
-from backend.youtube_utils import is_youtube_url, extract_video_id, get_youtube_transcript, is_youtube_short
+from backend.youtube_utils import is_youtube_url, process_youtube_video
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -43,10 +46,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS for browser extension
+# Keyed by client IP until authentication exists.
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+
+
+@app.exception_handler(RateLimitExceeded)
+def rate_limit_exceeded(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"detail": f"Rate limit exceeded ({exc.detail}). Try again in a moment."},
+    )
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,19 +69,19 @@ app.add_middleware(
 
 
 @app.get("/health", response_model=HealthResponse)
-async def health_check():
+def health_check():
     """Health check endpoint."""
     solr_ok = False
     try:
         solr_ok = get_solr_client().ping()
     except Exception:
         pass
-    
+
     embedding_ok = is_model_loaded()
     gemini_ok = is_gemini_available()
-    
+
     status = "ok" if solr_ok and embedding_ok else "degraded"
-    
+
     return HealthResponse(
         status=status,
         solr=solr_ok,
@@ -74,94 +89,37 @@ async def health_check():
         gemini=gemini_ok
     )
 
-def _process_youtube_video(url: str, is_manual: bool):
-    """
-    Returns (content, title, error_message).
-    If error_message is set, processing should be skipped/aborted.
-    """
-    from urllib.parse import urlparse, parse_qs
-    parsed = urlparse(url)
-    video_id = None
-    if "youtube.com" in parsed.netloc:
-        qs = parse_qs(parsed.query)
-        video_id = qs.get("v", [None])[0]
-    elif "youtu.be" in parsed.netloc:
-        video_id = parsed.path.strip("/")
-        
-    if not video_id:
-        return None, None, "Invalid YouTube URL"
-        
-    try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
-        transcript_text = " ".join([t['text'] for t in transcript])
-    except Exception as e:
-        return None, None, f"Could not fetch transcript: {e}"
-        
-    duration = None
-    title = "YouTube Video"
-    channel = "Unknown"
-    
-    try:
-        html = httpx.get(url, timeout=10.0).text
-        match_len = re.search(r'"lengthSeconds":"(\d+)"', html)
-        if match_len:
-            duration = int(match_len.group(1))
-    except Exception:
-        pass
-        
-    try:
-        oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
-        oembed_data = httpx.get(oembed_url, timeout=5.0).json()
-        title = oembed_data.get("title", title)
-        channel = oembed_data.get("author_name", channel)
-    except Exception:
-        pass
-        
-    if duration is None:
-        if not is_manual:
-            return None, None, "Skipped: Could not reliably determine video duration"
-    elif duration > 7200:
-        if not is_manual:
-            return None, None, "Skipped: YouTube video is over 2 hours long"
-            
-    dur_str = f"{duration} seconds" if duration is not None else "Unknown"
-    formatted_content = f"Title: {title}\nChannel: {channel}\nDuration: {dur_str}\nSource: YouTube\n\n{transcript_text}"
-    return formatted_content, title, None
-
 
 @app.post("/memory", response_model=MemoryResponse)
-async def save_memory(memory: MemoryInput):
+@limiter.limit("60/minute")
+def save_memory(request: Request, memory: MemoryInput):
     """Save a webpage to memory."""
     logger.info(f"Memory received: {memory.url}")
-    
+
     # Validate URL early
     if not memory.url or not memory.url.strip():
         raise HTTPException(status_code=400, detail="URL is required")
-        
-    from urllib.parse import urlparse
-    parsed_url = urlparse(memory.url)
-    domain = parsed_url.netloc
-    
-    is_youtube = "youtube.com" in domain or "youtu.be" in domain
-    if is_youtube:
-        yt_content, yt_title, yt_err = _process_youtube_video(memory.url, memory.is_manual)
-        if yt_err:
+
+    domain = urlparse(memory.url).netloc
+
+    if is_youtube_url(memory.url):
+        yt_content, yt_title, yt_skip = process_youtube_video(memory.url, memory.is_manual)
+        if yt_skip:
             return MemoryResponse(
                 success=True,
-                message=yt_err,
+                message=yt_skip,
                 metadata=MemoryMetadata(url=memory.url, title=memory.title or domain, id="", chunks=0, timestamp="")
             )
         memory.content = yt_content
         memory.title = yt_title
-    
+
     if not memory.title or not memory.title.strip() or memory.title.strip().lower() in ("untitled", "untitled document"):
         memory.title = domain
-        
+
     try:
         # Resolve canonical URL
         base_url = memory.url
         if memory.canonical_url and memory.canonical_url.strip():
-            from urllib.parse import urljoin, urlparse
             try:
                 resolved = urljoin(memory.url, memory.canonical_url.strip())
                 parsed = urlparse(resolved)
@@ -169,7 +127,7 @@ async def save_memory(memory: MemoryInput):
                     base_url = resolved
             except Exception:
                 pass
-                
+
         # Normalize URL
         normalized_url = normalize_url(base_url)
         webpage_id = generate_webpage_id(normalized_url)
@@ -192,42 +150,22 @@ async def save_memory(memory: MemoryInput):
                 ),
             )
 
-        # YouTube transcript extraction
-        if is_youtube_url(normalized_url):
-            if is_youtube_short(normalized_url):
-                logger.info(f"Skipping YouTube Short: {normalized_url}")
-                raise HTTPException(status_code=400, detail="YouTube Shorts are intentionally skipped.")
-                
-            video_id = extract_video_id(normalized_url)
-            if video_id:
-                logger.info(f"Detected YouTube URL with video ID: {video_id}. Attempting to fetch transcript.")
-                transcript = get_youtube_transcript(video_id)
-                if transcript:
-                    memory.content = transcript
-                    logger.info("Successfully replaced webpage content with YouTube transcript.")
-                else:
-                    logger.warning("Failed to fetch YouTube transcript, falling back to original content.")
-
         if not memory.content or len(memory.content.strip()) < 50:
             raise HTTPException(status_code=400, detail="Content is required and must be at least 50 characters")
 
         # Parse domain from normalized url for storage
         domain = urlparse(normalized_url).netloc
-        
+
         # Chunk content
         logger.info("Chunking webpage content")
         chunks = chunk_text(memory.content)
         logger.info(f"Generated {len(chunks)} chunks")
-        
+
         # Generate embeddings
         logger.info("Generating embeddings")
         embeddings = get_embeddings(chunks)
         logger.info(f"Generated {len(embeddings)} embeddings")
-        
-        # Delete old chunks
-        logger.info(f"Deleting old chunks for webpage_id: {webpage_id}")
-        solr.delete_by_query(f'webpage_id:"{webpage_id}"')
-        
+
         # Build Solr documents
         timestamp = datetime.now(timezone.utc).isoformat()
         docs = []
@@ -245,12 +183,12 @@ async def save_memory(memory: MemoryInput):
                 "embedding": embedding,
             }
             docs.append(doc)
-        
-        # Index
-        logger.info(f"Indexing {len(docs)} documents")
-        solr.add_documents(docs)
+
+        # Overwrite chunks in place, then drop any stale higher-numbered ones
+        logger.info(f"Upserting {len(docs)} documents")
+        solr.upsert_page_chunks(webpage_id, docs)
         logger.info("Webpage indexed successfully")
-        
+
         return MemoryResponse(
             success=True,
             message="Memory stored successfully",
@@ -283,7 +221,8 @@ def _summary_for_webpage(query: str, webpage_id: str) -> str | None:
 
 
 @app.post("/summarize", response_model=SummarizeResponse)
-async def summarize_memory(body: SummarizeInput):
+@limiter.limit("20/minute")
+def summarize_memory(request: Request, body: SummarizeInput):
     """On-demand summary for a single indexed webpage. Does not run search."""
     if not body.query or not body.query.strip():
         raise HTTPException(status_code=400, detail="Query is required")
@@ -307,7 +246,8 @@ async def summarize_memory(body: SummarizeInput):
 
 
 @app.post("/search", response_model=SearchResponse)
-async def search_memory(search: SearchInput):
+@limiter.limit("60/minute")
+def search_memory(request: Request, search: SearchInput):
     """Search saved memories."""
     logger.info(f"Search started: {search.query}")
     

@@ -29,5 +29,10 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
 GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-3.6-flash')
 
 # API
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv('CORS_ORIGINS', 'http://localhost:5173').split(',')
+    if origin.strip()
+]
 API_HOST = os.getenv('API_HOST', '0.0.0.0')
 API_PORT = int(os.getenv('API_PORT', '8000'))

@@ -146,7 +146,8 @@ def test_hybrid_search_fuses_ranks_and_reports_timings():
     ]
     retrieval._cached_query_embedding.cache_clear()
     timings = {}
-    with patch("backend.retrieval.get_solr_client", return_value=solr),          patch("backend.retrieval.get_embedding", return_value=[0.1] * 384):
+    with patch("backend.retrieval.get_solr_client", return_value=solr), \
+         patch("backend.retrieval.get_embedding", return_value=[0.1] * 384):
         results = retrieval.hybrid_search("sleep memory", top_k=3, candidate_pool=10, timings=timings)
     assert [r["webpage_id"] for r in results] == ["p2", "p1", "p3"]
     assert results[0]["bm25_rank"] == 2 and results[0]["knn_rank"] == 1

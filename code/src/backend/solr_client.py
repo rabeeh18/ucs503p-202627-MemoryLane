@@ -27,6 +27,7 @@ def normalize_solr_doc(doc: dict) -> dict:
 
 
 MAX_QUERY_CHARS = 500
+COMMIT_WITHIN_MS = 1000
 _CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
@@ -34,6 +35,10 @@ def sanitize_query(query: str) -> str:
     """Replace control characters with spaces and cap the query length."""
     cleaned = _CONTROL_CHARS.sub(" ", query or "").strip()
     return cleaned[:MAX_QUERY_CHARS]
+
+
+def _escape_phrase(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
 class SolrClient:
@@ -49,26 +54,21 @@ class SolrClient:
         except Exception:
             return False
     
-    def add_documents(self, docs: list[dict]) -> dict:
-        """Index documents into Solr."""
-        url = f"{self.base_url}/update?commit=true"
-        response = self.client.post(url, json=docs, headers={"Content-Type": "application/json"})
+    def upsert_page_chunks(self, page_id: str, docs: list[dict]) -> None:
+        """Replace a page's chunks without a window where the page has none.
+
+        Chunk ids are deterministic, so adding overwrites existing chunks in place.
+        Any stale chunks beyond the new count are then deleted. Both requests use
+        commitWithin instead of an explicit commit.
+        """
+        headers = {"Content-Type": "application/json"}
+        url = f"{self.base_url}/update?commitWithin={COMMIT_WITHIN_MS}"
+        response = self.client.post(url, json=docs, headers=headers)
         response.raise_for_status()
-        return response.json()
-    
-    def delete_by_query(self, query: str) -> dict:
-        """Delete documents matching query."""
-        url = f"{self.base_url}/update?commit=true"
-        response = self.client.post(url, json={"delete": {"query": query}}, headers={"Content-Type": "application/json"})
+
+        stale = f'webpage_id:"{_escape_phrase(page_id)}" AND chunk_id:[{len(docs)} TO *]'
+        response = self.client.post(url, json={"delete": {"query": stale}}, headers=headers)
         response.raise_for_status()
-        return response.json()
-    
-    def commit(self) -> dict:
-        """Explicit commit."""
-        url = f"{self.base_url}/update?commit=true"
-        response = self.client.post(url, json={}, headers={"Content-Type": "application/json"})
-        response.raise_for_status()
-        return response.json()
     
     def bm25_search(self, query: str, rows: int = 30) -> list[dict]:
         """Standard BM25 search on text and title fields.

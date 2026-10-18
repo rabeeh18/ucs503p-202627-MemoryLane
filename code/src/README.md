@@ -81,7 +81,7 @@ Start Solr 9.x (local install or Docker). Then install the `memorylane` core and
 
 The script is idempotent: it checks Solr is up, requires version 9+, creates the core if missing, applies the schema via the Schema API, reloads, then verifies ping, indexing, BM25, and KNN. Paths are resolved from the script location.
 
-Canonical field definitions live in `solr/schema.xml` (`id`, `webpage_id`, `url`, `domain`, `title`, `text`, `chunk_id`, `total_chunks`, `timestamp` as string, `embedding` cosine 384-d). `text_general` uses BM25 similarity.
+`scripts/setup_solr.sh` is the single source of truth for the schema (`scripts/setup_solr.ps1` mirrors it). It applies these fields on top of Solr's `_default` configset (`id`, `webpage_id`, `url`, `domain`, `title`, `text`, `chunk_id`, `total_chunks`, `timestamp` as string, `embedding` cosine 384-d). `text_general` uses BM25 similarity.
 
 ## 7. Running the API
 
