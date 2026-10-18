@@ -12,9 +12,10 @@ import logging
 import sys
 from urllib.parse import urlparse
 
+from backend.chunking import join_chunks
 from backend.config import SOLR_URL
 from backend.ingest import IngestError, ingest_page
-from backend.solr_client import SolrClient
+from backend.solr_client import SolrClient, is_valid_user_id
 
 logger = logging.getLogger("reindex")
 
@@ -34,7 +35,7 @@ def solr_base_from_url(solr_url: str) -> str:
 def read_pages(source: SolrClient) -> list[dict]:
     """Group every chunk in the source core into pages, chunks sorted by chunk_id."""
     pages: dict[str, dict] = {}
-    for doc in source.scan(SOURCE_FIELDS):
+    for doc in source.scan_unscoped(SOURCE_FIELDS):
         key = doc.get("webpage_id") or doc.get("page_id") or doc.get("url")
         if not key:
             continue
@@ -47,7 +48,7 @@ def read_pages(source: SolrClient) -> list[dict]:
         page["chunks"].append((int(doc.get("chunk_id") or 0), doc.get("text") or ""))
     for page in pages.values():
         page["chunks"].sort(key=lambda c: c[0])
-        page["text"] = "\n\n".join(text for _, text in page["chunks"])
+        page["text"] = join_chunks([text for _, text in page["chunks"]])
     return list(pages.values())
 
 
@@ -98,6 +99,9 @@ def main(argv=None):
 
     if args.source_core == args.target_core:
         parser.error("--source-core and --target-core must differ")
+    for value in (args.user_id, args.delete_user):
+        if value is not None and not is_valid_user_id(value):
+            parser.error(f"invalid user id: {value!r} (letters, digits and '-' only)")
 
     logging.basicConfig(level=logging.WARNING)
     base = args.solr_base.rstrip("/")

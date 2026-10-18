@@ -8,7 +8,7 @@ from backend.chunking import chunk_text
 from backend.cleaning import clean_content, word_count
 from backend.config import EMBEDDING_MODEL, MIN_CONTENT_WORDS
 from backend.embeddings import embed_passages
-from backend.solr_client import SolrClient, get_solr_client
+from backend.solr_client import SolrClient, get_solr_client, is_valid_user_id
 from backend.url_utils import normalize_url, generate_page_id
 from backend.youtube_utils import is_youtube_url, process_youtube_video
 
@@ -78,6 +78,8 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
     save time, and `fetch_youtube=False` uses `text` as-is for YouTube URLs.
     Raises IngestError for pages that can't be stored.
     """
+    if not is_valid_user_id(user_id):
+        raise ValueError("ingest_page needs a valid user_id")
     if not url or not url.strip():
         raise IngestError(400, "URL is required")
     solr = solr or get_solr_client()
@@ -110,7 +112,7 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
 
     # 4. Unchanged content (and same embedding model) needs no work
     content_hash = hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
-    existing = solr.get_page_head(page_id)
+    existing = solr.get_page_head(page_id, user_id)
     if existing and existing.get("content_hash") == content_hash \
             and existing.get("embedding_model") == EMBEDDING_MODEL:
         logger.info(f"Unchanged page: {normalized_url}")
@@ -149,7 +151,7 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
     ]
 
     # 6. Overwrite in place, then drop stale chunks
-    solr.upsert_page_chunks(page_id, docs)
+    solr.upsert_page_chunks(page_id, docs, user_id)
     logger.info(f"Indexed {len(docs)} chunks for {normalized_url}")
     return IngestResult(
         "saved", "Memory stored successfully", page_id, normalized_url,

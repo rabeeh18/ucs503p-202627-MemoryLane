@@ -10,7 +10,7 @@ from backend.config import (
 )
 from backend.embeddings import embed_query
 from backend import rerank
-from backend.solr_client import get_solr_client, unwrap_solr_value
+from backend.solr_client import SolrClient, get_solr_client, unwrap_solr_value
 
 logger = logging.getLogger(__name__)
 
@@ -150,17 +150,17 @@ def _cached_query_embedding(query: str) -> tuple[float, ...]:
     return tuple(embed_query(query))
 
 
-def _timed_bm25(solr, query: str, rows: int):
+def _timed_bm25(solr, query: str, user_id: str, rows: int):
     start = time.perf_counter()
-    docs = solr.bm25_search(query, rows=rows)
+    docs = solr.bm25_search(query, user_id, rows=rows)
     return docs, (time.perf_counter() - start) * 1000
 
 
-def _timed_knn(solr, query: str, k: int):
+def _timed_knn(solr, query: str, user_id: str, k: int):
     start = time.perf_counter()
     vector = list(_cached_query_embedding(query))
     embedded = time.perf_counter()
-    docs = solr.knn_search(vector, k=k)
+    docs = solr.knn_search(vector, user_id, k=k)
     done = time.perf_counter()
     return docs, (embedded - start) * 1000, (done - embedded) * 1000
 
@@ -188,8 +188,8 @@ def _rerank(query: str, candidates_map: dict, fused: dict[str, float],
     return reranked + [page for page in grouped if page["page_id"] not in seen]
 
 
-def hybrid_search(query: str, top_k: int = None, candidate_pool: int = None,
-                  timings: dict | None = None) -> list[dict]:
+def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: int = None,
+                  timings: dict | None = None, solr: SolrClient | None = None) -> list[dict]:
     """Full hybrid search pipeline.
 
     Steps:
@@ -199,17 +199,18 @@ def hybrid_search(query: str, top_k: int = None, candidate_pool: int = None,
     4. Optionally rerank the top chunks with a cross-encoder (RERANK_ENABLED)
     5. Return top-K with snippets
 
-    If `timings` is given, it is filled with per-stage durations in ms.
+    Only `user_id`'s chunks are searched. If `timings` is given, it is filled
+    with per-stage durations in ms. `solr` targets a specific core.
     Returns list of webpage-level results.
     """
     top_k = top_k or DEFAULT_TOP_K
     candidate_pool = candidate_pool or DEFAULT_CANDIDATE_POOL
     total_start = time.perf_counter()
 
-    solr = get_solr_client()
+    solr = solr or get_solr_client()
 
-    bm25_future = _executor.submit(_timed_bm25, solr, query, candidate_pool)
-    knn_future = _executor.submit(_timed_knn, solr, query, candidate_pool)
+    bm25_future = _executor.submit(_timed_bm25, solr, query, user_id, candidate_pool)
+    knn_future = _executor.submit(_timed_knn, solr, query, user_id, candidate_pool)
     bm25_docs, bm25_ms = bm25_future.result()
     knn_docs, embed_ms, knn_ms = knn_future.result()
     logger.info(f"BM25 returned {len(bm25_docs)} candidates, KNN returned {len(knn_docs)}")

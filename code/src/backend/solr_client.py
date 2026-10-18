@@ -43,6 +43,20 @@ def sanitize_query(query: str) -> str:
     return cleaned[:MAX_QUERY_CHARS]
 
 
+_USER_ID_RE = re.compile(r"^[A-Za-z0-9-]{1,64}$")
+
+
+def is_valid_user_id(user_id: str) -> bool:
+    return isinstance(user_id, str) and bool(_USER_ID_RE.match(user_id))
+
+
+def _require_user(user_id: str) -> str:
+    """Every scoped call must carry a well-formed user id."""
+    if not is_valid_user_id(user_id):
+        raise ValueError("A valid user_id is required for this Solr operation")
+    return user_id
+
+
 def _escape_phrase(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
@@ -52,7 +66,16 @@ def term_query(field: str, value: str) -> str:
     return "{!term f=" + field + "}" + value
 
 
+def user_filter(user_id: str) -> str:
+    """The filter every scoped read, write and delete carries."""
+    return term_query("user_id", _require_user(user_id))
+
+
 class SolrClient:
+    """Solr access. Every method that touches chunks takes `user_id` and adds the
+    `{!term f=user_id}<user_id>` filter; `scan_unscoped` exists only for re-indexing
+    an old core that predates user ids."""
+
     def __init__(self, base_url: str = None):
         self.base_url = base_url or SOLR_URL
         self.client = httpx.Client(timeout=30.0)
@@ -78,23 +101,41 @@ class SolrClient:
         )
         response.raise_for_status()
 
-    def upsert_page_chunks(self, page_id: str, docs: list[dict]) -> None:
+    @staticmethod
+    def _owned_delete_query(user_id: str, clause: str) -> str:
+        return f'user_id:"{_escape_phrase(_require_user(user_id))}" AND {clause}'
+
+    # ---- writes -------------------------------------------------------------
+
+    def upsert_page_chunks(self, page_id: str, docs: list[dict], user_id: str) -> None:
         """Replace a page's chunks without a window where the page has none.
 
         Chunk ids are deterministic, so adding overwrites existing chunks in place.
         Any stale chunks beyond the new count are then deleted. Both requests use
         commitWithin instead of an explicit commit.
         """
+        _require_user(user_id)
+        if any(doc.get("user_id") != user_id or doc.get("page_id") != page_id for doc in docs):
+            raise ValueError("Every chunk must belong to the given user and page")
         self._update(docs)
-        stale = f'page_id:"{_escape_phrase(page_id)}" AND chunk_id:[{len(docs)} TO *]'
+        stale = self._owned_delete_query(
+            user_id, f'page_id:"{_escape_phrase(page_id)}" AND chunk_id:[{len(docs)} TO *]'
+        )
         self._update({"delete": {"query": stale}})
+
+    def delete_page(self, page_id: str, user_id: str) -> None:
+        """Delete every chunk of one of the user's pages."""
+        query = self._owned_delete_query(user_id, f'page_id:"{_escape_phrase(page_id)}"')
+        self._update({"delete": {"query": query}})
 
     def delete_user(self, user_id: str) -> None:
         """Delete every chunk owned by user_id."""
-        self._update({"delete": {"query": term_query("user_id", user_id)}})
+        self._update({"delete": {"query": user_filter(user_id)}})
 
-    def bm25_search(self, query: str, rows: int = 30) -> list[dict]:
-        """Standard BM25 search on text and title fields.
+    # ---- reads --------------------------------------------------------------
+
+    def bm25_search(self, query: str, user_id: str, rows: int = 30) -> list[dict]:
+        """BM25 search on text and title fields, within one user's chunks.
         Returns list of chunk docs (CHUNK_FIELDS) with score.
         """
         data = self._select({
@@ -103,20 +144,24 @@ class SolrClient:
             "qf": "title^2 text",
             "pf": "text^2 title^3",
             "uf": "-*",
+            "fq": user_filter(user_id),
             "fl": CHUNK_FIELDS + ",score",
             "rows": rows,
         })
         docs = data.get("response", {}).get("docs", [])
         return [normalize_solr_doc(doc) for doc in docs]
 
-    def knn_search(self, vector: list[float], k: int = 30) -> list[dict]:
-        """Dense vector KNN search.
-        Returns list of chunk docs (CHUNK_FIELDS) with score.
+    def knn_search(self, vector: list[float], user_id: str, k: int = 30) -> list[dict]:
+        """Dense vector KNN search within one user's chunks.
+
+        The user filter goes in `filter`; with knn as the main query Solr applies it
+        as a pre-filter, so the user gets up to k of their own chunks.
         """
         url = f"{self.base_url}/select"
         vector_str = "[" + ",".join(str(v) for v in vector) + "]"
         payload = {
             "query": f"{{!knn f=embedding topK={k}}}{vector_str}",
+            "filter": [user_filter(user_id)],
             "fields": CHUNK_FIELDS + ",score",
             "limit": k
         }
@@ -126,38 +171,54 @@ class SolrClient:
         docs = data.get("response", {}).get("docs", [])
         return [normalize_solr_doc(doc) for doc in docs]
 
-    def get_page_head(self, page_id: str) -> dict | None:
-        """First chunk (chunk_id 0) of a page, which carries the page's metadata."""
+    def get_page_head(self, page_id: str, user_id: str) -> dict | None:
+        """First chunk (chunk_id 0) of one of the user's pages, which carries the page's metadata."""
         data = self._select({
             "q": term_query("page_id", page_id),
-            "fq": "chunk_id:0",
+            "fq": [user_filter(user_id), "chunk_id:0"],
             "fl": CHUNK_FIELDS,
             "rows": 1,
         })
         docs = data.get("response", {}).get("docs", [])
         return normalize_solr_doc(docs[0]) if docs else None
 
-    def get_chunks_by_page_id(self, page_id: str) -> list[dict]:
-        """Fetch all chunks for a given page_id, in order."""
+    def get_chunks_by_page_id(self, page_id: str, user_id: str) -> list[dict]:
+        """Fetch all chunks for one of the user's pages, in order."""
         data = self._select({
             "q": term_query("page_id", page_id),
+            "fq": user_filter(user_id),
             "fl": CHUNK_FIELDS,
             "rows": 1000,
             "sort": "chunk_id asc",
         })
         return [normalize_solr_doc(doc) for doc in data.get("response", {}).get("docs", [])]
 
-    def scan(self, fields: str, query: str = "*:*", rows: int = 500):
-        """Yield every matching document, paging with cursorMark (sorted by id)."""
+    def list_pages(self, user_id: str, limit: int = 20, offset: int = 0) -> tuple[int, list[dict]]:
+        """The user's pages (one doc per page, chunk 0), newest first: (total, docs)."""
+        data = self._select({
+            "q": "*:*",
+            "fq": [user_filter(user_id), "chunk_id:0"],
+            "fl": CHUNK_FIELDS,
+            "sort": "timestamp desc, id asc",
+            "start": offset,
+            "rows": limit,
+        })
+        response = data.get("response", {})
+        return response.get("numFound", 0), [normalize_solr_doc(d) for d in response.get("docs", [])]
+
+    def _scan(self, fields: str, query: str, filters: list[str], rows: int):
         cursor = "*"
         while True:
-            data = self._select({
+            params = {
                 "q": query,
                 "fl": fields,
                 "rows": rows,
                 "sort": "id asc",
                 "cursorMark": cursor,
-            })
+            }
+            if filters:
+                params["fq"] = filters
+            data = self._select(params)
             for doc in data.get("response", {}).get("docs", []):
                 yield normalize_solr_doc(doc)
             next_cursor = data.get("nextCursorMark")
@@ -165,10 +226,14 @@ class SolrClient:
                 return
             cursor = next_cursor
 
-    def get_document_count(self) -> int:
-        """Get total document count."""
-        data = self._select({"q": "*:*", "rows": 0})
-        return data.get("response", {}).get("numFound", 0)
+    def scan(self, fields: str, user_id: str, rows: int = 500):
+        """Yield every chunk the user owns, paging with cursorMark (sorted by id)."""
+        return self._scan(fields, "*:*", [user_filter(user_id)], rows)
+
+    def scan_unscoped(self, fields: str, rows: int = 500):
+        """Yield every document in the core. Only for re-indexing an old core
+        (which has no user ids); never call this from the API."""
+        return self._scan(fields, "*:*", [], rows)
 
 
 # Module-level singleton

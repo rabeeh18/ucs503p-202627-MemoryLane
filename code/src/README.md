@@ -63,7 +63,7 @@ Copy `.env.example` to `.env`. Variables:
 | `EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | SentenceTransformer name (`all-MiniLM-L6-v2` also works) |
 | `EMBEDDING_DIM` | `384` | Must match Solr `DenseVectorField` |
 | `EMBEDDING_QUERY_PREFIX` | BGE instruction for BGE models, else empty | Prepended to queries only |
-| `LEGACY_USER_ID` | `legacy` | Owner of saved pages until sign-in exists |
+| `COGNITO_REGION` / `COGNITO_USER_POOL_ID` / `COGNITO_APP_CLIENT_ID` | required | Cognito pool whose access tokens the API accepts; the API refuses to start without them |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
 | `GEMINI_API_KEY` | empty | Leave empty to disable summaries |
 | `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model id |
@@ -111,6 +111,22 @@ curl http://localhost:8000/health
 
 Returns Solr, embedding-model, and Gemini status. Overall `status` is `ok` when Solr and the embedding model are ready; Gemini is optional.
 
+### Authentication and API
+
+Every endpoint except `/health` needs `Authorization: Bearer <Cognito access token>`. The API verifies the RS256 signature against the pool's JWKS, plus `exp`, `iss`, `token_use == "access"` and `client_id`. The user id is the token's `sub`; no endpoint accepts a user id from the client, and every Solr read, write and delete is filtered by it. Behind Caddy the API is served under `/api`.
+
+| Method & path | Purpose |
+|---|---|
+| `GET /health` | Public status |
+| `POST /memory` | Save a page → `{status: saved\|unchanged\|skipped, message, page}`; 422 if too little text |
+| `GET /memory/status?url=[&canonical_url=]` | `{saved, page?}` |
+| `DELETE /memory/{page_id}` | 204, or 404 if not the caller's |
+| `GET /memories?limit=20&offset=0` | `{total, pages}`, newest first |
+| `POST /search` | `{query, num_results, summarize, debug}` → `{query, results}` |
+| `POST /summarize` | `{query, id}` → `{id, summary}`; 404 if not the caller's |
+| `GET /me/export` | JSON download of all the caller's pages |
+| `DELETE /me/data` | 204; deletes all the caller's chunks |
+
 ## 8. Indexing (`POST /memory`)
 
 Body: `{ "url", "title", "content", "html"?, "canonical_url"?, "is_manual" }`.
@@ -146,7 +162,7 @@ If `GEMINI_API_KEY` is set, search asks Gemini to summarize **only** the stored 
 ## 14. CLI
 
 ```bash
-python -m backend.cli "your query" --top-k 5 --candidates 50 --debug --no-summarize
+python -m backend.cli "your query" --user-id <cognito-sub> --top-k 5 --candidates 50 --debug --no-summarize
 ```
 
 ## 15. Browser extension
@@ -160,11 +176,14 @@ The API must be at `http://localhost:8000`.
 
 ## 16. Evaluation
 
-Sample queries: `evaluation/evaluation.json`.
+Evaluation runs in-process (`ingest_page` + `hybrid_search`) under the user id `eval`, in a separate core (`--core`, default `memorylane_eval`), so benchmark data never mixes with real users.
 
 ```bash
-python -m evaluation.generate_eval   # build queries from indexed pages
-python -m evaluation.evaluate        # Recall@1/3/5/10 and MRR
+CORE_NAME=memorylane_eval ./scripts/setup_solr.sh
+python -m evaluation.scifact_ingest      # index the SciFact corpus
+python -m evaluation.scifact_evaluate    # hybrid vs BM25-only vs vector-only: MRR, Recall, nDCG @10
+python -m evaluation.generate_eval       # build queries from indexed pages
+python -m evaluation.evaluate            # Recall@1/3/5/10 and MRR
 ```
 
 Metrics use the production `hybrid_search` path. Relevant URLs are compared after normalization.

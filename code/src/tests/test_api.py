@@ -1,17 +1,48 @@
+import hashlib
 from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.auth import current_user_id
 from backend.main import app, limiter
+from backend.url_utils import generate_page_id
+
+USER = "user-test"
+LONG_TEXT = "hello world " * 40
+PAGE_ID = "0123456789abcdef0123456789abcdef"
+
+
+@pytest.fixture
+def solr():
+    mock = MagicMock()
+    mock.get_page_head.return_value = None
+    with patch("backend.main.get_solr_client", return_value=mock), \
+         patch("backend.ingest.get_solr_client", return_value=mock):
+        yield mock
 
 
 @pytest.fixture
 def client():
     limiter.reset()
+    app.dependency_overrides[current_user_id] = lambda: USER
     with patch("backend.main.get_model"):
         with TestClient(app) as test_client:
             yield test_client
+    app.dependency_overrides.clear()
+
+
+def _fake_embed(texts):
+    return [[0.1] * 384 for _ in texts]
+
+
+def _head(**extra):
+    doc = {
+        "page_id": PAGE_ID, "url": "https://example.com/guide", "title": "Guide",
+        "domain": "example.com", "timestamp": "2024-01-01T00:00:00Z", "total_chunks": 2,
+    }
+    doc.update(extra)
+    return doc
 
 
 def test_health_contract(client):
@@ -28,77 +59,85 @@ def test_health_contract(client):
     assert data["gemini"] is False
 
 
-LONG_TEXT = "hello world " * 40
+def test_health_is_public(client):
+    app.dependency_overrides.clear()
+    with patch("backend.main.get_solr_client"):
+        assert client.get("/health").status_code == 200
 
 
-def _ingest_solr(head=None):
-    solr = MagicMock()
-    solr.get_page_head.return_value = head
-    return solr
+@pytest.mark.parametrize("method,path,body", [
+    ("post", "/memory", {"url": "https://e.com", "title": "t", "content": "c"}),
+    ("get", "/memory/status?url=https://e.com", None),
+    ("delete", f"/memory/{PAGE_ID}", None),
+    ("get", "/memories", None),
+    ("post", "/search", {"query": "q"}),
+    ("post", "/summarize", {"query": "q", "id": PAGE_ID}),
+    ("get", "/me/export", None),
+    ("delete", "/me/data", None),
+])
+def test_every_endpoint_but_health_requires_a_token(client, solr, method, path, body):
+    app.dependency_overrides.clear()
+    kwargs = {"json": body} if body is not None else {}
+    response = getattr(client, method)(path, **kwargs)
+    assert response.status_code == 401
+    assert response.headers["www-authenticate"] == "Bearer"
+    solr.assert_not_called()
+    assert not solr.method_calls
 
 
-def _fake_embed(texts):
-    return [[0.1] * 384 for _ in texts]
+# ---- POST /memory -----------------------------------------------------------
 
-
-def test_memory_requires_fields(client):
-    # Missing URL
+def test_memory_requires_fields(client, solr):
     response = client.post("/memory", json={"url": "", "title": "t", "content": "c" * 250})
     assert response.status_code == 400
 
-    # Too little readable text
-    with patch("backend.ingest.get_solr_client", return_value=_ingest_solr()):
-        response = client.post("/memory", json={"url": "https://ex.com", "title": "t", "content": "too short"})
+    response = client.post("/memory", json={"url": "https://ex.com", "title": "t", "content": "too short"})
     assert response.status_code == 422
     assert response.json()["detail"] == "Not enough readable text on this page"
 
-    # Empty title should fallback to domain
-    with patch("backend.ingest.get_solr_client", return_value=_ingest_solr()), \
-         patch("backend.ingest.embed_passages", side_effect=_fake_embed):
+    with patch("backend.ingest.embed_passages", side_effect=_fake_embed):
         response = client.post("/memory", json={"url": "https://ex.com/page", "title": "", "content": LONG_TEXT})
-        assert response.status_code == 200
-        assert response.json()["metadata"]["title"] == "ex.com"
+    assert response.status_code == 200
+    assert response.json()["page"]["title"] == "ex.com"
 
 
-def test_memory_success_indexes_chunks_for_legacy_user(client):
-    mock_solr = _ingest_solr()
-    with patch("backend.ingest.get_solr_client", return_value=mock_solr), \
-         patch("backend.ingest.embed_passages", side_effect=_fake_embed):
+def test_memory_saves_under_the_token_user(client, solr):
+    with patch("backend.ingest.embed_passages", side_effect=_fake_embed):
         response = client.post("/memory", json={
             "url": "https://www.example.com/guide?utm_source=x",
             "title": "Guide",
             "content": LONG_TEXT,
-            "html": "<html><body>tiny</body></html>",
         })
     assert response.status_code == 200
     data = response.json()
-    assert data["success"] is True
     assert data["status"] == "saved"
-    assert data["metadata"]["url"] == "https://example.com/guide"
-    mock_solr.upsert_page_chunks.assert_called_once()
-    page_id, docs = mock_solr.upsert_page_chunks.call_args[0]
-    assert page_id == data["metadata"]["id"]
-    assert data["metadata"]["chunks"] == len(docs)
-    assert docs[0]["id"] == f"{page_id}::0"
-    assert docs[0]["user_id"] == "legacy"
-    assert docs[0]["url"] == "https://example.com/guide"
+    page = data["page"]
+    assert page["url"] == "https://example.com/guide"
+    assert page["id"] == generate_page_id(USER, "https://example.com/guide")
+    assert set(page) == {"id", "url", "title", "domain", "timestamp", "chunks"}
+    page_id, docs, user_id = solr.upsert_page_chunks.call_args[0]
+    assert user_id == USER
+    assert page_id == page["id"]
+    assert page["chunks"] == len(docs)
+    assert all(d["user_id"] == USER for d in docs)
 
 
-def test_memory_unchanged_page_is_not_reindexed(client):
-    import hashlib
+def test_memory_ignores_user_id_in_body(client, solr):
+    with patch("backend.ingest.embed_passages", side_effect=_fake_embed):
+        client.post("/memory", json={
+            "url": "https://example.com/x", "title": "t", "content": LONG_TEXT, "user_id": "someone-else",
+        })
+    assert solr.upsert_page_chunks.call_args[0][2] == USER
+
+
+def test_memory_unchanged_page_is_not_reindexed(client, solr):
     from backend.cleaning import clean_content
     from backend.config import EMBEDDING_MODEL
-    head = {
-        "url": "https://example.com/guide",
-        "title": "Guide",
-        "total_chunks": 2,
-        "timestamp": "2024-01-01T00:00:00Z",
-        "content_hash": hashlib.sha256(clean_content(None, LONG_TEXT).encode()).hexdigest(),
-        "embedding_model": EMBEDDING_MODEL,
-    }
-    mock_solr = _ingest_solr(head)
-    with patch("backend.ingest.get_solr_client", return_value=mock_solr), \
-         patch("backend.ingest.embed_passages") as mock_embed:
+    solr.get_page_head.return_value = _head(
+        content_hash=hashlib.sha256(clean_content(None, LONG_TEXT).encode()).hexdigest(),
+        embedding_model=EMBEDDING_MODEL,
+    )
+    with patch("backend.ingest.embed_passages") as mock_embed:
         response = client.post("/memory", json={
             "url": "https://example.com/guide/#section?utm_campaign=x",
             "title": "Guide again",
@@ -107,53 +146,25 @@ def test_memory_unchanged_page_is_not_reindexed(client):
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "unchanged"
-    assert data["message"] == "Memory already stored"
-    assert data["metadata"]["url"] == "https://example.com/guide"
-    assert data["metadata"]["chunks"] == 2
+    assert data["page"]["chunks"] == 2
     mock_embed.assert_not_called()
-    mock_solr.upsert_page_chunks.assert_not_called()
+    solr.upsert_page_chunks.assert_not_called()
 
 
-def test_memory_youtube_ingestion(client):
-    mock_solr = _ingest_solr()
-    content = "Title: YT Video\nChannel: Channel\nDuration: 300 seconds\nSource: YouTube\n\nhello world"
-
-    with patch("backend.ingest.get_solr_client", return_value=mock_solr), \
-         patch("backend.ingest.process_youtube_video", return_value=(content, "YT Video", None)) as mock_yt, \
-         patch("backend.ingest.embed_passages", side_effect=_fake_embed):
-        response = client.post("/memory", json={
-            "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-            "title": "dummy",
-            "content": "dummy",  # YouTube doesn't need page content
-            "is_manual": False
-        })
-
-    assert response.status_code == 200
-    mock_yt.assert_called_once_with("https://www.youtube.com/watch?v=dQw4w9WgXcQ", False)
-    docs = mock_solr.upsert_page_chunks.call_args[0][1]
-    assert "Source: YouTube" in docs[0]["text"]
-    assert "hello world" in docs[0]["text"]
-    assert docs[0]["title"] == "YT Video"
-
-
-def test_memory_youtube_skip_message_is_returned(client):
-    mock_solr = _ingest_solr()
-    with patch("backend.ingest.get_solr_client", return_value=mock_solr), \
-         patch("backend.ingest.process_youtube_video",
+def test_memory_youtube_skip_has_no_page(client, solr):
+    with patch("backend.ingest.process_youtube_video",
                return_value=(None, None, "Skipped: YouTube video is over 2 hours long")):
         response = client.post("/memory", json={
             "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "title": "x", "content": "x",
         })
     assert response.status_code == 200
-    assert response.json()["status"] == "skipped"
-    assert response.json()["message"] == "Skipped: YouTube video is over 2 hours long"
-    mock_solr.upsert_page_chunks.assert_not_called()
+    assert response.json() == {
+        "status": "skipped", "message": "Skipped: YouTube video is over 2 hours long", "page": None,
+    }
 
 
-def test_memory_lookalike_youtube_host_is_not_treated_as_youtube(client):
-    mock_solr = _ingest_solr()
-    with patch("backend.ingest.get_solr_client", return_value=mock_solr), \
-         patch("backend.ingest.process_youtube_video") as mock_yt, \
+def test_memory_lookalike_youtube_host_is_not_treated_as_youtube(client, solr):
+    with patch("backend.ingest.process_youtube_video") as mock_yt, \
          patch("backend.ingest.embed_passages", side_effect=_fake_embed):
         response = client.post("/memory", json={
             "url": "https://youtube.com.evil.example/watch?v=dQw4w9WgXcQ",
@@ -163,7 +174,7 @@ def test_memory_lookalike_youtube_host_is_not_treated_as_youtube(client):
     mock_yt.assert_not_called()
 
 
-def test_memory_input_limits(client):
+def test_memory_input_limits(client, solr):
     too_long_url = "https://example.com/" + "a" * 2048
     assert client.post("/memory", json={"url": too_long_url, "title": "t", "content": "c"}).status_code == 422
     assert client.post("/memory", json={"url": "https://e.com", "title": "t" * 501, "content": "c"}).status_code == 422
@@ -173,17 +184,164 @@ def test_memory_input_limits(client):
     assert client.post("/search", json={"query": "q" * 501}).status_code == 422
 
 
-def test_search_summarize_defaults_off(client):
-    hybrid_results = [{
-        "rank": 1, "page_id": "p", "title": "T", "url": "https://e.com/", "domain": "e.com",
-        "timestamp": "t", "snippet": None,
-    }]
-    with patch("backend.main.hybrid_search", return_value=hybrid_results), \
-         patch("backend.main._summary_for_webpage") as mock_sum:
+# ---- status, delete, list -----------------------------------------------------
+
+def test_status_normalizes_url_like_ingest(client, solr):
+    solr.get_page_head.return_value = _head()
+    response = client.get("/memory/status", params={"url": "https://www.example.com/guide/?utm_source=x#top"})
+    assert response.status_code == 200
+    assert response.json()["saved"] is True
+    assert response.json()["page"]["id"] == PAGE_ID
+    page_id, user_id = solr.get_page_head.call_args[0]
+    assert page_id == generate_page_id(USER, "https://example.com/guide")
+    assert user_id == USER
+
+
+def test_status_uses_canonical_url_when_given(client, solr):
+    client.get("/memory/status", params={"url": "https://example.com/a?x=1", "canonical_url": "/canon"})
+    assert solr.get_page_head.call_args[0][0] == generate_page_id(USER, "https://example.com/canon")
+
+
+def test_status_not_saved(client, solr):
+    response = client.get("/memory/status", params={"url": "https://example.com/new"})
+    assert response.json() == {"saved": False, "page": None}
+
+
+def test_delete_own_page(client, solr):
+    solr.get_page_head.return_value = _head()
+    response = client.delete(f"/memory/{PAGE_ID}")
+    assert response.status_code == 204
+    solr.delete_page.assert_called_once_with(PAGE_ID, USER)
+
+
+def test_delete_missing_or_foreign_page_is_404(client, solr):
+    assert client.delete(f"/memory/{PAGE_ID}").status_code == 404
+    assert client.delete("/memory/not-a-page-id").status_code == 404
+    solr.delete_page.assert_not_called()
+
+
+def test_list_memories_newest_first_contract(client, solr):
+    solr.list_pages.return_value = (42, [_head()])
+    response = client.get("/memories", params={"limit": 5, "offset": 10})
+    assert response.status_code == 200
+    assert response.json() == {"total": 42, "pages": [{
+        "id": PAGE_ID, "url": "https://example.com/guide", "title": "Guide",
+        "domain": "example.com", "timestamp": "2024-01-01T00:00:00Z", "chunks": None,
+    }]}
+    solr.list_pages.assert_called_once_with(USER, limit=5, offset=10)
+    assert client.get("/memories", params={"limit": 0}).status_code == 422
+    assert client.get("/memories", params={"limit": 101}).status_code == 422
+
+
+# ---- search -------------------------------------------------------------------
+
+HYBRID_RESULT = {
+    "rank": 1, "page_id": PAGE_ID, "title": "Guide", "url": "https://example.com/guide",
+    "domain": "example.com", "timestamp": "2024-01-01T00:00:00Z", "snippet": "The guide explains things.",
+    "bm25_rank": 2, "knn_rank": None, "fused_score": 0.016,
+}
+
+
+def test_search_requires_query(client):
+    assert client.post("/search", json={"query": "   "}).status_code == 400
+
+
+def test_search_scopes_to_token_user_and_matches_contract(client):
+    with patch("backend.main.hybrid_search", return_value=[HYBRID_RESULT]) as mock_search:
         response = client.post("/search", json={"query": "guide"})
     assert response.status_code == 200
+    assert mock_search.call_args[0][1] == USER
+    item = response.json()["results"][0]
+    assert set(item) == {"rank", "id", "url", "title", "domain", "timestamp", "snippet", "summary"}
+    assert item["id"] == PAGE_ID
+    assert item["summary"] is None
+
+
+def test_search_summarize_defaults_off(client):
+    with patch("backend.main.hybrid_search", return_value=[HYBRID_RESULT]), \
+         patch("backend.main._summary_for_webpage") as mock_sum:
+        client.post("/search", json={"query": "guide"})
     mock_sum.assert_not_called()
 
+
+def test_search_summarize_uses_owner_scoped_text(client):
+    with patch("backend.main.hybrid_search", return_value=[HYBRID_RESULT]), \
+         patch("backend.main._summary_for_webpage", return_value="S") as mock_sum:
+        response = client.post("/search", json={"query": "guide", "summarize": True})
+    assert response.json()["results"][0]["summary"] == "S"
+    mock_sum.assert_called_once_with("guide", PAGE_ID, USER)
+
+
+def test_search_debug_includes_ranks_and_timings(client):
+    def fake_search(query, user_id, top_k=None, timings=None):
+        timings.update({"embed_ms": 1.0, "bm25_ms": 2.0, "knn_ms": 3.0,
+                        "fuse_ms": 0.1, "rerank_ms": 0.0, "total_ms": 5.0})
+        return [HYBRID_RESULT]
+
+    with patch("backend.main.hybrid_search", side_effect=fake_search):
+        response = client.post("/search", json={"query": "guide", "debug": True})
+    data = response.json()
+    item = data["results"][0]
+    assert item["bm25_rank"] == 2
+    assert item["knn_rank"] is None
+    assert item["fused_score"] == 0.016
+    assert data["timings"]["total_ms"] == 5.0
+
+
+# ---- summarize ----------------------------------------------------------------
+
+def test_summarize_requires_fields(client):
+    assert client.post("/summarize", json={"query": "", "id": "x"}).status_code == 400
+    assert client.post("/summarize", json={"query": "q", "id": ""}).status_code == 400
+
+
+def test_summarize_own_page(client, solr):
+    solr.get_chunks_by_page_id.return_value = [{"text": "Page body about AI."}]
+    with patch("backend.main.is_gemini_available", return_value=True), \
+         patch("backend.main.summarize", return_value="A short summary."):
+        response = client.post("/summarize", json={"query": "What is AI?", "id": PAGE_ID})
+    assert response.status_code == 200
+    assert response.json() == {"id": PAGE_ID, "summary": "A short summary."}
+    solr.get_chunks_by_page_id.assert_called_once_with(PAGE_ID, USER)
+
+
+def test_summarize_foreign_page_is_404(client, solr):
+    solr.get_chunks_by_page_id.return_value = []
+    with patch("backend.main.is_gemini_available", return_value=True):
+        response = client.post("/summarize", json={"query": "q", "id": PAGE_ID})
+    assert response.status_code == 404
+
+
+# ---- /me ----------------------------------------------------------------------
+
+def test_export_downloads_full_text_per_page(client, solr):
+    solr.scan.return_value = iter([
+        {"page_id": "p1", "url": "https://a.com/", "title": "A", "timestamp": "2024-02-01T00:00:00Z",
+         "text": "Second part here.", "chunk_id": 1},
+        {"page_id": "p1", "url": "https://a.com/", "title": "A", "timestamp": "2024-02-01T00:00:00Z",
+         "text": "First part.", "chunk_id": 0},
+        {"page_id": "p2", "url": "https://b.com/", "title": "B", "timestamp": "2024-01-01T00:00:00Z",
+         "text": "Only part.", "chunk_id": 0},
+    ])
+    response = client.get("/me/export")
+    assert response.status_code == 200
+    assert "attachment" in response.headers["content-disposition"]
+    pages = response.json()["pages"]
+    assert pages == [
+        {"url": "https://a.com/", "title": "A", "timestamp": "2024-02-01T00:00:00Z",
+         "text": "First part.\n\nSecond part here."},
+        {"url": "https://b.com/", "title": "B", "timestamp": "2024-01-01T00:00:00Z", "text": "Only part."},
+    ]
+    assert solr.scan.call_args[0][1] == USER
+
+
+def test_delete_all_my_data(client, solr):
+    response = client.delete("/me/data")
+    assert response.status_code == 204
+    solr.delete_user.assert_called_once_with(USER)
+
+
+# ---- cross-cutting --------------------------------------------------------------
 
 def test_rate_limit_returns_json_429(client):
     for _ in range(20):
@@ -204,131 +362,8 @@ def test_cors_allows_only_configured_origins(client):
     assert "access-control-allow-origin" not in denied.headers
 
 
-def test_search_requires_query(client):
-    response = client.post("/search", json={"query": "   "})
-    assert response.status_code == 400
-
-
-def test_search_without_gemini_omits_summary(client):
-    hybrid_results = [{
-        "rank": 1,
-        "page_id": "example.com_guide",
-        "title": "Guide",
-        "url": "https://example.com/guide",
-        "domain": "example.com",
-        "timestamp": "2024-01-01T00:00:00Z",
-        "bm25_score": 0.8,
-        "vector_score": 0.6,
-        "fused_score": 0.7,
-    }]
-    with patch("backend.main.hybrid_search", return_value=hybrid_results), \
-         patch("backend.main.is_gemini_available", return_value=False):
-        response = client.post("/search", json={
-            "query": "how does the guide work",
-            "summarize": True,
-            "debug": False,
-        })
-    assert response.status_code == 200
-    data = response.json()
-    assert data["query"] == "how does the guide work"
-    assert len(data["results"]) == 1
-    assert data["results"][0]["summary"] is None
-    assert data["results"][0]["title"] == "Guide"
-
-
-def test_search_debug_includes_ranks_and_timings(client):
-    hybrid_results = [{
-        "rank": 1,
-        "page_id": "example.com_guide",
-        "title": "Guide",
-        "url": "https://example.com/guide",
-        "domain": "example.com",
-        "timestamp": "2024-01-01T00:00:00Z",
-        "snippet": "The guide explains things.",
-        "bm25_rank": 2,
-        "knn_rank": None,
-        "fused_score": 0.016,
-    }]
-
-    def fake_search(query, top_k=None, timings=None):
-        timings.update({"embed_ms": 1.0, "bm25_ms": 2.0, "knn_ms": 3.0,
-                        "fuse_ms": 0.1, "rerank_ms": 0.0, "total_ms": 5.0})
-        return hybrid_results
-
-    with patch("backend.main.hybrid_search", side_effect=fake_search), \
-         patch("backend.main.is_gemini_available", return_value=False):
-        response = client.post("/search", json={"query": "guide", "debug": True, "summarize": False})
-    assert response.status_code == 200
-    data = response.json()
-    item = data["results"][0]
-    assert item["bm25_rank"] == 2
-    assert item["knn_rank"] is None
-    assert item["fused_score"] == 0.016
-    assert item["snippet"] == "The guide explains things."
-    assert data["timings"]["total_ms"] == 5.0
-    assert set(data["timings"]) == {"embed_ms", "bm25_ms", "knn_ms", "fuse_ms", "rerank_ms", "total_ms"}
-
-
-def test_search_non_debug_has_snippet_but_no_ranks(client):
-    hybrid_results = [{
-        "rank": 1,
-        "page_id": "example.com_guide",
-        "title": "Guide",
-        "url": "https://example.com/guide",
-        "domain": "example.com",
-        "timestamp": "2024-01-01T00:00:00Z",
-        "snippet": "The guide explains things.",
-        "bm25_rank": 1,
-        "knn_rank": 1,
-        "fused_score": 0.03,
-    }]
-    with patch("backend.main.hybrid_search", return_value=hybrid_results):
-        response = client.post("/search", json={"query": "guide", "summarize": False})
-    data = response.json()
-    item = data["results"][0]
-    assert item["snippet"] == "The guide explains things."
-    assert "bm25_rank" not in item
-    assert data["timings"] is None
-
-
-def test_summarize_requires_fields(client):
-    response = client.post("/summarize", json={"query": "", "id": "x"})
-    assert response.status_code == 400
-    response = client.post("/summarize", json={"query": "q", "id": ""})
-    assert response.status_code == 400
-
-
-def test_summarize_one_webpage(client):
-    mock_solr = MagicMock()
-    mock_solr.get_chunks_by_page_id.return_value = [{"text": "Page body about AI."}]
-    with patch("backend.main.get_solr_client", return_value=mock_solr), \
-         patch("backend.main.is_gemini_available", return_value=True), \
-         patch("backend.main.summarize", return_value="A short summary."):
-        response = client.post("/summarize", json={
-            "query": "What is artificial intelligence?",
-            "id": "en.wikipedia.org_wiki_Artificial_intelligence",
-        })
-    assert response.status_code == 200
-    data = response.json()
-    assert data["id"] == "en.wikipedia.org_wiki_Artificial_intelligence"
-    assert data["summary"] == "A short summary."
-    mock_solr.get_chunks_by_page_id.assert_called_once_with(
-        "en.wikipedia.org_wiki_Artificial_intelligence"
-    )
-
-
-def test_search_still_skips_summary_when_disabled(client):
-    hybrid_results = [{
-        "rank": 1,
-        "page_id": "example.com_guide",
-        "title": "Guide",
-        "url": "https://example.com/guide",
-        "domain": "example.com",
-        "timestamp": "2024-01-01T00:00:00Z",
-    }]
-    with patch("backend.main.hybrid_search", return_value=hybrid_results), \
-         patch("backend.main._summary_for_webpage") as mock_sum:
-        response = client.post("/search", json={"query": "guide", "summarize": False})
-    assert response.status_code == 200
-    assert response.json()["results"][0]["summary"] is None
-    mock_sum.assert_not_called()
+def test_startup_fails_without_cognito_config():
+    with patch("backend.auth.COGNITO_USER_POOL_ID", ""), patch("backend.main.get_model"):
+        with pytest.raises(RuntimeError, match="COGNITO_USER_POOL_ID"):
+            with TestClient(app):
+                pass

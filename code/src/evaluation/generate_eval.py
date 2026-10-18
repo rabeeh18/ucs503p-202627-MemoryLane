@@ -15,14 +15,15 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from backend.solr_client import get_solr_client
+from backend.solr_client import user_filter
+from evaluation.common import add_core_args, eval_solr
 
 
-def generate(limit: int) -> dict:
-    solr = get_solr_client()
+def generate(limit: int, solr, user_id: str) -> dict:
     url = f"{solr.base_url}/select"
     params = {
         "q": "*:*",
+        "fq": user_filter(user_id),
         "fl": "url,title,text,page_id",
         "rows": limit,
         "sort": "timestamp desc",
@@ -60,10 +61,11 @@ def generate(limit: int) -> dict:
 def main():
     parser = argparse.ArgumentParser(description="Generate evaluation data from Solr")
     parser.add_argument("--limit", type=int, default=25)
+    add_core_args(parser)
     parser.add_argument("--out", default=str(ROOT / "evaluation" / "evaluation.json"))
     args = parser.parse_args()
 
-    payload = generate(args.limit)
+    payload = generate(args.limit, eval_solr(args), args.user_id)
     Path(args.out).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     print(f"Wrote {len(payload['queries'])} queries to {args.out}")
 

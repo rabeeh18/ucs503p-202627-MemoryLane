@@ -11,22 +11,30 @@ class MemoryInput(BaseModel):
 
 class SearchInput(BaseModel):
     query: str = Field(max_length=500)
-    num_results: int = Field(default=5, ge=1, le=20)
+    num_results: int = Field(default=10, ge=1, le=20)
     summarize: bool = Field(default=False)
     debug: bool = Field(default=False)
 
-class MemoryMetadata(BaseModel):
+class PageInfo(BaseModel):
+    id: str
     url: str
     title: str
-    id: str
-    chunks: int
+    domain: str
     timestamp: str
+    chunks: Optional[int] = None
 
 class MemoryResponse(BaseModel):
-    success: bool
-    status: str = "saved"  # "saved" | "unchanged" | "skipped"
+    status: str  # "saved" | "unchanged" | "skipped"
     message: str
-    metadata: MemoryMetadata
+    page: Optional[PageInfo] = None
+
+class MemoryStatusResponse(BaseModel):
+    saved: bool
+    page: Optional[PageInfo] = None
+
+class MemoriesResponse(BaseModel):
+    total: int
+    pages: List[PageInfo]
 
 class SearchResultItem(BaseModel):
     rank: int

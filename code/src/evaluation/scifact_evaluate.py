@@ -5,16 +5,16 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-import httpx
+import argparse
 
 ROOT = Path(__file__).resolve().parent.parent
 
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from backend.config import API_PORT
 from backend.url_utils import normalize_url
 from backend.retrieval import hybrid_search
+from evaluation.common import add_core_args, eval_solr
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,16 +23,21 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-DATA_DIR = ROOT / "evaluation" / "msmarco_data"
+DATA_DIR = ROOT / "evaluation" / "scifact_data"
 
 QUERIES_JSON = DATA_DIR / "queries.json"
 QRELS_JSON = DATA_DIR / "qrels.json"
 
-REPORT_JSON = ROOT / "evaluation" / "msmarco_report.json"
+REPORT_JSON = ROOT / "evaluation" / "scifact_report.json"
 
-# The backend listens on 0.0.0.0,
-# but clients must connect through localhost.
-BASE_URL = f"http://localhost:{API_PORT}"
+# Set by main(): the evaluation core and the user id its documents belong to.
+_SOLR = None
+_USER_ID = None
+
+
+def _search(query_text):
+    results = hybrid_search(query_text, _USER_ID, top_k=10, solr=_SOLR)
+    return [normalize_url(r["url"]) for r in results]
 
 
 def mrr_at_k(ranked_urls, relevant_urls, k=10):
@@ -156,40 +161,11 @@ def evaluate_run(queries, qrels, name, search_fn):
     return metrics
 
 
-def run_hybrid_api(query_text):
+def run_hybrid(query_text):
     """
-    End-to-end evaluation through the real MemoryLane API.
+    Full hybrid pipeline, in-process.
     """
-
-    try:
-
-        response = httpx.post(
-            f"{BASE_URL}/search",
-            json={
-                "query": query_text,
-                "num_results": 10,
-                "summarize": False,
-                "debug": False
-            },
-            timeout=30.0
-        )
-
-        response.raise_for_status()
-
-        data = response.json()
-
-        return [
-            normalize_url(item["url"])
-            for item in data.get("results", [])
-        ]
-
-    except Exception as e:
-
-        logger.error(
-            f"API Error for query '{query_text}': {e}"
-        )
-
-        return []
+    return _search(query_text)
 
 
 def run_bm25(query_text):
@@ -205,15 +181,7 @@ def run_bm25(query_text):
         0.0
     ):
 
-        results = hybrid_search(
-            query_text,
-            top_k=10
-        )
-
-        return [
-            normalize_url(r["url"])
-            for r in results
-        ]
+        return _search(query_text)
 
 
 def run_vector(query_text):
@@ -229,18 +197,13 @@ def run_vector(query_text):
         1.0
     ):
 
-        results = hybrid_search(
-            query_text,
-            top_k=10
-        )
-
-        return [
-            normalize_url(r["url"])
-            for r in results
-        ]
+        return _search(query_text)
 
 
-def evaluate_all():
+def evaluate_all(args):
+    global _SOLR, _USER_ID
+    _SOLR = eval_solr(args)
+    _USER_ID = args.user_id
 
     if not QUERIES_JSON.exists():
         logger.error(
@@ -277,14 +240,14 @@ def evaluate_all():
     report = {}
 
     # -------------------------------------------------
-    # 1. Hybrid Search — real HTTP API
+    # 1. Hybrid Search
     # -------------------------------------------------
 
-    report["Hybrid (API)"] = evaluate_run(
+    report["Hybrid"] = evaluate_run(
         queries,
         qrels,
-        "Hybrid (API)",
-        run_hybrid_api
+        "Hybrid",
+        run_hybrid
     )
 
     # -------------------------------------------------
@@ -350,4 +313,6 @@ def evaluate_all():
 
 
 if __name__ == "__main__":
-    evaluate_all()
+    parser = argparse.ArgumentParser(description="Evaluate retrieval on SciFact")
+    add_core_args(parser)
+    evaluate_all(parser.parse_args())

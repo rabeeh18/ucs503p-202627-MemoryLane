@@ -35,7 +35,9 @@ def test_saves_chunks_with_v2_fields(fake_embeddings):
     assert result.url == "https://example.com/a"
     assert result.page_id == generate_page_id("user-1", "https://example.com/a")
     assert len(result.page_id) == 32
-    page_id, docs = solr.upsert_page_chunks.call_args.args
+    page_id, docs, user_id = solr.upsert_page_chunks.call_args.args
+    assert user_id == "user-1"
+    solr.get_page_head.assert_called_once_with(page_id, "user-1")
     assert page_id == result.page_id
     assert result.chunks == len(docs) >= 1
     doc = docs[0]
