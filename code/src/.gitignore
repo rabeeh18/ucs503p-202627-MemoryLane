@@ -12,3 +12,6 @@ venv/
 evaluation/evaluation_report.json
 node_modules/
 .svelte-kit/
+# Private keys (extension signing key)
+.secrets/
+*.pem

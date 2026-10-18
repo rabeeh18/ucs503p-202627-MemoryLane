@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Excluded sites · MemoryLane</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="options">
+    <h1>Excluded sites</h1>
+    <p class="lede">Auto-capture never saves pages from these sites.</p>
+
+    <form class="add" id="add-form" novalidate>
+      <label for="site-input" class="visually-hidden">Site to exclude</label>
+      <input id="site-input" type="text" placeholder="example.com" autocomplete="off" spellcheck="false">
+      <button type="submit" class="btn btn-primary">Add</button>
+    </form>
+    <p class="message" id="message" role="status"></p>
+
+    <ul class="sites" id="sites" aria-label="Excluded sites"></ul>
+    <p class="empty" id="empty" hidden>No sites excluded.</p>
+  </main>
+  <script type="module" src="options.js"></script>
+</body>
+</html>
