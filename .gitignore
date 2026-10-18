@@ -494,3 +494,5 @@ seed_demo_data.py
 seed_progress.json
 view_chroma.py
 __pycache__/
+
+!code/src/frontend/src/lib/
