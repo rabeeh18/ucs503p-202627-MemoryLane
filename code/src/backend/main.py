@@ -316,7 +316,8 @@ async def search_memory(search: SearchInput):
     
     try:
         # Hybrid search
-        results = hybrid_search(search.query, top_k=search.num_results)
+        timings = {}
+        results = hybrid_search(search.query, top_k=search.num_results, timings=timings)
         
         # Build response
         response_results = []
@@ -325,33 +326,33 @@ async def search_memory(search: SearchInput):
             if search.summarize:
                 summary = _summary_for_webpage(search.query, result["webpage_id"])
             
+            fields = dict(
+                rank=result["rank"],
+                id=result["webpage_id"],
+                title=result.get("title", ""),
+                url=result.get("url", ""),
+                domain=result.get("domain", ""),
+                timestamp=result.get("timestamp", ""),
+                snippet=result.get("snippet"),
+                summary=summary,
+            )
             if search.debug:
                 item = DebugSearchResultItem(
-                    rank=result["rank"],
-                    id=result["webpage_id"],
-                    title=result.get("title", ""),
-                    url=result.get("url", ""),
-                    domain=result.get("domain", ""),
-                    timestamp=result.get("timestamp", ""),
-                    summary=summary,
-                    bm25_score=result.get("bm25_score", 0.0),
-                    vector_score=result.get("vector_score", 0.0),
-                    fused_score=result.get("fused_score", 0.0)
+                    **fields,
+                    bm25_rank=result.get("bm25_rank"),
+                    knn_rank=result.get("knn_rank"),
+                    fused_score=result.get("fused_score", 0.0),
                 )
             else:
-                item = SearchResultItem(
-                    rank=result["rank"],
-                    id=result["webpage_id"],
-                    title=result.get("title", ""),
-                    url=result.get("url", ""),
-                    domain=result.get("domain", ""),
-                    timestamp=result.get("timestamp", ""),
-                    summary=summary
-                )
+                item = SearchResultItem(**fields)
             response_results.append(item)
         
         logger.info(f"Returning {len(response_results)} results")
-        return SearchResponse(query=search.query, results=response_results)
+        return SearchResponse(
+            query=search.query,
+            results=response_results,
+            timings=timings if search.debug else None,
+        )
     
     except HTTPException:
         raise

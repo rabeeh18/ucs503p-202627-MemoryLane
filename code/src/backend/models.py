@@ -1,4 +1,4 @@
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Dict
 from pydantic import BaseModel, Field
 
 class MemoryInput(BaseModel):
@@ -33,16 +33,18 @@ class SearchResultItem(BaseModel):
     url: str
     domain: str
     timestamp: str
+    snippet: Optional[str] = None
     summary: Optional[str] = None
 
 class DebugSearchResultItem(SearchResultItem):
-    bm25_score: float
-    vector_score: float
+    bm25_rank: Optional[int] = None
+    knn_rank: Optional[int] = None
     fused_score: float
 
 class SearchResponse(BaseModel):
     query: str
-    results: List[Union[SearchResultItem, DebugSearchResultItem]]
+    results: List[Union[DebugSearchResultItem, SearchResultItem]]
+    timings: Optional[Dict[str, float]] = None
 
 
 SearchResult = SearchResultItem

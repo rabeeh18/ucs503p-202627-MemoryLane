@@ -11,7 +11,7 @@ def main():
     parser = argparse.ArgumentParser(description="MemoryLane CLI - Search your browsing memories")
     parser.add_argument("query", help="Search query")
     parser.add_argument("--top-k", type=int, default=5, help="Number of results (default: 5)")
-    parser.add_argument("--candidates", type=int, default=30, help="Candidate pool size (default: 30)")
+    parser.add_argument("--candidates", type=int, default=None, help="Candidate pool size (default: DEFAULT_CANDIDATE_POOL)")
     parser.add_argument("--debug", action="store_true", help="Show debug scores")
     parser.add_argument("--no-summarize", action="store_true", help="Disable Gemini summarization")
     
@@ -49,7 +49,7 @@ def main():
         print(f"   {result.get('timestamp', '')[:10] if result.get('timestamp') else 'Unknown date'}")
         
         if args.debug:
-            print(f"   BM25: {result.get('bm25_score', 0):.4f} | Vector: {result.get('vector_score', 0):.4f} | Fused: {result.get('fused_score', 0):.4f}")
+            print(f"   BM25 rank: {result.get('bm25_rank')} | KNN rank: {result.get('knn_rank')} | Fused: {result.get('fused_score', 0):.4f}")
         
         if not args.no_summarize and is_gemini_available():
             solr = get_solr_client()

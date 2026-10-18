@@ -10,9 +10,11 @@ SOLR_URL = os.getenv('SOLR_URL', 'http://localhost:8983/solr/memorylane')
 
 # Retrieval
 DEFAULT_TOP_K = int(os.getenv('DEFAULT_TOP_K', '5'))
-DEFAULT_CANDIDATE_POOL = int(os.getenv('DEFAULT_CANDIDATE_POOL', '30'))
-BM25_WEIGHT = float(os.getenv('BM25_WEIGHT', '0.5'))
-VECTOR_WEIGHT = float(os.getenv('VECTOR_WEIGHT', '0.5'))
+DEFAULT_CANDIDATE_POOL = int(os.getenv('DEFAULT_CANDIDATE_POOL', '50'))
+RRF_K = int(os.getenv('RRF_K', '60'))
+BM25_WEIGHT = float(os.getenv('BM25_WEIGHT', '1.0'))
+VECTOR_WEIGHT = float(os.getenv('VECTOR_WEIGHT', '1.0'))
+PAGE_SECOND_CHUNK_WEIGHT = float(os.getenv('PAGE_SECOND_CHUNK_WEIGHT', '0.3'))
 
 # Chunking
 TARGET_MIN_WORDS = int(os.getenv('TARGET_MIN_WORDS', '300'))

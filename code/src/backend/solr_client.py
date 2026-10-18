@@ -1,4 +1,5 @@
 import logging
+import re
 import httpx
 from backend.config import SOLR_URL
 
@@ -23,6 +24,16 @@ def normalize_solr_doc(doc: dict) -> dict:
     if not doc:
         return doc
     return {key: unwrap_solr_value(value, key) for key, value in doc.items()}
+
+
+MAX_QUERY_CHARS = 500
+_CONTROL_CHARS = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def sanitize_query(query: str) -> str:
+    """Replace control characters with spaces and cap the query length."""
+    cleaned = _CONTROL_CHARS.sub(" ", query or "").strip()
+    return cleaned[:MAX_QUERY_CHARS]
 
 
 class SolrClient:
@@ -65,9 +76,11 @@ class SolrClient:
         """
         url = f"{self.base_url}/select"
         params = {
-            "q": query,
+            "q": sanitize_query(query),
             "defType": "edismax",
-            "qf": "text title^2",
+            "qf": "title^2 text",
+            "pf": "text^2 title^3",
+            "uf": "-*",
             "fl": "id,webpage_id,url,title,domain,text,chunk_id,total_chunks,timestamp,score",
             "rows": rows,
             "wt": "json"

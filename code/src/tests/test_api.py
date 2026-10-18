@@ -33,7 +33,10 @@ def test_memory_requires_fields(client):
     assert response.status_code == 400
 
     # Short content
-    response = client.post("/memory", json={"url": "https://ex.com", "title": "t", "content": "too short"})
+    empty_solr = MagicMock()
+    empty_solr.get_by_url.return_value = []
+    with patch("backend.main.get_solr_client", return_value=empty_solr):
+        response = client.post("/memory", json={"url": "https://ex.com", "title": "t", "content": "too short"})
     assert response.status_code == 400
 
     # Empty title should fallback to domain
@@ -134,7 +137,7 @@ def test_memory_youtube_ingestion(client):
     mock_solr.get_by_url.return_value = []
     
     with patch("backend.main.get_solr_client", return_value=mock_solr), \
-         patch("backend.main.YouTubeTranscriptApi.get_transcript", return_value=[{"text": "hello"}, {"text": "world"}]), \
+         patch("backend.main.YouTubeTranscriptApi.get_transcript", return_value=[{"text": "hello"}, {"text": "world"}], create=True), \
          patch("backend.main.httpx.get") as mock_get, \
          patch("backend.main.chunk_text", side_effect=lambda text: [text]), \
          patch("backend.main.get_embeddings", return_value=[[0.1] * 384]):
@@ -163,7 +166,7 @@ def test_memory_youtube_ingestion(client):
         assert docs[0]["title"] == "YT Video"
 
 def test_memory_youtube_rejections(client):
-    with patch("backend.main.YouTubeTranscriptApi.get_transcript") as mock_transcript, \
+    with patch("backend.main.YouTubeTranscriptApi.get_transcript", create=True) as mock_transcript, \
          patch("backend.main.httpx.get") as mock_get:
          
         # Missing transcript
@@ -228,7 +231,7 @@ def test_search_without_gemini_omits_summary(client):
     assert data["results"][0]["title"] == "Guide"
 
 
-def test_search_debug_includes_scores(client):
+def test_search_debug_includes_ranks_and_timings(client):
     hybrid_results = [{
         "rank": 1,
         "webpage_id": "example.com_guide",
@@ -236,18 +239,50 @@ def test_search_debug_includes_scores(client):
         "url": "https://example.com/guide",
         "domain": "example.com",
         "timestamp": "2024-01-01T00:00:00Z",
-        "bm25_score": 0.8,
-        "vector_score": 0.6,
-        "fused_score": 0.7,
+        "snippet": "The guide explains things.",
+        "bm25_rank": 2,
+        "knn_rank": None,
+        "fused_score": 0.016,
     }]
-    with patch("backend.main.hybrid_search", return_value=hybrid_results), \
-         patch("backend.main.is_gemini_available", return_value=False):
+
+    def fake_search(query, top_k=None, timings=None):
+        timings.update({"embed_ms": 1.0, "bm25_ms": 2.0, "knn_ms": 3.0,
+                        "fuse_ms": 0.1, "rerank_ms": 0.0, "total_ms": 5.0})
+        return hybrid_results
+
+    with patch("backend.main.hybrid_search", side_effect=fake_search),          patch("backend.main.is_gemini_available", return_value=False):
         response = client.post("/search", json={"query": "guide", "debug": True, "summarize": False})
     assert response.status_code == 200
-    item = response.json()["results"][0]
-    assert item["bm25_score"] == 0.8
-    assert item["vector_score"] == 0.6
-    assert item["fused_score"] == 0.7
+    data = response.json()
+    item = data["results"][0]
+    assert item["bm25_rank"] == 2
+    assert item["knn_rank"] is None
+    assert item["fused_score"] == 0.016
+    assert item["snippet"] == "The guide explains things."
+    assert data["timings"]["total_ms"] == 5.0
+    assert set(data["timings"]) == {"embed_ms", "bm25_ms", "knn_ms", "fuse_ms", "rerank_ms", "total_ms"}
+
+
+def test_search_non_debug_has_snippet_but_no_ranks(client):
+    hybrid_results = [{
+        "rank": 1,
+        "webpage_id": "example.com_guide",
+        "title": "Guide",
+        "url": "https://example.com/guide",
+        "domain": "example.com",
+        "timestamp": "2024-01-01T00:00:00Z",
+        "snippet": "The guide explains things.",
+        "bm25_rank": 1,
+        "knn_rank": 1,
+        "fused_score": 0.03,
+    }]
+    with patch("backend.main.hybrid_search", return_value=hybrid_results):
+        response = client.post("/search", json={"query": "guide", "summarize": False})
+    data = response.json()
+    item = data["results"][0]
+    assert item["snippet"] == "The guide explains things."
+    assert "bm25_rank" not in item
+    assert data["timings"] is None
 
 
 def test_summarize_requires_fields(client):
