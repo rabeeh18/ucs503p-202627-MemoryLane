@@ -15,7 +15,7 @@ export class ApiError extends Error {
   }
 }
 
-async function send(path, { method = 'GET', body, signal, token }) {
+async function send(path, { method = 'GET', body, signal, token, keepalive = false }) {
   const timeout = new AbortController();
   const timer = setTimeout(() => timeout.abort(), TIMEOUT_MS);
   const onAbort = () => timeout.abort();
@@ -29,6 +29,7 @@ async function send(path, { method = 'GET', body, signal, token }) {
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: timeout.signal,
+      keepalive,
     });
   } catch (err) {
     if (signal?.aborted) {
@@ -46,7 +47,7 @@ async function send(path, { method = 'GET', body, signal, token }) {
 
 /**
  * @param {string} path
- * @param {{ method?: string, body?: unknown, signal?: AbortSignal, raw?: boolean }} [opts]
+ * @param {{ method?: string, body?: unknown, signal?: AbortSignal, raw?: boolean, keepalive?: boolean }} [opts]
  */
 async function request(path, opts = {}) {
   let token = await getAccessToken();
@@ -107,4 +108,13 @@ export async function exportData() {
 
 export function deleteAllData() {
   return request('/me/data', { method: 'DELETE' });
+}
+
+/**
+ * Delete one saved page. `keepalive` lets the request finish while the tab closes.
+ * @param {string} id
+ * @param {{ keepalive?: boolean }} [opts]
+ */
+export function deletePage(id, { keepalive = false } = {}) {
+  return request(`/memory/${encodeURIComponent(id)}`, { method: 'DELETE', keepalive });
 }

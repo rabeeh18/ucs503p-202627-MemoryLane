@@ -7,6 +7,7 @@
   import { listMemories } from '../api.js';
   import { link, navigate } from '../lib/router.js';
   import { libraryVersion, recentError, recentPages, searchQuery } from '../stores';
+  import { hiddenPageIds } from '../pageDeletes.js';
 
   let searchBar;
   let controller;
@@ -33,6 +34,8 @@
 
   // Reload on mount and whenever the library changes (e.g. after "Delete all").
   $: $libraryVersion, loadRecent();
+
+  $: visibleRecent = ($recentPages || []).filter((page) => !$hiddenPageIds.has(page.id));
 
   function onSubmit(event) {
     navigate(`/?q=${encodeURIComponent(event.detail)}`);
@@ -62,9 +65,10 @@
   <section class="recent" aria-labelledby="recent-heading">
     {#if $recentError}
       <p class="error">{$recentError} <button type="button" class="link-button" on:click={loadRecent}>Try again</button></p>
-    {:else if $recentPages && $recentPages.length === 0}
+    {:else if $recentPages && visibleRecent.length === 0}
       <EmptyState>
-        Nothing saved yet. Install the extension and press <strong>Remember this page</strong> on anything worth keeping.
+        Nothing saved yet. <a href="/extension" use:link>Install the extension</a> and press
+        <strong>Remember this page</strong> on anything worth keeping.
       </EmptyState>
     {:else if $recentPages}
       <div class="section-head">
@@ -72,7 +76,7 @@
         <a href="/library" use:link>View all</a>
       </div>
       <ul>
-        {#each $recentPages as page (page.id)}
+        {#each visibleRecent as page (page.id)}
           <PageRow {page} />
         {/each}
       </ul>

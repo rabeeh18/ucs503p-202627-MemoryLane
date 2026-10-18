@@ -51,6 +51,7 @@ class DebugSearchResultItem(SearchResultItem):
     knn_rank: Optional[int] = None
     fused_score: float
     rerank_score: Optional[float] = None
+    vector_similarity: Optional[float] = None
 
 class SearchResponse(BaseModel):
     query: str

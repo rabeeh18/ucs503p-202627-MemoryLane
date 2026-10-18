@@ -114,6 +114,7 @@ $fields = @(
     @{ name="timestamp"; type="pdate"; indexed=$true; stored=$true; docValues=$true },
     @{ name="content_hash"; type="string"; indexed=$true; stored=$true },
     @{ name="embedding_model"; type="string"; indexed=$true; stored=$true },
+    @{ name="description"; type="string"; indexed=$false; stored=$true; docValues=$false },
     @{ name="embedding"; type="knn_vector_384"; indexed=$true; stored=$false }
 )
 
@@ -167,6 +168,7 @@ $testDoc = @{
     timestamp = "2024-01-01T00:00:00Z"
     content_hash = "test"
     embedding_model = "test"
+    description = "A test page."
     embedding = $vector
 }
 

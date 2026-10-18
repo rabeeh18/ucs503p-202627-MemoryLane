@@ -13,7 +13,7 @@ def _chunk(doc_id, page, text):
 def _search(rerank_enabled, scores=None, top_n=20):
     solr = MagicMock()
     solr.bm25_search.return_value = [_chunk("a::0", "a", "alpha"), _chunk("b::0", "b", "beta")]
-    solr.knn_search.return_value = [_chunk("a::0", "a", "alpha"), _chunk("c::0", "c", "gamma")]
+    solr.knn_search.return_value = [dict(_chunk("a::0", "a", "alpha"), score=0.9), dict(_chunk("c::0", "c", "gamma"), score=0.9)]
     retrieval._cached_query_embedding.cache_clear()
     timings = {}
     with patch("backend.retrieval.get_solr_client", return_value=solr), \

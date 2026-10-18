@@ -1,9 +1,11 @@
 <script>
-  /** Domain the letter comes from ("www." is ignored). */
+  import { domainLetter } from '../lib/domain.js';
+
+  /** Domain or URL; the letter comes from its main domain name. */
   export let domain = '';
   export let size = 28;
 
-  $: letter = (domain || '?').replace(/^www\./, '').charAt(0).toUpperCase() || '?';
+  $: letter = domainLetter(domain);
 </script>
 
 <span class="tile" style="--size: {size}px" aria-hidden="true">{letter}</span>

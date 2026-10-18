@@ -9,6 +9,7 @@ npm install
 npm run dev        # http://localhost:5173, proxies /api -> http://127.0.0.1:8000
 npm run build      # static files in dist/
 npm run check      # svelte-check
+npm test           # vitest (lib/*.test.js)
 ```
 
 Configuration comes from `VITE_*` variables in the project-root `.env` (`envDir: '..'` in `vite.config.js`):

@@ -224,7 +224,7 @@ const handlers = {
             return { ok: true };
         } catch (err) {
             if (err instanceof ApiError && err.status === 401) return { ok: false, reason: "signed-out" };
-            return { ok: false, error: "Couldn't undo. Try again." };
+            return { ok: false, error: "Couldn't remove the page. Try again." };
         }
     },
     async SET_AUTO_CAPTURE({ enabled }) {

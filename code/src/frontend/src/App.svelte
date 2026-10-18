@@ -5,22 +5,29 @@
   import Library from './routes/Library.svelte';
   import Callback from './routes/Callback.svelte';
   import Privacy from './routes/Privacy.svelte';
+  import Extension from './routes/Extension.svelte';
+  import ScrollPill from './components/ScrollPill.svelte';
+  import Toasts from './components/Toasts.svelte';
   import { session } from './auth.js';
   import { route } from './lib/router.js';
 
   $: path = $route.path.replace(/\/+$/, '') || '/';
   $: query = ($route.query.get('q') || '').trim();
   $: signedIn = Boolean($session);
+  /** Pages anyone can open, signed in or not. */
+  $: isPublic = path === '/privacy' || path === '/extension';
 
-  $: title = !signedIn && path !== '/privacy'
+  $: title = !signedIn && !isPublic
     ? 'MemoryLane'
     : path === '/library'
       ? 'All saved pages · MemoryLane'
       : path === '/privacy'
         ? 'Privacy · MemoryLane'
-        : query
-          ? `${query} · MemoryLane`
-          : 'MemoryLane';
+        : path === '/extension'
+          ? 'Get the extension · MemoryLane'
+          : query
+            ? `${query} · MemoryLane`
+            : 'MemoryLane';
 </script>
 
 <svelte:head>
@@ -31,6 +38,8 @@
   <Callback />
 {:else if path === '/privacy'}
   <Privacy />
+{:else if path === '/extension'}
+  <Extension />
 {:else if !signedIn}
   <Landing />
 {:else if path === '/library'}
@@ -40,3 +49,6 @@
 {:else}
   <Home />
 {/if}
+
+<Toasts />
+<ScrollPill />

@@ -5,6 +5,8 @@
   import EmptyState from '../components/EmptyState.svelte';
   import { listMemories } from '../api.js';
   import { libraryVersion } from '../stores';
+  import { hiddenPageIds, pageDeletes } from '../pageDeletes.js';
+  import { link } from '../lib/router.js';
 
   const PAGE_SIZE = 20;
 
@@ -22,7 +24,10 @@
     loading = true;
     error = '';
     try {
-      const data = await listMemories(PAGE_SIZE, reset ? 0 : pages.length, mine.signal);
+      // Pages already deleted on the server no longer count towards the offset.
+      const deleted = pages.filter((p) => $hiddenPageIds.has(p.id) && !pageDeletes.isPending(p.id)).length;
+      const data = await listMemories(PAGE_SIZE, reset ? 0 : pages.length - deleted, mine.signal);
+      if (!reset) data.pages = data.pages.filter((p) => !pages.some((q) => q.id === p.id));
       if (mine !== controller) return;
       pages = reset ? data.pages : [...pages, ...data.pages];
       total = data.total;
@@ -36,19 +41,24 @@
   }
 
   $: $libraryVersion, load(true);
+  $: visible = pages.filter((page) => !$hiddenPageIds.has(page.id));
+  $: shownTotal = Math.max(0, total - (pages.length - visible.length));
   onDestroy(() => controller?.abort());
 </script>
 
 <Header />
 
 <main class="library">
-  <h1>All saved pages {#if loaded}<span class="total mono">{total}</span>{/if}</h1>
+  <h1>All saved pages {#if loaded}<span class="total mono">{shownTotal}</span>{/if}</h1>
 
-  {#if loaded && total === 0}
-    <EmptyState>Nothing saved yet. Install the extension and press Remember this page on anything worth keeping.</EmptyState>
+  {#if loaded && shownTotal === 0}
+    <EmptyState>
+      Nothing saved yet. <a href="/extension" use:link>Install the extension</a> and press
+      <strong>Remember this page</strong> on anything worth keeping.
+    </EmptyState>
   {:else}
     <ul>
-      {#each pages as page (page.id)}
+      {#each visible as page (page.id)}
         <PageRow {page} />
       {/each}
     </ul>

@@ -7,6 +7,7 @@
   import { fetchSummary, search } from '../api.js';
   import { navigate } from '../lib/router.js';
   import { results, resultsError, resultsLoading, searchQuery } from '../stores';
+  import { hiddenPageIds, pageDeletes } from '../pageDeletes.js';
 
   /** The query from ?q= in the URL. */
   export let query = '';
@@ -84,9 +85,20 @@
     return target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
   }
 
+  $: visible = $results.filter((result) => !$hiddenPageIds.has(result.id));
+  $: if (selected > 0 && selected >= visible.length) selected = Math.max(0, visible.length - 1);
+
+  async function deleteResult(index) {
+    const result = visible[index];
+    if (!result) return;
+    pageDeletes.schedule(result.id);
+    await tick();
+    rows[Math.min(index, visible.length - 1)]?.focusTitle();
+  }
+
   async function move(delta) {
-    if (!$results.length) return;
-    selected = Math.max(0, Math.min($results.length - 1, selected + delta));
+    if (!visible.length) return;
+    selected = Math.max(0, Math.min(visible.length - 1, selected + delta));
     await tick();
     rows[selected]?.focusTitle();
   }
@@ -103,14 +115,17 @@
     } else if (event.key === 'ArrowUp' && !typing) {
       event.preventDefault();
       move(-1);
+    } else if (event.key === 'Delete' && event.shiftKey && !typing) {
+      event.preventDefault();
+      deleteResult(selected);
     } else if (event.key === 'Enter' && !typing) {
-      const result = $results[selected];
+      const result = visible[selected];
       if (result && !(event.target instanceof HTMLButtonElement)) {
         event.preventDefault();
         window.open(result.url, '_blank', 'noopener');
       }
     } else if (event.key === 's' && !typing) {
-      const result = $results[selected];
+      const result = visible[selected];
       if (result) {
         event.preventDefault();
         toggleSummary(result);
@@ -120,7 +135,7 @@
     }
   }
 
-  $: count = $results.length;
+  $: count = visible.length;
 </script>
 
 <svelte:window on:keydown={onKeydown} />
@@ -155,7 +170,7 @@
   {:else}
     <p class="count" role="status">{count} result{count === 1 ? '' : 's'}</p>
     <div class="list">
-      {#each $results as result, i (result.id)}
+      {#each visible as result, i (result.id)}
         <ResultRow
           bind:this={rows[i]}
           {result}
@@ -164,6 +179,7 @@
           summary={summaries[result.id] || CLOSED}
           on:select={() => (selected = i)}
           on:summary={() => toggleSummary(result)}
+          on:delete={() => deleteResult(i)}
         />
       {/each}
     </div>
@@ -174,6 +190,7 @@
   <span><Kbd>↑ ↓</Kbd> navigate</span>
   <span><Kbd>Enter</Kbd> open</span>
   <span><Kbd>/</Kbd> search</span>
+  <span><Kbd>Shift Del</Kbd> delete</span>
   <span><Kbd>Esc</Kbd> clear</span>
 </footer>
 

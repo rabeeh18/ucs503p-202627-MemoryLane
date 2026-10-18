@@ -15,6 +15,8 @@ RRF_K = int(os.getenv('RRF_K', '60'))
 BM25_WEIGHT = float(os.getenv('BM25_WEIGHT', '1.0'))
 VECTOR_WEIGHT = float(os.getenv('VECTOR_WEIGHT', '1.0'))
 PAGE_SECOND_CHUNK_WEIGHT = float(os.getenv('PAGE_SECOND_CHUNK_WEIGHT', '0.3'))
+# Pages with no BM25 match need at least this cosine similarity on some chunk.
+MIN_VECTOR_SIMILARITY = float(os.getenv('MIN_VECTOR_SIMILARITY', '0.55'))
 
 # Reranker (cross-encoder, optional)
 RERANK_ENABLED = os.getenv('RERANK_ENABLED', 'false').strip().lower() in ('1', 'true', 'yes', 'on')

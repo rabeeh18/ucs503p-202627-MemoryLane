@@ -4,6 +4,8 @@ Capture-only: the popup saves the current page; searching happens on the website
 
 ## Install (unpacked)
 
+Users download it from `https://memorylane.site/extension` (`/memorylane-extension.zip`, built from this folder by `deploy/caddy/Dockerfile`), unzip it, then:
+
 1. `chrome://extensions` → turn on **Developer mode** → **Load unpacked** → choose this `extension/` folder.
 2. The extension ID is pinned by the `key` in `manifest.json`:
 
@@ -26,6 +28,9 @@ The matching private key is **not** in the repo (it's in `code/src/.secrets/`, w
 | `api.js` | Bearer-token fetch; 401 → refresh once → retry → signed out |
 | `content.js` | Injected on demand; returns `{html, text, canonicalUrl}` |
 | `page_filter.js` | Auto-capture eligibility, saveable pages, host normalisation and exclusions |
+| `site_marker.js` | Content script on `https://memorylane.site/*` only: sets `data-memorylane-extension="installed"` on `<html>` so the site hides "Get the extension" |
+| `domain.js` | Tile letter from the main domain name (same code as `frontend/src/lib/domain.js`, tested there) |
+| `scroll_pill.js` | Floating scroll indicator for the popup and options page |
 | `popup.*` | Popup UI (380px) |
 | `options.*` | Excluded sites page |
 | `tokens.css`, `fonts/` | Shared design tokens and bundled IBM Plex fonts (SIL OFL, see `fonts/LICENSE-OFL.txt`) |

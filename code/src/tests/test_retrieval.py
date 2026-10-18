@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from backend import retrieval
-from backend.retrieval import rrf_fuse, group_by_webpage, build_snippet
+from backend.retrieval import rrf_fuse, group_by_webpage
 from backend.solr_client import normalize_solr_doc, unwrap_solr_value, sanitize_query
 
 
@@ -93,42 +93,6 @@ def test_group_by_webpage_adds_weighted_second_chunk():
     assert grouped[0]["page_id"] == "a"  # 0.5 + 0.12 = 0.62 > 0.6
 
 
-def test_snippet_picks_first_sentence_with_query_term():
-    text = "Intro sentence about nothing. Machine learning is fun. Learning again here."
-    assert build_snippet(text, "learn") == "Machine learning is fun."
-
-
-def test_snippet_prefix_match_is_case_insensitive():
-    text = "First one. SLEEPING well helps memory consolidation."
-    assert build_snippet(text, "Sleep") == "SLEEPING well helps memory consolidation."
-
-
-def test_snippet_ignores_short_terms_and_falls_back_to_first_sentence():
-    text = "The opening line. Another line with ai in it."
-    assert build_snippet(text, "ai") == "The opening line."
-    assert build_snippet(text, "zebra") == "The opening line."
-
-
-def test_snippet_trims_at_word_boundary():
-    sentence = " ".join(["word"] * 100) + "."
-    snippet = build_snippet(sentence, "nothing")
-    assert snippet.endswith("…")
-    assert len(snippet) <= 241
-    assert snippet[:-1].split() == ["word"] * len(snippet[:-1].split())
-
-
-def test_snippet_long_sentence_centres_on_late_match():
-    sentence = " ".join(["filler"] * 80) + " neuroscience matters here."
-    snippet = build_snippet(sentence, "neuroscience")
-    assert snippet.startswith("…")
-    assert "neuroscience" in snippet
-
-
-def test_snippet_empty_text():
-    assert build_snippet("", "query") is None
-    assert build_snippet("   \n  ", "query") is None
-
-
 def test_sanitize_query_strips_control_chars_and_caps_length():
     assert sanitize_query("hello\x00\nworld\t") == "hello  world"
     assert len(sanitize_query("a" * 2000)) == 500
@@ -136,13 +100,15 @@ def test_sanitize_query_strips_control_chars_and_caps_length():
 
 def test_hybrid_search_fuses_ranks_and_reports_timings():
     solr = MagicMock()
+    sentence = "Sleep and memory are closely linked in the human brain according to research."
     solr.bm25_search.return_value = [
-        _chunk("p1::0", "p1", text="Sleep and memory are linked."),
+        _chunk("p1::0", "p1", text=sentence),
         _chunk("p2::0", "p2"),
     ]
     solr.knn_search.return_value = [
-        _chunk("p2::0", "p2"),
-        _chunk("p3::0", "p3"),
+        _chunk("p2::0", "p2", score=0.9),
+        _chunk("p3::0", "p3", score=0.85),
+        _chunk("p4::0", "p4", score=0.7),  # cosine 0.4: below the floor, no BM25 match
     ]
     retrieval._cached_query_embedding.cache_clear()
     timings = {}
@@ -153,9 +119,10 @@ def test_hybrid_search_fuses_ranks_and_reports_timings():
     assert results[0]["bm25_rank"] == 2 and results[0]["knn_rank"] == 1
     assert results[1]["knn_rank"] is None
     assert results[2]["bm25_rank"] is None
-    assert results[1]["snippet"] == "Sleep and memory are linked."
+    assert results[1]["snippet"] == sentence
+    assert results[2]["vector_similarity"] == pytest.approx(0.7)
     assert [r["rank"] for r in results] == [1, 2, 3]
-    assert set(timings) == {"embed_ms", "bm25_ms", "knn_ms", "fuse_ms", "rerank_ms", "total_ms"}
+    assert set(timings) == {"embed_ms", "bm25_ms", "knn_ms", "fuse_ms", "rerank_ms", "snippet_ms", "total_ms"}
 
 
 def test_query_embedding_is_cached():

@@ -4,12 +4,13 @@
   import { link } from '../lib/router.js';
 
   const steps = [
-    { n: '01', title: 'Save', text: 'Keep a page with one click from the extension.' },
+    { n: '01', title: 'Save', text: 'Keep a page with one click from the', linkText: 'extension', href: '/extension' },
     { n: '02', title: 'Search', text: 'Describe the idea, not the title.' },
     { n: '03', title: 'Rediscover', text: 'Open the page, or get a short summary first.' },
   ];
 </script>
 
+<div class="screen">
 <Header signedOut />
 
 <main class="landing">
@@ -32,19 +33,34 @@
       <li>
         <div class="n mono">{step.n}</div>
         <div class="step-title">{step.title}</div>
-        <div class="step-text">{step.text}</div>
+        <div class="step-text">
+          {step.text}{#if step.href}{' '}<a href={step.href} use:link>{step.linkText}</a>.{/if}
+        </div>
       </li>
     {/each}
   </ol>
 </main>
+</div>
 
 <style>
+  /* Exactly one viewport tall with the content centred; no scrolling at
+     1366x768 and up. Narrow screens (below 640px) scroll normally. */
+  .screen {
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
   .landing {
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 120px 32px 40px;
+    justify-content: center;
+    padding: 24px 32px 48px;
     text-align: center;
   }
 
@@ -82,7 +98,8 @@
     color: var(--text-3);
   }
 
-  .fine-print a {
+  .fine-print a,
+  .step-text a {
     text-decoration: underline;
     text-underline-offset: 2px;
   }
@@ -90,7 +107,7 @@
   .steps {
     width: 100%;
     max-width: 640px;
-    margin: 72px 0 0;
+    margin: 64px 0 0;
     padding: 0;
     display: flex;
     gap: 32px;
@@ -122,9 +139,39 @@
     color: var(--text-2);
   }
 
-  @media (max-width: 640px) {
+  @media (max-height: 800px) {
     .landing {
-      padding: 64px 16px 32px;
+      padding-top: 8px;
+      padding-bottom: 24px;
+    }
+
+    h1 {
+      font-size: 34px;
+    }
+
+    .lede {
+      margin-top: 14px;
+    }
+
+    .actions {
+      margin-top: 28px;
+    }
+
+    .steps {
+      margin-top: 40px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .screen {
+      height: auto;
+      min-height: 100dvh;
+      overflow: visible;
+    }
+
+    .landing {
+      justify-content: flex-start;
+      padding: 48px 16px 32px;
     }
 
     h1 {
@@ -134,7 +181,7 @@
     .steps {
       flex-direction: column;
       gap: 20px;
-      margin-top: 48px;
+      margin-top: 40px;
     }
   }
 </style>

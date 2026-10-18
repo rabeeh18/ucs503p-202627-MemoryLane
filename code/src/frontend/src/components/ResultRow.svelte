@@ -1,5 +1,5 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, tick } from 'svelte';
   import LetterTile from './LetterTile.svelte';
   import { highlight } from '../lib/highlight.js';
   import { relativeTime } from '../lib/time.js';
@@ -13,6 +13,43 @@
 
   const dispatch = createEventDispatcher();
   let titleLink;
+  let moreButton;
+  let menu;
+  let menuOpen = false;
+
+  $: if (!selected) menuOpen = false;
+
+  async function toggleMenu() {
+    menuOpen = !menuOpen;
+    if (menuOpen) {
+      await tick();
+      menu?.querySelector('[role="menuitem"]')?.focus();
+    }
+  }
+
+  function closeMenu(restoreFocus = true) {
+    menuOpen = false;
+    if (restoreFocus) moreButton?.focus();
+  }
+
+  function onMenuKeydown(event) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      closeMenu();
+    } else if (event.key === 'Tab') {
+      closeMenu(false);
+    }
+  }
+
+  function onWindowClick(event) {
+    if (menuOpen && !menu?.contains(event.target) && !moreButton?.contains(event.target)) closeMenu(false);
+  }
+
+  function deleteFromLibrary() {
+    closeMenu(false);
+    dispatch('delete');
+  }
 
   export function focusTitle() {
     titleLink?.focus();
@@ -21,6 +58,8 @@
   $: parts = highlight(result.snippet || '', query);
   $: summaryId = `summary-${result.id}`;
 </script>
+
+<svelte:window on:click={onWindowClick} />
 
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions a11y-mouse-events-have-key-events -->
 <article
@@ -31,7 +70,7 @@
 >
   <div class="body">
     <div class="meta">
-      <LetterTile domain={result.domain} size={20} />
+      <LetterTile domain={result.domain || result.url} size={20} />
       <span class="domain">{result.domain}</span>
       <span aria-hidden="true">·</span>
       <span class="mono when">{relativeTime(result.timestamp)}</span>
@@ -61,16 +100,41 @@
     {/if}
   </div>
 
-  {#if selected && !summary.open}
-    <button
-      type="button"
-      class="btn btn-small btn-outline summarise"
-      aria-controls={summaryId}
-      aria-expanded="false"
-      on:click={() => dispatch('summary')}
-    >
-      Summarise
-    </button>
+  {#if selected}
+    <div class="actions">
+      {#if !summary.open}
+        <button
+          type="button"
+          class="btn btn-small btn-outline"
+          aria-controls={summaryId}
+          aria-expanded="false"
+          on:click={() => dispatch('summary')}
+        >
+          Summarise
+        </button>
+      {/if}
+      <div class="more">
+        <button
+          bind:this={moreButton}
+          type="button"
+          class="btn btn-small btn-outline more-button"
+          aria-label="More actions"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          on:click={toggleMenu}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" />
+          </svg>
+        </button>
+        {#if menuOpen}
+          <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+          <div bind:this={menu} class="menu" role="menu" tabindex="-1" aria-label="Page actions" on:keydown={onMenuKeydown}>
+            <button type="button" role="menuitem" on:click={deleteFromLibrary}>Delete from library</button>
+          </div>
+        {/if}
+      </div>
+    </div>
   {/if}
 </article>
 
@@ -137,6 +201,11 @@
     line-height: 1.55;
     color: var(--text-2);
     overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .snippet strong {
@@ -167,8 +236,49 @@
     font-size: 13px;
   }
 
-  .summarise {
+  .actions {
     flex: none;
+    display: flex;
+    gap: 6px;
+  }
+
+  .more {
+    position: relative;
+  }
+
+  .more-button {
+    width: 36px;
+    padding: 0;
+  }
+
+  .menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 20;
+    min-width: 200px;
+    padding: 6px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  .menu button {
+    display: block;
+    width: 100%;
+    min-height: 40px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: var(--radius-xs);
+    background: transparent;
+    text-align: left;
+    font-size: 14px;
+  }
+
+  .menu button:hover,
+  .menu button:focus-visible {
+    background: var(--surface-active);
   }
 
   @media (max-width: 640px) {

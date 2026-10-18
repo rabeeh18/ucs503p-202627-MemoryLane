@@ -37,6 +37,16 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Native scrollbars are hidden; ScrollPill shows the position instead.
+   Wheel, touch and keyboard scrolling still work as normal. */
+html {
+  scrollbar-width: none;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
 #app {
   min-height: 100vh;
   display: flex;

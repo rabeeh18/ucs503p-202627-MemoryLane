@@ -1,10 +1,16 @@
 {
   "manifest_version": 3,
   "name": "MemoryLane",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Save pages as you browse and find them later by meaning.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1+Dnd2SCjm8guR8brySusn0tcVEah9hd92Bw+hxa4NjP1wLZr48rhZovmikPAL+T3nXXXfe4GNsML4MHB1BpIW3p0fOefoC/BQHzFFfnuPSra3oRGjoRhyh+pP9YTmUOq0pK14KNAgpoIwlKaTJaBS4+c3yBKHDOZR91YEpxyyMpCJH1h5ZZBp7knafISYuiqRljqRfd4KM9QBakYDfUN1pYM5ng1GGs4XrJQ/91ZcyRBZVvPaDP/IwTaMrMCoRSnIwo+lkhdVO6dZ6s+vCNgV/STLCrNRq0YyVyXOprmcHth+OyCxwPVSuWwKjanGMq5DQU5WJjEDt9schD2K65oQIDAQAB",
-  "permissions": ["activeTab", "scripting", "storage", "tabs", "identity"],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs",
+    "identity"
+  ],
   "host_permissions": [
     "https://memorylane.site/*",
     "https://ap-south-186b3tdff4.auth.ap-south-1.amazoncognito.com/*",
@@ -15,6 +21,17 @@
     "service_worker": "background.js",
     "type": "module"
   },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://memorylane.site/*"
+      ],
+      "js": [
+        "site_marker.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_title": "MemoryLane"
@@ -22,7 +39,9 @@
   "options_page": "options.html",
   "commands": {
     "open-search": {
-      "suggested_key": { "default": "Alt+Shift+M" },
+      "suggested_key": {
+        "default": "Alt+Shift+M"
+      },
       "description": "Search your saved pages"
     }
   },

@@ -229,6 +229,24 @@ docker compose logs -f backend                               # API logs
 docker compose restart backend                               # after editing .env
 ```
 
+### Schema changes
+
+Some updates add a Solr field. The core has automatic field creation turned off, so **add the field before deploying the backend that writes it**, or saves fail.
+
+- **`description`** (paragraph snippets):
+
+  ```bash
+  git pull origin master
+  CORE_NAME=memorylane_v2 bash scripts/add_description_field.sh
+  docker compose up -d --build
+  ```
+
+  Existing pages get a description the next time they're saved: a page stored without one is re-ingested even if its text hasn't changed. Until then their snippets come from their text, and only pages with no readable sentence show none. To fill every page at once, re-run the re-index from the old core (if you still have it), which re-ingests each page under your user id:
+
+  ```bash
+  docker compose exec backend python -m scripts.reindex --source-core memorylane --target-core memorylane_v2 --user-id <your-sub>
+  ```
+
 **Never** run `docker compose down -v`: it deletes Solr's data, the downloaded models and Caddy's certificates.
 
 ## Troubleshooting

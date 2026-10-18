@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse
 
 from backend.chunking import chunk_text
-from backend.cleaning import clean_content, word_count
+from backend.cleaning import clean_content, extract_description, word_count
 from backend.config import EMBEDDING_MODEL, MIN_CONTENT_WORDS
 from backend.embeddings import embed_passages
 from backend.solr_client import SolrClient, get_solr_client, is_valid_user_id
@@ -114,7 +114,9 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
     content_hash = hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
     existing = solr.get_page_head(page_id, user_id)
     if existing and existing.get("content_hash") == content_hash \
-            and existing.get("embedding_model") == EMBEDDING_MODEL:
+            and existing.get("embedding_model") == EMBEDDING_MODEL \
+            and "description" in existing:
+        # (Pages stored before `description` existed are re-ingested once to gain it.)
         logger.info(f"Unchanged page: {normalized_url}")
         return IngestResult(
             "unchanged", "Memory already stored", page_id,
@@ -131,6 +133,7 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
         raise IngestError(422, NOT_ENOUGH_TEXT)
     embeddings = embed_passages([f"{title}\n\n{chunk}" for chunk in chunks])
     saved_at = to_solr_date(timestamp)
+    description = extract_description(None if youtube_content is not None else html, cleaned)
     docs = [
         {
             "id": f"{page_id}::{i}",
@@ -140,6 +143,7 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
             "title": title,
             "domain": domain,
             "text": chunk,
+            "description": description,
             "chunk_id": i,
             "total_chunks": len(chunks),
             "timestamp": saved_at,

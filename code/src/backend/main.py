@@ -266,6 +266,7 @@ def search_memory(request: Request, search: SearchInput, user_id: str = Depends(
                     knn_rank=result.get("knn_rank"),
                     fused_score=result.get("fused_score", 0.0),
                     rerank_score=result.get("rerank_score"),
+                    vector_similarity=result.get("vector_similarity"),
                 )
             else:
                 item = SearchResultItem(**fields)

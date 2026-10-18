@@ -136,6 +136,7 @@ def test_memory_unchanged_page_is_not_reindexed(client, solr):
     solr.get_page_head.return_value = _head(
         content_hash=hashlib.sha256(clean_content(None, LONG_TEXT).encode()).hexdigest(),
         embedding_model=EMBEDDING_MODEL,
+        description="",
     )
     with patch("backend.ingest.embed_passages") as mock_embed:
         response = client.post("/memory", json={

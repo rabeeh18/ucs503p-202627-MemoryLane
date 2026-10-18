@@ -1,15 +1,15 @@
 import logging
-import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 
 from backend.config import (
     BM25_WEIGHT, VECTOR_WEIGHT, DEFAULT_CANDIDATE_POOL, DEFAULT_TOP_K,
-    RRF_K, PAGE_SECOND_CHUNK_WEIGHT, RERANK_ENABLED, RERANK_TOP_N,
+    RRF_K, PAGE_SECOND_CHUNK_WEIGHT, RERANK_ENABLED, RERANK_TOP_N, MIN_VECTOR_SIMILARITY,
 )
-from backend.embeddings import embed_query
+from backend.embeddings import embed_passages, embed_query
 from backend import rerank
+from backend.snippets import SentenceEmbeddingCache, build_snippet, build_snippets  # noqa: F401
 from backend.solr_client import SolrClient, get_solr_client, unwrap_solr_value
 
 logger = logging.getLogger(__name__)
@@ -18,17 +18,13 @@ logger = logging.getLogger(__name__)
 # thread start-up cost on every request.
 _executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="retrieval")
 
-SNIPPET_MAX_CHARS = 240
+# Embeddings of candidate snippet sentences (for picking the best sentence).
+_sentence_embeddings = SentenceEmbeddingCache(lambda texts: embed_passages(texts))
 
-# Very common words that would otherwise match almost every sentence.
-_SNIPPET_STOPWORDS = {
-    "the", "and", "for", "are", "but", "not", "you", "all", "any", "can", "had",
-    "her", "was", "one", "our", "out", "has", "have", "his", "how", "its", "who",
-    "did", "get", "him", "she", "too", "use", "that", "this", "with", "from",
-    "they", "them", "then", "than", "what", "when", "where", "which", "about",
-    "into", "your", "some", "there", "their", "were", "been", "does", "also",
-}
 
+def knn_score_to_cosine(score: float) -> float:
+    """Solr's cosine DenseVectorField scores (1 + cos) / 2; undo that."""
+    return 2.0 * float(score) - 1.0
 
 def rrf_fuse(bm25_ids: list[str], knn_ids: list[str], k: int,
              w_bm25: float, w_knn: float) -> dict[str, float]:
@@ -54,8 +50,9 @@ def group_by_webpage(candidates: list[dict], fused_scores: dict[str, float],
     result's metadata and its text (used for the snippet).
 
     Returns list of webpage-level results with:
-    - page_id, id (best chunk id), url, title, domain, timestamp, text
+    - page_id, id (best chunk id), url, title, domain, timestamp, text, description
     - fused_score (page score), bm25_rank, knn_rank (from best chunk)
+    - bm25_match (any chunk matched BM25), vector_similarity (best chunk cosine, or None)
     """
     if second_chunk_weight is None:
         second_chunk_weight = PAGE_SECOND_CHUNK_WEIGHT
@@ -72,6 +69,7 @@ def group_by_webpage(candidates: list[dict], fused_scores: dict[str, float],
         scored.sort(key=lambda pair: pair[0], reverse=True)
         best_score, best = scored[0]
         second_score = scored[1][0] if len(scored) > 1 else 0.0
+        similarities = [d["_vector_sim"] for _, d in scored if d.get("_vector_sim") is not None]
         results.append({
             "page_id": page_id,
             "id": unwrap_solr_value(best["id"], "id"),
@@ -80,69 +78,28 @@ def group_by_webpage(candidates: list[dict], fused_scores: dict[str, float],
             "domain": unwrap_solr_value(best.get("domain", ""), "domain"),
             "timestamp": unwrap_solr_value(best.get("timestamp", ""), "timestamp"),
             "text": unwrap_solr_value(best.get("text", ""), "text") or "",
+            "description": unwrap_solr_value(best.get("description", ""), "description") or "",
             "fused_score": best_score + second_chunk_weight * second_score,
             "bm25_rank": best.get("_bm25_rank"),
             "knn_rank": best.get("_knn_rank"),
+            "bm25_match": any(d.get("_bm25_rank") for _, d in scored),
+            "vector_similarity": max(similarities) if similarities else None,
         })
 
     results.sort(key=lambda x: x["fused_score"], reverse=True)
     return results
 
 
-def _query_terms(query: str) -> list[str]:
-    terms = []
-    for term in re.findall(r"\w+", (query or "").lower()):
-        if len(term) >= 3 and term not in _SNIPPET_STOPWORDS and term not in terms:
-            terms.append(term)
-    return terms
-
-
-def _split_sentences(text: str) -> list[str]:
-    parts = re.split(r"(?<=[.!?])\s+|\n+", text or "")
-    return [re.sub(r"\s+", " ", p).strip() for p in parts if p and p.strip()]
-
-
-def _trim_at_word(text: str, max_chars: int) -> str:
-    if len(text) <= max_chars:
-        return text
-    cut = text[:max_chars]
-    space = cut.rfind(" ")
-    if space > max_chars // 2:
-        cut = cut[:space]
-    return cut.rstrip(" ,;:-") + "…"
-
-
-def build_snippet(text: str, query: str, max_chars: int = SNIPPET_MAX_CHARS) -> str | None:
-    """Plain-text snippet from a chunk: the first sentence containing a query term
-    (prefix match, so "learn" matches "learning"), else the first sentence.
-    Trimmed to about max_chars at a word boundary, with … where text was cut.
-    """
-    sentences = _split_sentences(text)
-    if not sentences:
-        return None
-
-    terms = _query_terms(query)
-    chosen = sentences[0]
-    match_at = -1
-    for sentence in sentences:
-        for m in re.finditer(r"\w+", sentence.lower()):
-            if any(m.group().startswith(t) for t in terms):
-                chosen, match_at = sentence, m.start()
-                break
-        if match_at >= 0:
-            break
-
-    prefix = ""
-    # Long sentence with the match far in: start shortly before the match.
-    if match_at > max_chars - 60:
-        start = max(0, match_at - 60)
-        space = chosen.find(" ", start)
-        if 0 <= space < match_at:
-            start = space + 1
-        chosen = chosen[start:]
-        prefix = "…"
-
-    return prefix + _trim_at_word(chosen, max_chars)
+def apply_relevance_floor(pages: list[dict], min_similarity: float = None) -> list[dict]:
+    """Drop pages that matched no BM25 term and whose best chunk is less similar
+    to the query than min_similarity (cosine)."""
+    if min_similarity is None:
+        min_similarity = MIN_VECTOR_SIMILARITY
+    return [
+        page for page in pages
+        if page.get("bm25_match")
+        or (page.get("vector_similarity") is not None and page["vector_similarity"] >= min_similarity)
+    ]
 
 
 @lru_cache(maxsize=1024)
@@ -197,7 +154,8 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
     2. Reciprocal Rank Fusion of the two ranked chunk lists
     3. Group by webpage (best chunk + weighted second-best chunk)
     4. Optionally rerank the top chunks with a cross-encoder (RERANK_ENABLED)
-    5. Return top-K with snippets
+    5. Drop weak vector-only pages (MIN_VECTOR_SIMILARITY)
+    6. Return top-K with snippets
 
     Only `user_id`'s chunks are searched. If `timings` is given, it is filled
     with per-stage durations in ms. `solr` targets a specific core.
@@ -224,11 +182,14 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
         doc["_knn_rank"] = None
         candidates_map[doc["id"]] = doc
     for rank, doc in enumerate(knn_docs, start=1):
+        similarity = knn_score_to_cosine(doc.get("score", 0.0))
         if doc["id"] in candidates_map:
             candidates_map[doc["id"]]["_knn_rank"] = rank
+            candidates_map[doc["id"]]["_vector_sim"] = similarity
         else:
             doc["_bm25_rank"] = None
             doc["_knn_rank"] = rank
+            doc["_vector_sim"] = similarity
             candidates_map[doc["id"]] = doc
 
     fused = rrf_fuse(
@@ -237,20 +198,28 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
         k=RRF_K, w_bm25=BM25_WEIGHT, w_knn=VECTOR_WEIGHT,
     )
 
-    grouped = group_by_webpage(list(candidates_map.values()), fused)
+    grouped = apply_relevance_floor(group_by_webpage(list(candidates_map.values()), fused))
     fuse_ms = (time.perf_counter() - fuse_start) * 1000
 
     rerank_ms = 0.0
     if RERANK_ENABLED and candidates_map:
         rerank_start = time.perf_counter()
-        grouped = _rerank(query, candidates_map, fused, grouped)
+        grouped = apply_relevance_floor(_rerank(query, candidates_map, fused, grouped))
         rerank_ms = (time.perf_counter() - rerank_start) * 1000
 
     results = grouped[:top_k]
 
-    for i, result in enumerate(results):
+    snippet_start = time.perf_counter()
+    snippets = build_snippets(
+        [(r.get("text", ""), r.get("description")) for r in results],
+        query,
+        query_vector=_cached_query_embedding(query),
+        embed=_sentence_embeddings,
+    )
+    snippet_ms = (time.perf_counter() - snippet_start) * 1000
+    for i, (result, snippet) in enumerate(zip(results, snippets)):
         result["rank"] = i + 1
-        result["snippet"] = build_snippet(result.get("text", ""), query)
+        result["snippet"] = snippet
 
     stage_timings = {
         "embed_ms": round(embed_ms, 1),
@@ -258,6 +227,7 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
         "knn_ms": round(knn_ms, 1),
         "fuse_ms": round(fuse_ms, 1),
         "rerank_ms": round(rerank_ms, 1),
+        "snippet_ms": round(snippet_ms, 1),
         "total_ms": round((time.perf_counter() - total_start) * 1000, 1),
     }
     logger.info("Search timings: " + " ".join(f"{k}={v}" for k, v in stage_timings.items()))

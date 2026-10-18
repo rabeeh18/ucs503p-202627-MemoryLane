@@ -14,7 +14,8 @@
   let deleteError = '';
   let status = '';
 
-  $: email = $session?.email || 'Account';
+  $: email = $session?.email || '';
+  $: initial = (email.charAt(0) || '?').toUpperCase();
 
   function items() {
     return menu ? [...menu.querySelectorAll('[role="menuitem"]')] : [];
@@ -71,6 +72,11 @@
     }
   }
 
+  function goExtension() {
+    closeMenu({ restoreFocus: false });
+    navigate('/extension');
+  }
+
   function goLibrary() {
     closeMenu({ restoreFocus: false });
     navigate('/library');
@@ -125,10 +131,11 @@
     aria-haspopup="menu"
     aria-expanded={open}
     aria-controls="account-menu"
+    aria-label={email ? `Account: ${email}` : 'Account'}
     on:click={() => (open ? closeMenu() : openMenu())}
     on:keydown={onButtonKeydown}
   >
-    {email}
+    <span aria-hidden="true">{initial}</span>
   </button>
 
   {#if open}
@@ -142,8 +149,9 @@
       aria-label="Account"
       on:keydown={onMenuKeydown}
     >
-      <div class="menu-email" role="presentation">{email}</div>
+      <div class="menu-email" role="presentation">{email || 'Signed in'}</div>
       <button type="button" role="menuitem" tabindex="-1" on:click={goLibrary}>All saved pages</button>
+      <button type="button" role="menuitem" tabindex="-1" on:click={goExtension}>Get the extension</button>
       <button type="button" role="menuitem" tabindex="-1" on:click={doExport}>Export my data</button>
       <button type="button" role="menuitem" tabindex="-1" on:click={askDelete}>Delete all my data</button>
       <button type="button" role="menuitem" tabindex="-1" on:click={signOut}>Sign out</button>
@@ -173,16 +181,16 @@
   }
 
   .account-button {
-    max-width: 260px;
-    min-height: 44px;
-    padding: 0 14px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border-radius: 50%;
     background: transparent;
     font-size: 13px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   .account-button:hover,
@@ -204,14 +212,13 @@
   }
 
   .menu-email {
+    max-width: 280px;
     padding: 8px 10px 10px;
     margin-bottom: 4px;
     border-bottom: 1px solid var(--divider);
-    font-size: 12px;
-    color: var(--text-3);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 13px;
+    color: var(--text-2);
+    overflow-wrap: anywhere;
   }
 
   .menu button {

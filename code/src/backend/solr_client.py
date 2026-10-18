@@ -12,7 +12,7 @@ _VECTOR_FIELDS = {"embedding"}
 # Stored fields returned for chunk documents. `embedding` is not stored.
 CHUNK_FIELDS = (
     "id,user_id,page_id,url,title,domain,text,chunk_id,total_chunks,"
-    "timestamp,content_hash,embedding_model"
+    "timestamp,content_hash,embedding_model,description"
 )
 
 

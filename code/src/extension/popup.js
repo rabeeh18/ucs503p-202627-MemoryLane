@@ -1,6 +1,8 @@
 // Capture-only popup. Searching happens on the website.
 // All page text is inserted with textContent; nothing is parsed as HTML.
 import { WEB_APP_URL } from "./config.js";
+import { domainLetter } from "./domain.js";
+import { installScrollPill } from "./scroll_pill.js";
 
 const body = document.getElementById("body");
 const footer = document.getElementById("footer");
@@ -120,7 +122,7 @@ function pageCard(statusChildren, trailing = null) {
     const domain = tab.domain || "";
     return h("div", { class: "card" },
         h("div", { class: "card-top" },
-            h("span", { class: "tile", "aria-hidden": "true" }, (domain.charAt(0) || "?").toUpperCase()),
+            h("span", { class: "tile", "aria-hidden": "true" }, domainLetter(tab.url || domain)),
             h("div", { class: "card-text" },
                 h("div", { class: "card-title" }, tab.title || tab.url || "This page"),
                 domain ? h("div", { class: "card-domain" }, domain) : null,
@@ -166,7 +168,11 @@ function mainView() {
     }
     if (state.status?.saved) {
         const when = ago(state.status.page?.timestamp);
-        return [pageCard([checkIcon(), when ? `Saved ${when}` : "Saved"]), outline("Saved", null, true, true)];
+        const pageId = state.status.page?.id;
+        const remove = pageId
+            ? h("button", { type: "button", class: "link-button", onclick: () => undoSave(pageId) }, "Remove")
+            : null;
+        return [pageCard([checkIcon(), when ? `Saved ${when}` : "Saved"], remove), outline("Saved", null, true, true)];
     }
     return [pageCard([dot(), "Not saved yet"]), primary("Remember this page", savePage)];
 }
@@ -261,7 +267,7 @@ async function undoSave(id) {
         view = null;
         state.signedIn = false;
     } else {
-        view = { kind: "error", message: result?.error || "Couldn't undo. Try again.", retry: () => undoSave(id) };
+        view = { kind: "error", message: result?.error || "Couldn't remove the page. Try again.", retry: () => undoSave(id) };
     }
     render();
 }
@@ -320,4 +326,5 @@ chrome.runtime.onMessage.addListener((message) => {
     if (message?.type === "SESSION_CHANGED" && view?.kind !== "signing-in") load();
 });
 
+installScrollPill();
 load();

@@ -66,6 +66,7 @@ def test_unchanged_page_is_not_reindexed(fake_embeddings):
         "timestamp": "2024-01-01T00:00:00Z", "total_chunks": 2,
         "content_hash": hashlib.sha256(TEXT.encode()).hexdigest(),
         "embedding_model": ingest.EMBEDDING_MODEL,
+        "description": "",
     }
     solr = _solr(head)
     result = ingest_page("u", "https://example.com/a", "T", TEXT, solr=solr)
@@ -162,3 +163,18 @@ def test_to_solr_date_handles_z_and_bad_values():
     assert to_solr_date("2024-01-01T00:00:00Z") == "2024-01-01T00:00:00.000Z"
     assert re.fullmatch(r"\d{4}-.*Z", to_solr_date("not a date"))
     assert re.fullmatch(r"\d{4}-.*Z", to_solr_date(None))
+
+
+def test_description_is_stored_on_every_chunk():
+    solr = _solr()
+    html = '<html><head><meta name="description" content="A short guide to how sleep shapes memory."></head><body></body></html>'
+    with patch("backend.ingest.clean_content", return_value=TEXT):
+        ingest_page("u", "https://example.com/a", "T", TEXT, html=html, solr=solr)
+    docs = solr.upsert_page_chunks.call_args.args[1]
+    assert {d["description"] for d in docs} == {"A short guide to how sleep shapes memory."}
+
+
+def test_unchanged_page_without_description_is_reingested_once():
+    head = {"content_hash": hashlib.sha256(TEXT.encode()).hexdigest(), "embedding_model": ingest.EMBEDDING_MODEL}
+    solr = _solr(head)
+    assert ingest_page("u", "https://example.com/a", "T", TEXT, solr=solr).status == "saved"

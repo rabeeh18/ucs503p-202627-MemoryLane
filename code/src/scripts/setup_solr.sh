@@ -95,6 +95,7 @@ for FIELD_JSON in \
   '{"name":"timestamp","type":"pdate","indexed":true,"stored":true,"docValues":true}' \
   '{"name":"content_hash","type":"string","indexed":true,"stored":true}' \
   '{"name":"embedding_model","type":"string","indexed":true,"stored":true}' \
+  '{"name":"description","type":"string","indexed":false,"stored":true,"docValues":false}' \
   '{"name":"embedding","type":"knn_vector_384","indexed":true,"stored":false}'; do
 
   # Try replace first, then add
@@ -119,7 +120,7 @@ info "Core is healthy."
 info "Testing document indexing..."
 TEST_VECTOR=$(python3 -c "print('[' + ','.join(['0.1'] * 384) + ']')")
 curl -sf -X POST "${SOLR_BASE}/${CORE_NAME}/update?commit=true" -H 'Content-Type: application/json' -d "[
-  {\"id\": \"test_setup_doc::0\", \"user_id\": \"setup_test_user\", \"page_id\": \"test_setup_doc\", \"url\": \"https://test.com/\", \"title\": \"Test Document\", \"domain\": \"test.com\", \"text\": \"This document is about learning setup verification\", \"chunk_id\": 0, \"total_chunks\": 1, \"timestamp\": \"2024-01-01T00:00:00Z\", \"content_hash\": \"test\", \"embedding_model\": \"test\", \"embedding\": $TEST_VECTOR}
+  {\"id\": \"test_setup_doc::0\", \"user_id\": \"setup_test_user\", \"page_id\": \"test_setup_doc\", \"url\": \"https://test.com/\", \"title\": \"Test Document\", \"domain\": \"test.com\", \"text\": \"This document is about learning setup verification\", \"chunk_id\": 0, \"total_chunks\": 1, \"timestamp\": \"2024-01-01T00:00:00Z\", \"content_hash\": \"test\", \"embedding_model\": \"test\", \"description\": \"A test page.\", \"embedding\": $TEST_VECTOR}
 ]" > /dev/null || error "Failed to index test document"
 info "Test document indexed."
 

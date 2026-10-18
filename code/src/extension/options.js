@@ -1,4 +1,7 @@
 import { normalizeHost } from "./page_filter.js";
+import { installScrollPill } from "./scroll_pill.js";
+
+installScrollPill();
 
 const form = document.getElementById("add-form");
 const input = document.getElementById("site-input");

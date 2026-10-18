@@ -40,6 +40,8 @@
   --text-2: #a8a8a8;
   --text-3: #8c8c8c;
   --on-primary: #161616;
+  --scroll-pill: #3a3a3a;
+  --scroll-pill-hover: #5a5a5a;
   --radius: 10px; --radius-sm: 8px; --radius-xs: 5px;
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
@@ -150,4 +152,49 @@ button:disabled {
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* Native scrollbars hidden; scroll_pill.js shows a floating indicator instead. */
+html {
+  scrollbar-width: none;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-pill {
+  position: fixed;
+  top: 0;
+  right: 6px;
+  z-index: 40;
+  width: 5px;
+  border-radius: 999px;
+  background: var(--scroll-pill);
+  opacity: 0;
+  pointer-events: none;
+  touch-action: none;
+  transition: opacity 200ms ease, background-color 120ms ease;
+}
+
+.scroll-pill::before {
+  content: '';
+  position: absolute;
+  inset: 0 -6px;
+}
+
+.scroll-pill.visible {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.scroll-pill.active {
+  background: var(--scroll-pill-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-pill {
+    transition: none;
+  }
 }

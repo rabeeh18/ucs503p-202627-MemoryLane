@@ -59,6 +59,7 @@ Copy `.env.example` to `.env`. Variables:
 | `RRF_K` | `60` | Reciprocal Rank Fusion constant |
 | `BM25_WEIGHT` / `VECTOR_WEIGHT` | `1.0` / `1.0` | RRF weights |
 | `PAGE_SECOND_CHUNK_WEIGHT` | `0.3` | Weight of a page's second-best chunk |
+| `MIN_VECTOR_SIMILARITY` | `0.55` | Pages with no BM25 match need at least this cosine similarity |
 | `RERANK_ENABLED` / `RERANK_MODEL` / `RERANK_TOP_N` | `false` / `cross-encoder/ms-marco-MiniLM-L-6-v2` / `20` | Optional cross-encoder reranker |
 | `CHUNK_MAX_WORDS` / `CHUNK_MIN_WORDS` / `CHUNK_OVERLAP_WORDS` | `150` / `40` / `30` | Chunk size, short-tail merge, overlap |
 | `EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | SentenceTransformer name (`all-MiniLM-L6-v2` also works) |
@@ -146,7 +147,9 @@ Uses the same hybrid pipeline as the CLI. Each result has a plain-text `snippet`
 2. Reciprocal Rank Fusion: `w_bm25 / (k + rank_bm25) + w_knn / (k + rank_knn)`; a chunk missing from one list gets nothing from it
 3. Optional cross-encoder rerank of the top `RERANK_TOP_N` chunks
 4. Group by `page_id`: best chunk + `PAGE_SECOND_CHUNK_WEIGHT` × second-best chunk
-5. Return top-K pages with snippets
+5. Relevance floor: drop pages with no BM25 match whose best chunk has cosine similarity below `MIN_VECTOR_SIMILARITY` (Solr's KNN score is `(1 + cos) / 2`; debug output shows `vector_similarity`)
+6. Snippet (`backend/snippets.py`): 2–3 consecutive readable sentences (8+ words, 70%+ letters, no `|`, ending in punctuation) around the sentence matching the most query terms, ties broken by embedding similarity; 200–280 characters; else the page's stored `description`; else none
+7. Return the top-K pages with their snippets
 
 ## 11. URL normalization
 
