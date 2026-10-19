@@ -12,6 +12,8 @@
   --text-2: #a8a8a8;        /* secondary text, links */
   --text-3: #8c8c8c;        /* meta: domains, dates, counts */
   --on-primary: #161616;    /* text on primary button */
+  --scroll-pill: #3a3a3a;   /* floating scroll indicator */
+  --scroll-pill-hover: #5a5a5a;
   --radius: 10px; --radius-sm: 8px; --radius-xs: 5px;
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
