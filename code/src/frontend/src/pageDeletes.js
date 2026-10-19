@@ -9,6 +9,8 @@ export const pageDeletes = createDeleteQueue({
 /** Ids of pages hidden because they were deleted (or are about to be). */
 export const hiddenPageIds = pageDeletes.hidden;
 export const deleteToasts = pageDeletes.toasts;
+/** Bumped after each delete the server confirmed. */
+export const committedDeletes = pageDeletes.committed;
 
 if (typeof window !== 'undefined') {
   // Closing or leaving the tab sends any deletes still waiting on their toast.

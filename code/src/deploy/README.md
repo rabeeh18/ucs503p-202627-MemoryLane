@@ -247,6 +247,17 @@ Some updates add a Solr field. The core has automatic field creation turned off,
   docker compose exec backend python -m scripts.reindex --source-core memorylane --target-core memorylane_v2 --user-id <your-sub>
   ```
 
+- **`page_embedding`** (library map and related pages):
+
+  ```bash
+  CORE_NAME=memorylane_v2 bash scripts/add_page_embedding_field.sh
+  docker compose up -d --build
+  docker compose exec backend python -m scripts.backfill_page_vectors --dry-run
+  docker compose exec backend python -m scripts.backfill_page_vectors
+  ```
+
+  The backfill re-ingests each page that has no page vector from its stored text, so every chunk is rewritten (it never uses Solr atomic updates, which would drop the unstored chunk embeddings). It is resumable: run it again after an interruption and it skips pages that are done. It loads its own copy of the embedding model, so expect a few hundred MB of extra memory while it runs. The map in the API process refreshes within `MAP_CACHE_TTL_SECONDS` (10 minutes) or on the next save or delete.
+
 **Never** run `docker compose down -v`: it deletes Solr's data, the downloaded models and Caddy's certificates.
 
 ## Troubleshooting

@@ -277,3 +277,17 @@ def test_build_time_for_2000_pages():
     elapsed = time.perf_counter() - started
     assert m.response["counts"]["pages"] == 2000
     assert elapsed < 2.0  # ~0.5 s on a dev laptop; generous for slow CI machines
+
+
+def test_unrelated_pages_do_not_form_a_topic():
+    """Four mutually unrelated pages are each 0.5 similar to their mean, which
+    would pass the outlier threshold; the coherence rule leaves them unclustered."""
+    extra = [
+        {"page_id": f"odd{i}", "title": f"Unrelated {i}", "url": f"https://x.example.com/{i}",
+         "domain": "x.example.com", "timestamp": "2024-02-01T00:00:00Z", "page_embedding": _axis(300 + i).tolist()}
+        for i in range(4)
+    ]
+    m = build_map(make_heads(extra=extra), "k", 0).response
+    assert m["counts"]["topics"] == 4
+    assert m["counts"]["unclustered"] == 4
+    assert all(p["topic"] is None for p in m["pages"] if p["id"].startswith("odd"))

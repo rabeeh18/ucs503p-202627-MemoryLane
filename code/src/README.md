@@ -60,6 +60,9 @@ Copy `.env.example` to `.env`. Variables:
 | `BM25_WEIGHT` / `VECTOR_WEIGHT` | `1.0` / `1.0` | RRF weights |
 | `PAGE_SECOND_CHUNK_WEIGHT` | `0.3` | Weight of a page's second-best chunk |
 | `MIN_VECTOR_SIMILARITY` | `0.55` | Pages with no BM25 match need at least this cosine similarity |
+| `MAP_MAX_PAGES` / `MAP_MIN_PAGES` | `2000` / `10` | Library map: most recent pages mapped; fewer than the minimum shows "save a few more" |
+| `MAP_OUTLIER_SIMILARITY` / `MAP_CROSS_TOPIC_SIMILARITY` | `0.35` / `0.65` | Unclustered threshold; similarity for a dashed link between topics |
+| `MAP_CACHE_USERS` / `MAP_CACHE_TTL_SECONDS` | `50` / `600` | In-memory map cache (per user, LRU) |
 | `RERANK_ENABLED` / `RERANK_MODEL` / `RERANK_TOP_N` | `false` / `cross-encoder/ms-marco-MiniLM-L-6-v2` / `20` | Optional cross-encoder reranker |
 | `CHUNK_MAX_WORDS` / `CHUNK_MIN_WORDS` / `CHUNK_OVERLAP_WORDS` | `150` / `40` / `30` | Chunk size, short-tail merge, overlap |
 | `EMBEDDING_MODEL` | `BAAI/bge-small-en-v1.5` | SentenceTransformer name (`all-MiniLM-L6-v2` also works) |
@@ -128,6 +131,10 @@ Every endpoint except `/health` needs `Authorization: Bearer <Cognito access tok
 | `POST /summarize` | `{query, id}` → `{id, summary}`; 404 if not the caller's |
 | `GET /me/export` | JSON download of all the caller's pages |
 | `DELETE /me/data` | 204; deletes all the caller's chunks |
+| `GET /memory/{page_id}/related?k=5` | `{page_id, related: [{id, title, url, domain, saved_at, similarity}]}`; 404 if not the caller's |
+| `GET /map` | `{status, version, topics, pages, edges, counts}` or `{status: "too_few", count}` |
+| `GET /map/search?q=` | `{query, version, topics: [{id, label, score}], pages: [ids]}` |
+| `POST /search` with `topic` | Searches only that map topic's pages; 409 if the map has changed |
 
 ## 8. Indexing (`POST /memory`)
 
@@ -150,6 +157,19 @@ Uses the same hybrid pipeline as the CLI. Each result has a plain-text `snippet`
 5. Relevance floor: drop pages with no BM25 match whose best chunk has cosine similarity below `MIN_VECTOR_SIMILARITY` (Solr's KNN score is `(1 + cos) / 2`; debug output shows `vector_similarity`)
 6. Snippet (`backend/snippets.py`): 2–3 consecutive readable sentences (8+ words, 70%+ letters, no `|`, ending in punctuation) around the sentence matching the most query terms, ties broken by embedding similarity; 200–280 characters; else the page's stored `description`; else none
 7. Return the top-K pages with their snippets
+
+## 10b. Library map and related pages
+
+Every page stores a page vector (`page_embedding`, the normalised mean of its chunk vectors) on chunk 0. `backend/library_map.py` builds the map on request and caches it per user (invalidated on save and delete):
+
+1. Fetch the user's most recent `MAP_MAX_PAGES` page vectors (cursorMark).
+2. k-means on a 32-d projection, k in 2..min(12, n/3) chosen by silhouette score, fixed seed.
+3. Pages below `MAP_OUTLIER_SIMILARITY` to their topic centre, and topics whose pages don't hang together, become unclustered.
+4. Layout in a 0..1 box: topic centres by PCA of the centroids, pushed apart; pages by a local PCA inside each topic's ellipse (radii grow with sqrt(page count)); unclustered pages between the topics they are closest to.
+5. Links: each page to its 2 nearest neighbours in its topic; one dashed link between similar topics.
+6. Labels: one Gemini call (up to 10 titles per topic), with c-TF-IDF keywords as the fallback.
+
+Related pages are a KNN over page vectors, pre-filtered to the user's other pages. `scripts/backfill_page_vectors.py` gives older pages their vector.
 
 ## 11. URL normalization
 

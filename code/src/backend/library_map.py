@@ -130,6 +130,20 @@ def cluster(vectors: np.ndarray, outlier_similarity: float = None) -> tuple[np.n
     sims = np.einsum("ij,ij->i", vectors, cents[[ids.index(t) for t in labels]])
     labels = np.where(sims < outlier_similarity, -1, labels)
 
+    # A topic must hang together: at least 2 pages that are, on average, as
+    # similar to each other as the outlier threshold. Otherwise a handful of
+    # unrelated pages (whose mean is equally close to all of them) would pose
+    # as a topic; their pages become unclustered instead.
+    for t in set(labels.tolist()) - {-1}:
+        members = np.where(labels == t)[0]
+        if len(members) < 2:
+            labels[members] = -1
+            continue
+        pair = vectors[members] @ vectors[members].T
+        mean_pair = (pair.sum() - np.trace(pair)) / (len(members) * (len(members) - 1))
+        if mean_pair < outlier_similarity:
+            labels[members] = -1
+
     # Renumber the surviving topics by size and recompute their centroids.
     sizes = Counter(t for t in labels.tolist() if t != -1)
     order = [t for t, _ in sorted(sizes.items(), key=lambda kv: (-kv[1], kv[0]))]
@@ -203,9 +217,16 @@ def layout(vectors: np.ndarray, topic_of: np.ndarray, centroids: np.ndarray):
         members = np.where(topic_of == t)[0]
         local = _pca_2d(vectors[members]) if len(members) > 2 else (
             np.array([[-1.0, 0.0], [1.0, 0.0]]) if len(members) == 2 else np.zeros((1, 2)))
+        # Spread pages across the ellipse: scale by a high percentile of their
+        # distances (one far page shouldn't squash the rest into the middle),
+        # then pull the few beyond it back onto the rim.
         norms = np.linalg.norm(local, axis=1)
-        if norms.max() > 0:
-            local = local / norms.max()
+        scale = float(np.percentile(norms, 85)) if len(norms) > 4 else float(norms.max())
+        if scale > 0:
+            local = local / scale
+            norms = np.linalg.norm(local, axis=1)
+            over = norms > 1
+            local[over] = local[over] / norms[over][:, None]
         points[members] = centres[t] + local * radii[t] * 0.72
 
     # Unclustered pages sit between the two topics they are closest to.
