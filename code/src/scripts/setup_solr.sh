@@ -96,6 +96,7 @@ for FIELD_JSON in \
   '{"name":"content_hash","type":"string","indexed":true,"stored":true}' \
   '{"name":"embedding_model","type":"string","indexed":true,"stored":true}' \
   '{"name":"description","type":"string","indexed":false,"stored":true,"docValues":false}' \
+  '{"name":"page_embedding","type":"knn_vector_384","indexed":true,"stored":true}' \
   '{"name":"embedding","type":"knn_vector_384","indexed":true,"stored":false}'; do
 
   # Try replace first, then add

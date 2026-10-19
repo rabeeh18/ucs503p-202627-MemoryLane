@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse
@@ -54,6 +55,14 @@ def to_solr_date(value: str | datetime | None = None) -> str:
     return value.strftime("%Y-%m-%dT%H:%M:%S.") + f"{value.microsecond // 1000:03d}Z"
 
 
+def page_vector(embeddings: list[list[float]]) -> list[float]:
+    """L2-normalised mean of a page's chunk embeddings."""
+    dim = len(embeddings[0])
+    mean = [sum(vec[i] for vec in embeddings) / len(embeddings) for i in range(dim)]
+    norm = math.sqrt(sum(x * x for x in mean)) or 1.0
+    return [x / norm for x in mean]
+
+
 def resolve_canonical_url(url: str, canonical_url: str | None) -> str:
     """Use the page's canonical URL (resolved against url) when it is a valid http(s) URL."""
     if canonical_url and canonical_url.strip():
@@ -70,13 +79,16 @@ def resolve_canonical_url(url: str, canonical_url: str | None) -> str:
 def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None = None,
                 canonical_url: str | None = None, is_manual: bool = False, *,
                 solr: SolrClient | None = None, timestamp: str | None = None,
-                fetch_youtube: bool = True) -> IngestResult:
+                fetch_youtube: bool = True, force: bool = False,
+                description: str | None = None) -> IngestResult:
     """Clean, chunk, embed and store one page for one user.
 
     Used by the API, the re-index script and the evaluation scripts. `solr`
     targets a specific core (default: SOLR_URL), `timestamp` keeps an original
     save time, and `fetch_youtube=False` uses `text` as-is for YouTube URLs.
-    Raises IngestError for pages that can't be stored.
+    `force=True` rewrites the page even when its content is unchanged (used by
+    backfills), and `description` keeps an existing description instead of
+    deriving one. Raises IngestError for pages that can't be stored.
     """
     if not is_valid_user_id(user_id):
         raise ValueError("ingest_page needs a valid user_id")
@@ -113,7 +125,7 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
     # 4. Unchanged content (and same embedding model) needs no work
     content_hash = hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
     existing = solr.get_page_head(page_id, user_id)
-    if existing and existing.get("content_hash") == content_hash \
+    if not force and existing and existing.get("content_hash") == content_hash \
             and existing.get("embedding_model") == EMBEDDING_MODEL \
             and "description" in existing:
         # (Pages stored before `description` existed are re-ingested once to gain it.)
@@ -133,7 +145,8 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
         raise IngestError(422, NOT_ENOUGH_TEXT)
     embeddings = embed_passages([f"{title}\n\n{chunk}" for chunk in chunks])
     saved_at = to_solr_date(timestamp)
-    description = extract_description(None if youtube_content is not None else html, cleaned)
+    if description is None:
+        description = extract_description(None if youtube_content is not None else html, cleaned)
     docs = [
         {
             "id": f"{page_id}::{i}",
@@ -153,6 +166,9 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
         }
         for i, (chunk, embedding) in enumerate(zip(chunks, embeddings))
     ]
+
+    # The page vector (mean of its chunk vectors) lives on chunk 0 only.
+    docs[0]["page_embedding"] = page_vector(embeddings)
 
     # 6. Overwrite in place, then drop stale chunks
     solr.upsert_page_chunks(page_id, docs, user_id)

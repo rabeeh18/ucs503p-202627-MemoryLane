@@ -11,18 +11,20 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from backend.auth import check_config, current_user_id
-from backend.config import CORS_ORIGINS
+from backend.config import CORS_ORIGINS, MIN_VECTOR_SIMILARITY
 from backend.models import (
     MemoryInput, SearchInput, MemoryResponse, PageInfo, MemoryStatusResponse,
     MemoriesResponse, SearchResponse, SearchResultItem, DebugSearchResultItem,
-    HealthResponse, SummarizeInput, SummarizeResponse,
+    HealthResponse, SummarizeInput, SummarizeResponse, RelatedPage, RelatedResponse,
+    MapSearchResponse,
 )
+from backend.library_map import StaleMap, map_service
 from backend.chunking import join_chunks
 from backend.embeddings import is_model_loaded, get_model
 from backend.ingest import IngestError, ingest_page, resolve_canonical_url
 from backend.solr_client import get_solr_client
-from backend.retrieval import hybrid_search
-from backend.summarizer import summarize, detect_detail_level, is_gemini_available
+from backend.retrieval import _cached_query_embedding, hybrid_search, knn_score_to_cosine
+from backend.summarizer import summarize, detect_detail_level, is_gemini_available, label_topics
 from backend.url_utils import normalize_url, generate_page_id
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -140,6 +142,9 @@ def save_memory(request: Request, memory: MemoryInput, user_id: str = Depends(cu
         logger.error(f"Failed to save memory: {e}")
         raise HTTPException(status_code=500, detail="Failed to save page")
 
+    if result.status == "saved":
+        map_service.invalidate(user_id)
+
     page = None
     if result.status != "skipped":
         page = PageInfo(
@@ -173,7 +178,63 @@ def delete_memory(request: Request, page_id: str, user_id: str = Depends(current
     """Delete one of the caller's pages."""
     page_id = _owned_page_id(page_id, user_id)
     get_solr_client().delete_page(page_id, user_id)
+    map_service.invalidate(user_id)
     return Response(status_code=204)
+
+
+@app.get("/memory/{page_id}/related", response_model=RelatedResponse)
+@limiter.limit("120/minute")
+def related_pages(
+    request: Request,
+    page_id: str,
+    k: int = Query(default=5, ge=1, le=20),
+    user_id: str = Depends(current_user_id),
+):
+    """The caller's pages most similar to one of their pages (by page vector)."""
+    page_id = _owned_page_id(page_id, user_id)
+    solr = get_solr_client()
+    vector = solr.get_page_vector(page_id, user_id)
+    if vector is None:  # saved before page vectors existed and not backfilled yet
+        return RelatedResponse(page_id=page_id, related=[])
+    related = []
+    for doc in solr.related_pages(vector, user_id, exclude_page_id=page_id, k=k):
+        similarity = knn_score_to_cosine(doc.get("score", 0.0))
+        if doc.get("page_id") == page_id or similarity < MIN_VECTOR_SIMILARITY:
+            continue
+        related.append(RelatedPage(
+            id=doc.get("page_id") or "",
+            title=doc.get("title") or doc.get("url") or "",
+            url=doc.get("url") or "",
+            domain=doc.get("domain") or "",
+            saved_at=str(doc.get("timestamp") or ""),
+            similarity=round(similarity, 4),
+        ))
+    return RelatedResponse(page_id=page_id, related=related)
+
+
+def _labeler():
+    return label_topics if is_gemini_available() else None
+
+
+@app.get("/map")
+@limiter.limit("30/minute")
+def library_map(request: Request, user_id: str = Depends(current_user_id)):
+    """Topics, layout and links for the caller's library (cached per user)."""
+    return map_service.get(user_id, get_solr_client(), _labeler()).response
+
+
+@app.get("/map/search", response_model=MapSearchResponse)
+@limiter.limit("120/minute")
+def library_map_search(
+    request: Request,
+    q: str = Query(min_length=1, max_length=500),
+    user_id: str = Depends(current_user_id),
+):
+    """Topics and pages of the caller's map that are close to `q` in meaning."""
+    if not q.strip():
+        raise HTTPException(status_code=400, detail="q is required")
+    found = map_service.search(user_id, get_solr_client(), _cached_query_embedding(q.strip()), _labeler())
+    return MapSearchResponse(query=q, **found)
 
 
 @app.get("/memories", response_model=MemoriesResponse)
@@ -240,8 +301,15 @@ def search_memory(request: Request, search: SearchInput, user_id: str = Depends(
         raise HTTPException(status_code=400, detail="Query is required")
 
     try:
+        page_ids = None
+        if search.topic:
+            try:
+                page_ids = map_service.topic_page_ids(user_id, search.topic)
+            except StaleMap:
+                raise HTTPException(status_code=409, detail="The library map has changed. Reload the map.")
         timings = {}
-        results = hybrid_search(search.query, user_id, top_k=search.num_results, timings=timings)
+        results = hybrid_search(search.query, user_id, top_k=search.num_results, timings=timings,
+                                page_ids=page_ids)
 
         response_results = []
         for result in results:
@@ -317,4 +385,5 @@ def export_my_data(request: Request, user_id: str = Depends(current_user_id)):
 def delete_my_data(request: Request, user_id: str = Depends(current_user_id)):
     """Delete every chunk the caller owns."""
     get_solr_client().delete_user(user_id)
+    map_service.invalidate(user_id)
     return Response(status_code=204)

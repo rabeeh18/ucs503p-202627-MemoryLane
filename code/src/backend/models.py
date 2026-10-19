@@ -14,6 +14,8 @@ class SearchInput(BaseModel):
     num_results: int = Field(default=10, ge=1, le=20)
     summarize: bool = Field(default=False)
     debug: bool = Field(default=False)
+    # A topic id from GET /map: search only that topic's pages.
+    topic: Optional[str] = Field(default=None, max_length=64)
 
 class PageInfo(BaseModel):
     id: str
@@ -76,3 +78,30 @@ class SummarizeInput(BaseModel):
 class SummarizeResponse(BaseModel):
     id: str
     summary: Optional[str] = None
+
+
+class RelatedPage(BaseModel):
+    id: str
+    title: str
+    url: str
+    domain: str
+    saved_at: str
+    similarity: float
+
+
+class RelatedResponse(BaseModel):
+    page_id: str
+    related: List[RelatedPage]
+
+
+class MapTopicMatch(BaseModel):
+    id: str
+    label: str
+    score: float
+
+
+class MapSearchResponse(BaseModel):
+    query: str
+    version: Optional[str] = None
+    topics: List[MapTopicMatch]
+    pages: List[str]

@@ -18,6 +18,16 @@ PAGE_SECOND_CHUNK_WEIGHT = float(os.getenv('PAGE_SECOND_CHUNK_WEIGHT', '0.3'))
 # Pages with no BM25 match need at least this cosine similarity on some chunk.
 MIN_VECTOR_SIMILARITY = float(os.getenv('MIN_VECTOR_SIMILARITY', '0.55'))
 
+# Library map
+MAP_MAX_PAGES = int(os.getenv('MAP_MAX_PAGES', '2000'))
+MAP_MIN_PAGES = int(os.getenv('MAP_MIN_PAGES', '10'))
+# A page less similar than this to its topic's centre is left unclustered.
+MAP_OUTLIER_SIMILARITY = float(os.getenv('MAP_OUTLIER_SIMILARITY', '0.35'))
+# Two topics this similar (centroid cosine) get a dashed link.
+MAP_CROSS_TOPIC_SIMILARITY = float(os.getenv('MAP_CROSS_TOPIC_SIMILARITY', '0.65'))
+MAP_CACHE_USERS = int(os.getenv('MAP_CACHE_USERS', '50'))
+MAP_CACHE_TTL_SECONDS = int(os.getenv('MAP_CACHE_TTL_SECONDS', '600'))
+
 # Reranker (cross-encoder, optional)
 RERANK_ENABLED = os.getenv('RERANK_ENABLED', 'false').strip().lower() in ('1', 'true', 'yes', 'on')
 RERANK_MODEL = os.getenv('RERANK_MODEL', 'cross-encoder/ms-marco-MiniLM-L-6-v2')

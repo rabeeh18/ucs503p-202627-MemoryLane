@@ -172,3 +172,77 @@ def test_is_valid_user_id_accepts_cognito_subs():
     assert is_valid_user_id("4c1d6f2a-90b1-70e3-1a2b-3c4d5e6f7a8b")
     assert is_valid_user_id("eval")
     assert not is_valid_user_id("eval user")
+
+
+# ---- page vectors, map scans, topic filters ---------------------------------------
+
+def test_related_pages_prefilters_user_and_excludes_the_page():
+    solr = _client()
+    solr.related_pages([0.1, 0.2], USER, exclude_page_id="p1", k=5)
+    payload = solr.client.post.call_args.kwargs["json"]
+    assert payload["query"].startswith("{!knn f=page_embedding topK=5}")
+    assert payload["filter"] == [FILTER, "-{!term f=page_id}p1"]
+
+
+def test_get_page_vector_reads_chunk_zero():
+    solr = _client()
+    solr.client.get.return_value.json.return_value = {"response": {"docs": [{"page_embedding": [0.5, 0.5]}]}}
+    assert solr.get_page_vector("p1", USER) == [0.5, 0.5]
+    params = solr.client.get.call_args.kwargs["params"]
+    assert params["fq"] == [FILTER, "chunk_id:0"]
+    assert params["fl"] == "page_embedding"
+
+
+def test_get_page_vector_missing():
+    assert _client().get_page_vector("p1", USER) is None
+
+
+def test_scan_page_heads_newest_first_and_capped():
+    solr = _client()
+    pages = [
+        {"response": {"docs": [{"id": "a"}, {"id": "b"}]}, "nextCursorMark": "c1"},
+        {"response": {"docs": [{"id": "c"}]}, "nextCursorMark": "c2"},
+    ]
+    solr.client.get.return_value.json.side_effect = pages
+    ids = [d["id"] for d in solr.scan_page_heads(USER, "page_id,page_embedding", limit=3, rows=2)]
+    assert ids == ["a", "b", "c"]
+    calls = solr.client.get.call_args_list
+    assert len(calls) == 2
+    assert all(c.kwargs["params"]["fq"] == [FILTER, "chunk_id:0"] for c in calls)
+    assert calls[0].kwargs["params"]["sort"] == "timestamp desc, id asc"
+    assert calls[1].kwargs["params"]["rows"] == 1  # only what's left of the cap
+
+
+def test_bm25_with_page_ids_posts_the_terms_filter():
+    solr = _client()
+    solr.client.post.return_value.json.return_value = {"response": {"docs": []}}
+    solr.bm25_search("q", USER, page_ids=["p1", "p2"])
+    solr.client.get.assert_not_called()
+    data = solr.client.post.call_args.kwargs["data"]
+    assert data["fq"] == [FILTER, "{!terms f=page_id}p1,p2"]
+
+
+def test_knn_with_page_ids_adds_a_prefilter():
+    solr = _client()
+    solr.knn_search([0.1], USER, k=3, page_ids=["p1"])
+    assert solr.client.post.call_args.kwargs["json"]["filter"] == [FILTER, "{!terms f=page_id}p1"]
+
+
+def test_empty_topic_matches_nothing():
+    solr = _client()
+    solr.knn_search([0.1], USER, page_ids=[])
+    assert solr.client.post.call_args.kwargs["json"]["filter"][1] == "-*:*"
+
+
+@pytest.mark.parametrize("bad", ["", None, "x y"])
+def test_new_scoped_calls_reject_malformed_user_ids(bad):
+    solr = _client()
+    for call in (
+        lambda: solr.get_page_vector("p", bad),
+        lambda: solr.related_pages([0.1], bad, exclude_page_id="p"),
+        lambda: list(solr.scan_page_heads(bad, "page_id", 10)),
+    ):
+        with pytest.raises(ValueError):
+            call()
+    solr.client.get.assert_not_called()
+    solr.client.post.assert_not_called()

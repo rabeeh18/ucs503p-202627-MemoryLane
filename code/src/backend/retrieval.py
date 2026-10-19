@@ -107,17 +107,21 @@ def _cached_query_embedding(query: str) -> tuple[float, ...]:
     return tuple(embed_query(query))
 
 
-def _timed_bm25(solr, query: str, user_id: str, rows: int):
+def _page_filter_kwargs(page_ids):
+    return {} if page_ids is None else {"page_ids": page_ids}
+
+
+def _timed_bm25(solr, query: str, user_id: str, rows: int, page_ids=None):
     start = time.perf_counter()
-    docs = solr.bm25_search(query, user_id, rows=rows)
+    docs = solr.bm25_search(query, user_id, rows=rows, **_page_filter_kwargs(page_ids))
     return docs, (time.perf_counter() - start) * 1000
 
 
-def _timed_knn(solr, query: str, user_id: str, k: int):
+def _timed_knn(solr, query: str, user_id: str, k: int, page_ids=None):
     start = time.perf_counter()
     vector = list(_cached_query_embedding(query))
     embedded = time.perf_counter()
-    docs = solr.knn_search(vector, user_id, k=k)
+    docs = solr.knn_search(vector, user_id, k=k, **_page_filter_kwargs(page_ids))
     done = time.perf_counter()
     return docs, (embedded - start) * 1000, (done - embedded) * 1000
 
@@ -146,7 +150,8 @@ def _rerank(query: str, candidates_map: dict, fused: dict[str, float],
 
 
 def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: int = None,
-                  timings: dict | None = None, solr: SolrClient | None = None) -> list[dict]:
+                  timings: dict | None = None, solr: SolrClient | None = None,
+                  page_ids: list[str] | None = None) -> list[dict]:
     """Full hybrid search pipeline.
 
     Steps:
@@ -158,7 +163,8 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
     6. Return top-K with snippets
 
     Only `user_id`'s chunks are searched. If `timings` is given, it is filled
-    with per-stage durations in ms. `solr` targets a specific core.
+    with per-stage durations in ms. `solr` targets a specific core. `page_ids`
+    limits both searches to those pages (e.g. one map topic).
     Returns list of webpage-level results.
     """
     top_k = top_k or DEFAULT_TOP_K
@@ -167,8 +173,8 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
 
     solr = solr or get_solr_client()
 
-    bm25_future = _executor.submit(_timed_bm25, solr, query, user_id, candidate_pool)
-    knn_future = _executor.submit(_timed_knn, solr, query, user_id, candidate_pool)
+    bm25_future = _executor.submit(_timed_bm25, solr, query, user_id, candidate_pool, page_ids)
+    knn_future = _executor.submit(_timed_knn, solr, query, user_id, candidate_pool, page_ids)
     bm25_docs, bm25_ms = bm25_future.result()
     knn_docs, embed_ms, knn_ms = knn_future.result()
     logger.info(f"BM25 returned {len(bm25_docs)} candidates, KNN returned {len(knn_docs)}")
