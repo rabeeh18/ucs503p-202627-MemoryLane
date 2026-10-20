@@ -78,8 +78,25 @@ async function request(path, opts = {}) {
 }
 
 /** @returns {Promise<{ query: string, results: Array<{ rank: number, id: string, url: string, title: string, domain: string, timestamp: string, snippet: string | null }> }>} */
-export function search(query, signal) {
-  return request('/search', { method: 'POST', body: { query, num_results: 10, summarize: false }, signal });
+export function search(query, signal, { topic = null } = {}) {
+  const body = { query, num_results: 10, summarize: false };
+  if (topic) body.topic = topic;
+  return request('/search', { method: 'POST', body, signal });
+}
+
+/** The library map: topics, page positions and links (or { status: 'too_few' }). */
+export function getMap(signal) {
+  return request('/map', { signal });
+}
+
+/** Topics and pages of the map close to `q` in meaning. */
+export function mapSearch(q, signal) {
+  return request(`/map/search?q=${encodeURIComponent(q)}`, { signal });
+}
+
+/** Up to `k` of the user's pages most similar to one page. */
+export function getRelated(id, k = 5, signal) {
+  return request(`/memory/${encodeURIComponent(id)}/related?k=${k}`, { signal });
 }
 
 /** @returns {Promise<{ total: number, pages: Array<{ id: string, url: string, title: string, domain: string, timestamp: string }> }>} */

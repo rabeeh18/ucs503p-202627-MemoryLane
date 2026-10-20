@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from backend.auth import current_user_id
 from backend.main import app, limiter
+from backend.library_map import MapService
 from backend.solr_client import SolrClient
 
 A, B = "user-a", "user-b"
@@ -40,13 +41,43 @@ class FakeSolr:
     def get_chunks_by_page_id(self, page_id, user_id):
         return sorted((d for d in self._mine(user_id) if d["page_id"] == page_id), key=lambda d: d["chunk_id"])
 
-    def bm25_search(self, query, user_id, rows=30):
+    def bm25_search(self, query, user_id, rows=30, page_ids=None):
         terms = query.lower().split()
         return [dict(d, score=1.0) for d in self._mine(user_id)
-                if any(t in d["text"].lower() for t in terms)][:rows]
+                if any(t in d["text"].lower() for t in terms)
+                and (page_ids is None or d["page_id"] in page_ids)][:rows]
 
-    def knn_search(self, vector, user_id, k=30):
-        return [dict(d, score=0.5) for d in self._mine(user_id)][:k]
+    def knn_search(self, vector, user_id, k=30, page_ids=None):
+        return [dict(d, score=0.9) for d in self._mine(user_id)
+                if page_ids is None or d["page_id"] in page_ids][:k]
+
+    def _heads(self, user_id):
+        return [d for d in self._mine(user_id) if d["chunk_id"] == 0]
+
+    def get_page_vector(self, page_id, user_id):
+        head = self.get_page_head(page_id, user_id)
+        return head.get("page_embedding") if head else None
+
+    def related_pages(self, vector, user_id, exclude_page_id, k=5):
+        scored = []
+        for d in self._heads(user_id):
+            if d["page_id"] == exclude_page_id or not d.get("page_embedding"):
+                continue
+            cos = sum(a * b for a, b in zip(vector, d["page_embedding"]))
+            scored.append(dict(d, score=(1 + cos) / 2))
+        return sorted(scored, key=lambda d: -d["score"])[:k]
+
+    def scan_page_heads(self, user_id, fields, limit):
+        return iter(sorted(self._heads(user_id), key=lambda d: d["timestamp"], reverse=True)[:limit])
+
+    def add_page(self, user_id, page_id, title, vector, text=None):
+        self.docs[f"{page_id}::0"] = {
+            "id": f"{page_id}::0", "user_id": user_id, "page_id": page_id, "chunk_id": 0, "total_chunks": 1,
+            "url": f"https://{user_id}.example.com/{page_id}", "title": title, "domain": f"{user_id}.example.com",
+            "text": text or f"{title}. Some words about {title.lower()} for searching.",
+            "timestamp": f"2024-01-{len(self.docs) % 28 + 1:02d}T00:00:00Z", "description": "",
+            "page_embedding": list(vector),
+        }
 
     def list_pages(self, user_id, limit=20, offset=0):
         heads = sorted((d for d in self._mine(user_id) if d["chunk_id"] == 0),
@@ -72,6 +103,7 @@ def env():
     state = {"user": A}
     app.dependency_overrides[current_user_id] = lambda: state["user"]
     with patch("backend.main.get_solr_client", return_value=fake), \
+         patch("backend.main.map_service", MapService()), \
          patch("backend.ingest.get_solr_client", return_value=fake), \
          patch("backend.retrieval.get_solr_client", return_value=fake), \
          patch("backend.ingest.embed_passages", side_effect=lambda texts: [[0.1] * 384 for _ in texts]), \
@@ -179,3 +211,77 @@ def test_every_solr_request_from_the_client_carries_the_user_filter():
                 isinstance(request.kwargs.get("json"), list)
                 and all(d["user_id"] == A for d in request.kwargs["json"])
             ), sent
+
+
+# ---- library map and related pages ---------------------------------------------
+
+def _unit(i, j=None, mix=0.0):
+    v = [0.0] * 384
+    v[i] = 1.0
+    if j is not None:
+        v[j] = mix
+    norm = sum(x * x for x in v) ** 0.5
+    return [x / norm for x in v]
+
+
+def _seed_library(fake, user, prefix, offset=0):
+    """12 pages in 3 tight groups; vectors distinct per user (offset)."""
+    ids = []
+    for group in range(3):
+        for j in range(4):
+            page_id = f"{prefix}{group}{j}".ljust(32, "0")
+            fake.add_page(user, page_id, f"{prefix} group {group} page {j}",
+                          _unit(offset + group, 100 + offset + group * 4 + j, 0.2))
+            ids.append(page_id)
+    return ids
+
+
+def test_map_contains_only_own_pages(env):
+    fake, as_user = env
+    a_ids = _seed_library(fake, A, "a")
+    b_ids = _seed_library(fake, B, "b", offset=10)
+    data = as_user(A).get("/map").json()
+    assert data["status"] == "ok"
+    assert {p["id"] for p in data["pages"]} == set(a_ids)
+    assert not {e["a"] for e in data["edges"]} & set(b_ids)
+    data_b = as_user(B).get("/map").json()
+    assert {p["id"] for p in data_b["pages"]} == set(b_ids)
+
+
+def test_map_search_only_scores_own_pages(env):
+    fake, as_user = env
+    _seed_library(fake, A, "a")
+    b_ids = _seed_library(fake, B, "b", offset=10)
+    with patch("backend.main._cached_query_embedding", return_value=tuple(_unit(10))):
+        found = as_user(A).get("/map/search", params={"q": "b group 0"}).json()
+    assert not set(found["pages"]) & set(b_ids)
+
+
+def test_related_excludes_self_and_other_users(env):
+    fake, as_user = env
+    a_ids = _seed_library(fake, A, "a")
+    # B has a page with exactly the same vector as A's first page.
+    fake.add_page(B, "c" * 32, "B's twin page", fake.get_page_vector(a_ids[0], A))
+    related = as_user(A).get(f"/memory/{a_ids[0]}/related", params={"k": 5}).json()["related"]
+    ids = [r["id"] for r in related]
+    assert a_ids[0] not in ids
+    assert "c" * 32 not in ids
+    assert ids and set(ids) <= set(a_ids)
+    assert all(r["similarity"] >= 0.55 for r in related)
+    assert related == sorted(related, key=lambda r: -r["similarity"])
+
+
+def test_related_for_another_users_page_is_404(env):
+    fake, as_user = env
+    b_ids = _seed_library(fake, B, "b", offset=10)
+    assert as_user(A).get(f"/memory/{b_ids[0]}/related").status_code == 404
+
+
+def test_topic_search_cannot_use_another_users_topic(env):
+    fake, as_user = env
+    _seed_library(fake, A, "a")
+    _seed_library(fake, B, "b", offset=10)
+    b_topic = as_user(B).get("/map").json()["topics"][0]["id"]
+    as_user(A).get("/map")
+    response = as_user(A).post("/search", json={"query": "group", "topic": b_topic})
+    assert response.status_code == 409

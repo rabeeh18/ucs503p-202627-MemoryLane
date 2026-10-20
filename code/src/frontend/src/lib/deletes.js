@@ -22,6 +22,8 @@ export function createDeleteQueue({ remove, delay = DELETE_DELAY_MS, setTimer = 
   const hidden = writable(new Set());
   /** @type {import('svelte/store').Writable<Array<{ id: number, kind: 'undo' | 'error', message: string, pageId?: string }>>} */
   const toasts = writable([]);
+  /** Bumped after every delete the server confirmed (e.g. to refetch the map). */
+  const committed = writable(0);
   /** pageId -> { timer, toastId } */
   const pending = new Map();
   let nextToastId = 1;
@@ -51,6 +53,7 @@ export function createDeleteQueue({ remove, delay = DELETE_DELAY_MS, setTimer = 
     dismissToast(entry.toastId);
     try {
       await remove(pageId, opts);
+      committed.update((n) => n + 1);
     } catch {
       setHidden(pageId, false);
       const errorId = addToast({ kind: 'error', message: "Couldn't delete the page. It's back in your library." });
@@ -87,5 +90,15 @@ export function createDeleteQueue({ remove, delay = DELETE_DELAY_MS, setTimer = 
     return ids.length;
   }
 
-  return { hidden, toasts, schedule, undo, flush, dismissToast, isPending: (id) => pending.has(id) };
+  /** Show a short error toast that dismisses itself. */
+  function notify(message) {
+    const id = addToast({ kind: 'error', message });
+    setTimer(() => dismissToast(id), ERROR_TOAST_MS);
+    return id;
+  }
+
+  return {
+    hidden, toasts, committed, schedule, undo, flush, dismissToast, notify,
+    isPending: (id) => pending.has(id),
+  };
 }

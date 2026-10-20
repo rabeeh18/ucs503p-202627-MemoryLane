@@ -274,7 +274,7 @@ def test_search_summarize_uses_owner_scoped_text(client):
 
 
 def test_search_debug_includes_ranks_and_timings(client):
-    def fake_search(query, user_id, top_k=None, timings=None):
+    def fake_search(query, user_id, top_k=None, timings=None, **kwargs):
         timings.update({"embed_ms": 1.0, "bm25_ms": 2.0, "knn_ms": 3.0,
                         "fuse_ms": 0.1, "rerank_ms": 0.0, "total_ms": 5.0})
         return [HYBRID_RESULT]

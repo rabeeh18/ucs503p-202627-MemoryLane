@@ -178,3 +178,32 @@ def test_unchanged_page_without_description_is_reingested_once():
     head = {"content_hash": hashlib.sha256(TEXT.encode()).hexdigest(), "embedding_model": ingest.EMBEDDING_MODEL}
     solr = _solr(head)
     assert ingest_page("u", "https://example.com/a", "T", TEXT, solr=solr).status == "saved"
+
+
+def test_page_vector_on_chunk_zero_only(fake_embeddings):
+    fake_embeddings.side_effect = lambda texts: [[1.0, 0.0] if i % 2 == 0 else [0.0, 1.0] for i in range(len(texts))]
+    long_text = " ".join(f"Sentence number {i} has a few words in it." for i in range(60))
+    solr = _solr()
+    ingest_page("u", "https://example.com/a", "T", long_text, solr=solr)
+    docs = solr.upsert_page_chunks.call_args.args[1]
+    assert len(docs) > 1
+    ones, twos = (len(docs) + 1) // 2, len(docs) // 2  # chunks alternate [1, 0] and [0, 1]
+    norm = (ones ** 2 + twos ** 2) ** 0.5
+    assert docs[0]["page_embedding"] == pytest.approx([ones / norm, twos / norm])
+    assert all("page_embedding" not in d for d in docs[1:])
+    norm = sum(x * x for x in docs[0]["page_embedding"]) ** 0.5
+    assert norm == pytest.approx(1.0)
+
+
+def test_force_reingests_unchanged_page():
+    head = {"content_hash": hashlib.sha256(TEXT.encode()).hexdigest(), "embedding_model": ingest.EMBEDDING_MODEL,
+            "description": ""}
+    solr = _solr(head)
+    assert ingest_page("u", "https://example.com/a", "T", TEXT, solr=solr).status == "unchanged"
+    assert ingest_page("u", "https://example.com/a", "T", TEXT, solr=solr, force=True).status == "saved"
+
+
+def test_description_override_is_kept():
+    solr = _solr()
+    ingest_page("u", "https://example.com/a", "T", TEXT, solr=solr, description="Kept description.")
+    assert solr.upsert_page_chunks.call_args.args[1][0]["description"] == "Kept description."

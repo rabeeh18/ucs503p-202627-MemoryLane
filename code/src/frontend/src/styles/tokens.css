@@ -14,6 +14,18 @@
   --on-primary: #161616;    /* text on primary button */
   --scroll-pill: #3a3a3a;   /* floating scroll indicator */
   --scroll-pill-hover: #5a5a5a;
+  /* Library map: monochrome, emphasis by brightness only */
+  --map-topic: #1a1a1a;          /* oval fill, one step above --bg */
+  --map-topic-active: #1f1f1f;
+  --map-topic-border: #2a2a2a;   /* hairline */
+  --map-topic-border-active: #4a4a4a;
+  --map-edge: #3a3a3a;           /* links inside a topic */
+  --map-edge-cross: #303030;     /* dashed links between topics */
+  --map-edge-lit: #8c8c8c;       /* links of the selected page */
+  --map-dot: #6e6e6e;            /* pages: mid-grey */
+  --map-dot-outlier: #4a4a4a;    /* unclustered pages: smaller and dimmer */
+  --map-dot-lit: #a8a8a8;        /* neighbours, matches, hover */
+  --map-ring: #5a5a5a;           /* faint ring round the selected page */
   --radius: 10px; --radius-sm: 8px; --radius-xs: 5px;
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;

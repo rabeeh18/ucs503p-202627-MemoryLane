@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 # Dense vectors must stay lists. Everything else Solr may return as a
 # one-element array (especially text_general fields) should be a scalar.
-_VECTOR_FIELDS = {"embedding"}
+_VECTOR_FIELDS = {"embedding", "page_embedding"}
 
 # Stored fields returned for chunk documents. `embedding` is not stored.
 CHUNK_FIELDS = (
@@ -66,6 +66,16 @@ def term_query(field: str, value: str) -> str:
     return "{!term f=" + field + "}" + value
 
 
+def page_ids_filter(page_ids) -> str:
+    """Filter to a set of page ids (e.g. the pages of one map topic)."""
+    ids = [p for p in page_ids if p]
+    if not ids:
+        return "-*:*"  # matches nothing
+    if any("," in p for p in ids):
+        raise ValueError("page ids must not contain commas")
+    return "{!terms f=page_id}" + ",".join(ids)
+
+
 def user_filter(user_id: str) -> str:
     """The filter every scoped read, write and delete carries."""
     return term_query("user_id", _require_user(user_id))
@@ -88,8 +98,12 @@ class SolrClient:
         except Exception:
             return False
 
-    def _select(self, params: dict) -> dict:
-        response = self.client.get(f"{self.base_url}/select", params={**params, "wt": "json"})
+    def _select(self, params: dict, post: bool = False) -> dict:
+        """GET /select, or a form POST when the parameters are too long for a URL."""
+        if post:
+            response = self.client.post(f"{self.base_url}/select", data={**params, "wt": "json"})
+        else:
+            response = self.client.get(f"{self.base_url}/select", params={**params, "wt": "json"})
         response.raise_for_status()
         return response.json()
 
@@ -134,34 +148,42 @@ class SolrClient:
 
     # ---- reads --------------------------------------------------------------
 
-    def bm25_search(self, query: str, user_id: str, rows: int = 30) -> list[dict]:
-        """BM25 search on text and title fields, within one user's chunks.
+    def bm25_search(self, query: str, user_id: str, rows: int = 30,
+                    page_ids: list[str] | None = None) -> list[dict]:
+        """BM25 search on text and title fields, within one user's chunks
+        (and, if given, only within `page_ids`).
         Returns list of chunk docs (CHUNK_FIELDS) with score.
         """
+        filters = user_filter(user_id) if page_ids is None else [user_filter(user_id), page_ids_filter(page_ids)]
         data = self._select({
             "q": sanitize_query(query),
             "defType": "edismax",
             "qf": "title^2 text",
             "pf": "text^2 title^3",
             "uf": "-*",
-            "fq": user_filter(user_id),
+            "fq": filters,
             "fl": CHUNK_FIELDS + ",score",
             "rows": rows,
-        })
+        }, post=page_ids is not None)
         docs = data.get("response", {}).get("docs", [])
         return [normalize_solr_doc(doc) for doc in docs]
 
-    def knn_search(self, vector: list[float], user_id: str, k: int = 30) -> list[dict]:
+    def knn_search(self, vector: list[float], user_id: str, k: int = 30,
+                   page_ids: list[str] | None = None) -> list[dict]:
         """Dense vector KNN search within one user's chunks.
 
-        The user filter goes in `filter`; with knn as the main query Solr applies it
-        as a pre-filter, so the user gets up to k of their own chunks.
+        The user filter (and optional page filter) goes in `filter`; with knn as
+        the main query Solr applies it as a pre-filter, so the user gets up to k
+        of their own chunks.
         """
         url = f"{self.base_url}/select"
         vector_str = "[" + ",".join(str(v) for v in vector) + "]"
+        filters = [user_filter(user_id)]
+        if page_ids is not None:
+            filters.append(page_ids_filter(page_ids))
         payload = {
             "query": f"{{!knn f=embedding topK={k}}}{vector_str}",
-            "filter": [user_filter(user_id)],
+            "filter": filters,
             "fields": CHUNK_FIELDS + ",score",
             "limit": k
         }
@@ -181,6 +203,54 @@ class SolrClient:
         })
         docs = data.get("response", {}).get("docs", [])
         return normalize_solr_doc(docs[0]) if docs else None
+
+    def get_page_vector(self, page_id: str, user_id: str) -> list[float] | None:
+        """The page vector stored on chunk 0, or None (not backfilled yet)."""
+        data = self._select({
+            "q": term_query("page_id", page_id),
+            "fq": [user_filter(user_id), "chunk_id:0"],
+            "fl": "page_embedding",
+            "rows": 1,
+        })
+        docs = data.get("response", {}).get("docs", [])
+        vector = docs[0].get("page_embedding") if docs else None
+        return [float(x) for x in vector] if vector else None
+
+    def related_pages(self, vector: list[float], user_id: str, exclude_page_id: str, k: int = 5) -> list[dict]:
+        """KNN over page vectors, pre-filtered to the user's other pages."""
+        vector_str = "[" + ",".join(str(v) for v in vector) + "]"
+        payload = {
+            "query": f"{{!knn f=page_embedding topK={k}}}{vector_str}",
+            "filter": [user_filter(user_id), "-" + term_query("page_id", exclude_page_id)],
+            "fields": CHUNK_FIELDS + ",score",
+            "limit": k,
+        }
+        response = self.client.post(f"{self.base_url}/select", json=payload,
+                                    headers={"Content-Type": "application/json"})
+        response.raise_for_status()
+        return [normalize_solr_doc(d) for d in response.json().get("response", {}).get("docs", [])]
+
+    def scan_page_heads(self, user_id: str, fields: str, limit: int, rows: int = 500):
+        """The user's pages (chunk 0 of each), newest first, at most `limit`."""
+        yielded = 0
+        cursor = "*"
+        while yielded < limit:
+            data = self._select({
+                "q": "*:*",
+                "fq": [user_filter(user_id), "chunk_id:0"],
+                "fl": fields,
+                "rows": min(rows, limit - yielded),
+                "sort": "timestamp desc, id asc",
+                "cursorMark": cursor,
+            })
+            docs = data.get("response", {}).get("docs", [])
+            for doc in docs:
+                yield normalize_solr_doc(doc)
+            yielded += len(docs)
+            next_cursor = data.get("nextCursorMark")
+            if not docs or not next_cursor or next_cursor == cursor:
+                return
+            cursor = next_cursor
 
     def get_chunks_by_page_id(self, page_id: str, user_id: str) -> list[dict]:
         """Fetch all chunks for one of the user's pages, in order."""
@@ -230,10 +300,10 @@ class SolrClient:
         """Yield every chunk the user owns, paging with cursorMark (sorted by id)."""
         return self._scan(fields, "*:*", [user_filter(user_id)], rows)
 
-    def scan_unscoped(self, fields: str, rows: int = 500):
-        """Yield every document in the core. Only for re-indexing an old core
-        (which has no user ids); never call this from the API."""
-        return self._scan(fields, "*:*", [], rows)
+    def scan_unscoped(self, fields: str, rows: int = 500, filters: list[str] | None = None):
+        """Yield every document in the core. Only for maintenance scripts
+        (re-index, backfill); never call this from the API."""
+        return self._scan(fields, "*:*", list(filters or []), rows)
 
 
 # Module-level singleton

@@ -68,6 +68,24 @@ describe('delayed delete with undo', () => {
     expect(remove).toHaveBeenCalledTimes(1);
   });
 
+  it('counts deletes the server confirmed', async () => {
+    queue.schedule('p1');
+    expect(get(queue.committed)).toBe(0);
+    await vi.advanceTimersByTimeAsync(DELETE_DELAY_MS);
+    expect(get(queue.committed)).toBe(1);
+    remove.mockRejectedValueOnce(new Error('500'));
+    queue.schedule('p2');
+    await vi.advanceTimersByTimeAsync(DELETE_DELAY_MS);
+    expect(get(queue.committed)).toBe(1);
+  });
+
+  it('notify shows a self-dismissing error toast', async () => {
+    queue.notify("Couldn't load your map.");
+    expect(get(queue.toasts)[0]).toMatchObject({ kind: 'error', message: "Couldn't load your map." });
+    await vi.advanceTimersByTimeAsync(ERROR_TOAST_MS);
+    expect(get(queue.toasts)).toEqual([]);
+  });
+
   it('ignores a second delete of the same page while one is pending', () => {
     queue.schedule('p1');
     queue.schedule('p1');
