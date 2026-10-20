@@ -2,6 +2,7 @@
   // Right-hand panel of the map: the selected page (actions, topic, related
   // pages), the selected topic (its pages), or a hint when nothing is selected.
   import { createEventDispatcher, onDestroy } from 'svelte';
+  import { fly } from 'svelte/transition';
   import ScrollPill from '../ScrollPill.svelte';
   import { fetchSummary, getRelated } from '../../api.js';
   import { link } from '../../lib/router.js';
@@ -11,8 +12,14 @@
   export let panel;
   /** The map data (topics, pages) */
   export let data;
-  /** Bottom-sheet presentation on narrow screens */
+  /** Bottom-sheet presentation on narrow screens (otherwise a floating card) */
   export let sheet = false;
+
+  // Slide in over 150 ms: from the right as a card, from below as a sheet.
+  const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  function slide(node) {
+    return fly(node, { duration: reducedMotion() ? 0 : 150, x: sheet ? 0 : 24, y: sheet ? 24 : 0, opacity: 0 });
+  }
 
   const dispatch = createEventDispatcher();
   let scroller;
@@ -90,12 +97,13 @@
   onDestroy(() => relatedController?.abort());
 </script>
 
-<aside class="panel" class:sheet aria-label="Selection details">
+<aside class="panel" class:sheet aria-label="Selection details" transition:slide>
   <div class="scroll" bind:this={scroller}>
     <div class="inner">
-      {#if sheet && panel.mode !== 'none'}
-        <button type="button" class="close" aria-label="Close details" on:click={() => dispatch('close')}>×</button>
-      {/if}
+      <button type="button" class="close" aria-label="Close panel" on:click={() => dispatch('close')}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
       {#if page}
         <p class="eyebrow mono">Selected page</p>
         <h2 class="title">{page.title}</h2>
@@ -170,8 +178,6 @@
             </li>
           {/each}
         </ul>
-      {:else}
-        <p class="empty muted">Select a page or topic</p>
       {/if}
     </div>
   </div>
@@ -179,13 +185,21 @@
 <ScrollPill target={scroller} />
 
 <style>
+  /* A floating card over the map; the map itself never resizes. */
   .panel {
-    width: 460px;
-    flex: none;
-    min-height: 0;
-    border-left: 1px solid var(--divider);
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 20;
+    width: min(420px, calc(100% - 32px));
     display: flex;
     flex-direction: column;
+    min-height: 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
   }
 
   .scroll {
@@ -200,7 +214,7 @@
   }
 
   .inner {
-    padding: 32px 36px 40px;
+    padding: 24px 28px 32px;
   }
 
   .eyebrow {
@@ -342,21 +356,17 @@
     font-size: 13px;
   }
 
-  .empty {
-    margin: 0;
-    font-size: 14px;
-  }
-
   /* Narrow screens: a bottom sheet over the map. */
   .panel.sheet {
     position: fixed;
+    top: auto;
     left: 0;
     right: 0;
     bottom: 0;
     z-index: 30;
     width: auto;
     max-height: 50vh;
-    border-left: 0;
+    border: 0;
     border-top: 1px solid var(--border-strong);
     border-radius: var(--radius) var(--radius) 0 0;
     background: var(--bg);
@@ -365,18 +375,21 @@
 
   .close {
     float: right;
-    width: 36px;
-    height: 36px;
-    margin: -6px -6px 0 8px;
-    border: 1px solid var(--border);
-    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    margin: -6px -10px 0 12px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-2);
-    font-size: 18px;
-    line-height: 1;
   }
 
   .close:hover {
+    border-color: var(--border);
+    background: var(--surface-active);
     color: var(--text);
   }
 

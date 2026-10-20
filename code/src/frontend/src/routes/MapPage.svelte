@@ -1,5 +1,5 @@
 <script>
-  import { onDestroy, onMount } from 'svelte';
+  import { onDestroy, onMount, tick } from 'svelte';
   import Header from '../components/Header.svelte';
   import MapCanvas from '../components/map/MapCanvas.svelte';
   import MapPanel from '../components/map/MapPanel.svelte';
@@ -17,7 +17,11 @@
   let mode = narrow() ? 'list' : 'map';
   let panel = EMPTY_PANEL;
   let canvas;
+  let stage;
   let sheet = window.matchMedia('(max-width: 900px)').matches;
+
+  /** Card width + its 16px margins on both sides. */
+  const CARD_SPACE = 420 + 32;
 
   const dispatch = (action) => (panel = panelReducer(panel, action));
 
@@ -87,7 +91,8 @@
       const best = result.topics[0];
       if (best) {
         dispatch({ type: 'topic', id: best.id });
-        canvas?.focusTopic(best.id);
+        await tick();
+        canvas?.zoomToTopic(best.id);
       }
     } catch (err) {
       if (err?.name === 'CancelledError' || mine !== findController) return;
@@ -109,10 +114,33 @@
 
   // ---- selection --------------------------------------------------------------------------
 
-  function selectPage(id, topicId) {
+  // The panel floats over the map, so the map never resizes; instead a selected
+  // dot or topic that would sit under the card (or sheet) is panned into view.
+  $: panelOpen = panel.mode !== 'none';
+  $: obstruct = !panelOpen
+    ? { right: 0, bottom: 0 }
+    : sheet
+      ? { right: 0, bottom: sheetCover() }
+      : { right: CARD_SPACE, bottom: 0 };
+
+  /** How much of the map the bottom sheet (max 50vh, fixed to the window) covers. */
+  function sheetCover() {
+    if (!stage) return 0;
+    const rect = stage.getBoundingClientRect();
+    return Math.max(0, rect.bottom - window.innerHeight * 0.5);
+  }
+
+  async function selectPage(id, topicId) {
     const page = data?.pages.find((p) => p.id === id);
     dispatch({ type: 'page', id, topicId: topicId ?? page?.topic ?? null });
-    canvas?.focusPage(id);
+    await tick();
+    canvas?.revealPage(id);
+  }
+
+  async function selectTopic(id) {
+    dispatch({ type: 'topic', id });
+    await tick();
+    canvas?.revealTopic(id);
   }
 
   function onKeydown(event) {
@@ -181,16 +209,20 @@
           <p class="state">Couldn't load your map. <button type="button" class="link-button" on:click={refresh}>Try again</button></p>
         </div>
       {:else if data && mode === 'map'}
-        <div class="stage">
+        <div class="stage" bind:this={stage}>
           <MapCanvas
             bind:this={canvas}
             {data}
             {panel}
             {find}
+            {obstruct}
             on:selectPage={(e) => selectPage(e.detail.id, e.detail.topicId)}
-            on:selectTopic={(e) => dispatch({ type: 'topic', id: e.detail })}
+            on:selectTopic={(e) => selectTopic(e.detail)}
             on:clear={() => dispatch({ type: 'clear' })}
           />
+          {#if panelOpen}
+            <MapPanel {panel} {data} {sheet} on:selectPage={(e) => selectPage(e.detail)} on:close={() => dispatch({ type: 'clear' })} />
+          {/if}
         </div>
         <p class="hint">Scroll to zoom · Drag to pan · Click a topic to search inside it</p>
       {:else if data}
@@ -198,9 +230,6 @@
       {/if}
     </div>
 
-    {#if data && mode === 'map' && (!sheet || panel.mode !== 'none')}
-      <MapPanel {panel} {data} {sheet} on:selectPage={(e) => selectPage(e.detail)} on:close={() => dispatch({ type: 'clear' })} />
-    {/if}
   </main>
 </div>
 

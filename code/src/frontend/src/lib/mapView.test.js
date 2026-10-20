@@ -150,21 +150,87 @@ describe('list view sections', () => {
   });
 });
 
-describe('fit to content', () => {
-  it('frames the drawn content, never zooming out past the whole-world fit', async () => {
-    const { contentBounds, fitBounds } = await import('./mapView.js');
-    const map = { topics: [{ x: 0.4, y: 0.5, rx: 0.1, ry: 0.07 }], pages: [{ x: 0.42, y: 0.5 }, { x: 0.6, y: 0.55 }] };
+describe('fit, clamp and pan into view', () => {
+  const map = {
+    topics: [{ x: 0.2, y: 0.4, rx: 0.06, ry: 0.05, label: 'A', count: 10 }],
+    pages: [{ x: 0.18, y: 0.4 }, { x: 0.3, y: 0.45 }],
+  };
+
+  it('fits the content bounding box centred on both axes with 48px padding', async () => {
+    const { contentBounds, fitBounds, FIT_PADDING } = await import('./mapView.js');
     const b = contentBounds(map);
-    expect(b.x).toBeLessThan(0.3 * WORLD.width);
-    expect(b.x + b.width).toBeGreaterThan(0.6 * WORLD.width);
     const v = fitBounds(b, viewport);
-    expect(v.k).toBeGreaterThan(fitView(viewport).k);
-    // The content centre lands in the viewport centre.
-    expect((b.x + b.width / 2) * v.k + v.tx).toBeCloseTo(viewport.width / 2, 0);
+    const left = b.x * v.k + v.tx;
+    const right = (b.x + b.width) * v.k + v.tx;
+    const top = b.y * v.k + v.ty;
+    const bottom = (b.y + b.height) * v.k + v.ty;
+    expect((left + right) / 2).toBeCloseTo(viewport.width / 2, 5);
+    expect((top + bottom) / 2).toBeCloseTo(viewport.height / 2, 5);
+    // The tighter axis touches the padding exactly.
+    expect(Math.min(left, top, viewport.width - right, viewport.height - bottom)).toBeCloseTo(FIT_PADDING, 5);
   });
 
-  it('falls back to the whole world when empty', async () => {
-    const { contentBounds } = await import('./mapView.js');
-    expect(contentBounds({ topics: [], pages: [] })).toEqual({ x: 0, y: 0, width: WORLD.width, height: WORLD.height });
+  it('clamping against the content box keeps off-centre content centred', async () => {
+    const { contentBounds, fitBounds } = await import('./mapView.js');
+    const b = contentBounds(map); // content sits in the left part of the world
+    const v = fitBounds(b, viewport);
+    expect(clampView(v, viewport, b)).toEqual(v);
+  });
+
+  it('pans the least needed to bring a dot out from under the panel', async () => {
+    const { panIntoView } = await import('./mapView.js');
+    const view = { k: 1, tx: 0, ty: 0 };
+    const area = { x0: 0, y0: 0, x1: 1000 - 452, y1: 600 };
+    const under = { x0: 800, y0: 300, x1: 810, y1: 310 };
+    const moved = panIntoView(view, under, area);
+    expect(810 + moved.tx).toBe(area.x1 - 24);
+    expect(moved.ty).toBe(0);
+    expect(moved.k).toBe(1);
+    // Already visible: unchanged.
+    expect(panIntoView(view, { x0: 100, y0: 100, x1: 110, y1: 110 }, area)).toBe(view);
+  });
+
+  it('prefers keeping the left/top edge visible when the rect is too big', async () => {
+    const { panIntoView } = await import('./mapView.js');
+    const moved = panIntoView({ k: 1, tx: 0, ty: 0 }, { x0: -50, y0: 10, x1: 2000, y1: 20 }, { x0: 0, y0: 0, x1: 500, y1: 600 });
+    expect(-50 + moved.tx).toBe(24);
+  });
+});
+
+describe('semantic zoom, dots and links', () => {
+  it('dims large libraries at the fitted zoom and brightens past 1.6x', async () => {
+    const { detailLevel } = await import('./mapView.js');
+    expect(detailLevel(1, 100)).toBe(1);
+    expect(detailLevel(1, 278)).toBeCloseTo(0.45);
+    expect(detailLevel(1.3, 278)).toBeGreaterThan(0.45);
+    expect(detailLevel(1.6, 278)).toBe(1);
+    expect(detailLevel(4, 2000)).toBe(1);
+  });
+
+  it('uses smaller dots for big topics and unclustered pages', async () => {
+    const { dotRadius } = await import('./mapView.js');
+    expect(dotRadius({ topic: 't' }, 39)).toBe(2.5);   // 5px
+    expect(dotRadius({ topic: 't' }, 40)).toBe(1.75);  // 3.5px
+    expect(dotRadius({ topic: null }, 0)).toBeLessThan(1.75);
+  });
+
+  it("draws only the hovered or selected topic's links and the selected page's links", async () => {
+    const { visibleEdges } = await import('./mapView.js');
+    const topicOf = new Map([['a', 't1'], ['b', 't1'], ['c', 't2'], ['d', 't2']]);
+    const edges = [{ a: 'a', b: 'b' }, { a: 'c', b: 'd' }];
+    expect(visibleEdges(edges, topicOf, {})).toEqual([]);
+    expect(visibleEdges(edges, topicOf, { hoverTopicId: 't2' })).toEqual([{ a: 'c', b: 'd' }]);
+    expect(visibleEdges(edges, topicOf, { selectedTopicId: 't1' })).toEqual([{ a: 'a', b: 'b' }]);
+    expect(visibleEdges(edges, topicOf, { selectedPageId: 'd' })).toEqual([{ a: 'c', b: 'd' }]);
+  });
+
+  it('links topic ovals edge to edge', async () => {
+    const { ovalLink } = await import('./mapView.js');
+    const a = { x: 0.25, y: 0.5, rx: 0.05, ry: 0.05 };
+    const b = { x: 0.75, y: 0.5, rx: 0.05, ry: 0.05 };
+    const l = ovalLink(a, b);
+    expect(l.x1).toBeCloseTo(0.3 * WORLD.width);
+    expect(l.x2).toBeCloseTo(0.7 * WORLD.width);
+    expect(l.y1).toBeCloseTo(0.5 * WORLD.height);
   });
 });

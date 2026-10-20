@@ -44,7 +44,7 @@ def client(solr, service):
 def test_map_response_shape(client):
     data = client.get("/map").json()
     assert data["status"] == "ok"
-    assert set(data) == {"status", "version", "topics", "pages", "edges", "counts"}
+    assert set(data) == {"status", "version", "topics", "pages", "edges", "topic_links", "counts"}
     assert set(data["topics"][0]) == {"id", "label", "count", "x", "y", "rx", "ry"}
     assert set(data["pages"][0]) == {"id", "title", "url", "domain", "saved_at", "x", "y", "topic"}
     assert set(data["edges"][0]) == {"a", "b", "kind"}

@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -110,7 +110,7 @@ def test_edges_link_neighbours_within_topics():
     assert all(d >= 1 for d in degree.values())
 
 
-def test_cross_edges_join_similar_topics_only():
+def test_related_topics_get_one_link_between_topics():
     heads = make_heads()
     # Make "search" lean towards "ml" so their centroids are similar.
     for h in heads:
@@ -118,12 +118,20 @@ def test_cross_edges_join_similar_topics_only():
             v = np.array(h["page_embedding"]) + 1.0 * _axis(0)
             h["page_embedding"] = (v / np.linalg.norm(v)).tolist()
     m = build_map(heads, "k", 0).response
-    topic_of = {p["id"]: p["topic"] for p in m["pages"]}
-    cross = [e for e in m["edges"] if e["kind"] == "cross"]
-    assert len(cross) == 1
-    names = {e.split("-")[1] for e in (cross[0]["a"], cross[0]["b"])}
-    assert names == {"ml", "search"}
-    assert topic_of[cross[0]["a"]] != topic_of[cross[0]["b"]]
+    topic_members = {}
+    for page in m["pages"]:
+        topic_members.setdefault(page["topic"], set()).add(page["id"].split("-")[1])
+    assert len(m["topic_links"]) == 1
+    link = m["topic_links"][0]
+    assert topic_members[link["a"]] | topic_members[link["b"]] == {"ml", "search"}
+    assert all(e["kind"] == "intra" for e in m["edges"])  # no page-to-page cross links
+
+
+def test_topic_links_are_capped_per_topic():
+    centroids = lm._normalize_rows(np.ones((6, 4)) + np.eye(6, 4) * 0.01)  # all very similar
+    links = lm.build_topic_links(centroids, cross_similarity=0.5)
+    degree = Counter(t for link in links for t in link)
+    assert links and all(d <= lm.MAX_TOPIC_LINKS for d in degree.values())
 
 
 def test_too_few_pages():
@@ -144,26 +152,56 @@ def test_pages_without_vectors_are_counted_not_mapped():
 
 # ---- labels ------------------------------------------------------------------
 
-def test_labels_fall_back_to_ctfidf_without_gemini():
-    m = build_map(make_heads(), "k", 0, labeler=None).response
-    labels = {t["label"] for t in m["topics"]}
+def test_labels_fall_back_to_ctfidf_without_gemini(caplog):
+    with caplog.at_level("WARNING"):
+        m = build_map(make_heads(), "k", 0, labeler=None).response
+    labels = [t["label"] for t in m["topics"]]
     assert any("Search" in l for l in labels)
     assert any("Sleep" in l or "Memory" in l for l in labels)
     assert all(1 <= len(l.split()) <= 3 for l in labels)
+    assert len(set(labels)) == len(labels)
+    assert "Gemini is not configured" in caplog.text
 
 
-def test_labels_fall_back_when_gemini_fails():
+def test_labels_fall_back_when_gemini_fails(caplog):
     failing = MagicMock(side_effect=RuntimeError("quota"))
-    m = build_map(make_heads(), "k", 0, labeler=failing).response
+    with caplog.at_level("WARNING"):
+        m = build_map(make_heads(), "k", 0, labeler=failing).response
     assert all(t["label"] for t in m["topics"])
     failing.assert_called_once()
+    assert "Gemini call failed" in caplog.text and "quota" in caplog.text
+
+
+def test_labeller_gets_hints_and_other_labels():
+    labeler = MagicMock(side_effect=lambda groups, **kw: [f"Label {chr(65 + i)}" for i in range(len(groups))])
+    cache = OrderedDict()
+    build_map(make_heads(), "k", 0, labeler=labeler, label_cache=cache)
+    kwargs = labeler.call_args.kwargs
+    assert len(kwargs["hints"]) == len(labeler.call_args.args[0])
+    assert kwargs["taken"] == []
+    # Change one topic: only it is relabelled, and the others' labels are passed as taken.
+    heads = make_heads()
+    heads = [h for h in heads if h["page_id"] != "p-sleep-3"]
+    build_map(heads, "k2", 1, labeler=labeler, label_cache=cache)
+    assert len(labeler.call_args.args[0]) == 1
+    assert sorted(labeler.call_args.kwargs["taken"]) == ["Label A", "Label B", "Label D"]
+
+
+def test_generic_or_duplicate_gemini_labels_are_rejected(caplog):
+    labeler = MagicMock(side_effect=lambda groups, **kw: ["Human patients", "Same", "Same", "Fine tuning"])
+    with caplog.at_level("WARNING"):
+        labels = [t["label"] for t in build_map(make_heads(), "k", 0, labeler=labeler).response["topics"]]
+    assert labels[0] != "Human patients" and labels[2] != "Same"
+    assert labels[1] == "Same" and labels[3] == "Fine tuning"
+    assert len(set(labels)) == 4
+    assert "rejected Gemini label 'Human patients'" in caplog.text
 
 
 def test_gemini_labels_are_used_and_cached():
-    labeler = MagicMock(side_effect=lambda groups: [f"Label {i}" for i in range(len(groups))])
+    labeler = MagicMock(side_effect=lambda groups, **kw: [f"Label {chr(65 + i)}" for i in range(len(groups))])
     cache = OrderedDict()
     m = build_map(make_heads(), "k", 0, labeler=labeler, label_cache=cache).response
-    assert [t["label"] for t in m["topics"]] == ["Label 0", "Label 1", "Label 2", "Label 3"]
+    assert [t["label"] for t in m["topics"]] == ["Label A", "Label B", "Label C", "Label D"]
     groups = labeler.call_args.args[0]
     assert all(len(g) <= 10 for g in groups)
     build_map(make_heads(), "k2", 1, labeler=labeler, label_cache=cache)
@@ -171,20 +209,39 @@ def test_gemini_labels_are_used_and_cached():
 
 
 def test_partial_gemini_labels_mix_with_fallback():
-    labeler = MagicMock(side_effect=lambda groups: [None] + ["Named"] * (len(groups) - 1))
+    labeler = MagicMock(side_effect=lambda groups, **kw: [None] + [f"Named {i}" for i in range(1, len(groups))])
     m = build_map(make_heads(), "k", 0, labeler=labeler).response
-    assert m["topics"][0]["label"] != "Named"
-    assert all(t["label"] == "Named" for t in m["topics"][1:])
+    assert not m["topics"][0]["label"].startswith("Named")
+    assert all(t["label"].startswith("Named") for t in m["topics"][1:])
 
 
-def test_ctfidf_prefers_distinctive_words():
+def test_ctfidf_prefers_distinctive_bigrams_in_title_case():
     groups = [
-        [{"title": "Neural networks and learning"}, {"title": "Learning with neural networks"}],
+        [{"title": "Neural networks for vision"}, {"title": "Training neural networks"}, {"title": "Neural networks explained"}],
         [{"title": "Sleep and memory"}, {"title": "Memory during sleep"}],
     ]
     labels = ctfidf_labels(groups)
-    assert labels[0].split()[0] in ("Neural", "Networks", "Learning")
-    assert labels[1].split()[0] in ("Sleep", "Memory")
+    assert labels[0] == "Neural Networks"
+    assert set(labels[1].split()) == {"Sleep", "Memory"}
+
+
+def test_ctfidf_skips_generic_science_words():
+    groups = [
+        [{"title": "A study of human cells in patients"}, {"title": "Human cells and insulin resistance study"},
+         {"title": "Patients with insulin resistance"}],
+        [{"title": "Tumour immunity in patients"}, {"title": "Human tumour immunity results"}],
+    ]
+    labels = ctfidf_labels(groups)
+    for label in labels:
+        assert not {"Human", "Patients", "Study", "Cells", "Results"} & set(label.split())
+    assert labels[0] == "Insulin Resistance"
+    assert labels[1] == "Tumour Immunity"
+
+
+def test_ctfidf_labels_are_distinct():
+    groups = [[{"title": "Vector search basics"}, {"title": "Vector search tuning"}]] * 3
+    labels = ctfidf_labels(groups)
+    assert len(set(labels)) == 3
 
 
 # ---- service: cache, topics, search --------------------------------------------
@@ -242,7 +299,7 @@ def test_topic_page_ids_and_staleness():
 
 def test_collection_search_finds_a_topic_from_a_paraphrase():
     """'neural nets' isn't a label, but its (mocked) embedding sits near the ML pages."""
-    labeler = MagicMock(side_effect=lambda groups: [
+    labeler = MagicMock(side_effect=lambda groups, **kw: [
         "Machine learning" if any("neural" in t.lower() for t in g) else
         "Search and retrieval" if any("search" in t.lower() for t in g) else
         "Sleep and memory" if any("sleep" in t.lower() for t in g) else "Interface design"
@@ -291,3 +348,69 @@ def test_unrelated_pages_do_not_form_a_topic():
     assert m["counts"]["topics"] == 4
     assert m["counts"]["unclustered"] == 4
     assert all(p["topic"] is None for p in m["pages"] if p["id"].startswith("odd"))
+
+
+def _centres_heads(n, centres, seed=0, scale=0.9):
+    rng = np.random.default_rng(seed)
+    base = rng.normal(size=(centres, DIM))
+    heads = []
+    for i in range(n):
+        v = base[i % centres] + rng.normal(scale=scale, size=DIM)
+        heads.append({"page_id": f"s{i}", "title": f"Page {i}", "page_embedding": (v / np.linalg.norm(v)).tolist()})
+    return heads
+
+
+def test_300_pages_from_9_centres_give_7_to_11_topics():
+    m = build_map(_centres_heads(300, 9), "k", 0).response
+    assert 7 <= m["counts"]["topics"] <= 11
+
+
+@pytest.mark.parametrize("n,expected", [(10, (3, 3)), (24, (3, 3)), (278, (8, 14)), (300, (9, 14)), (2000, (10, 14))])
+def test_k_range(n, expected):
+    assert lm.k_range(n) == expected
+
+
+def test_oversized_topics_are_split():
+    rng = np.random.default_rng(0)
+    reduced = lm._normalize_rows(rng.normal(size=(200, 8)))
+    labels = np.zeros(200, dtype=int)
+    labels[:20] = 1  # one topic holds 90% of the pages
+    split = lm.split_large(reduced, labels)
+    sizes = Counter(split.tolist())
+    assert all(c <= 0.25 * 200 or c <= 30 for c in sizes.values())
+    assert len(sizes) > 2
+
+
+def test_small_topics_are_not_split():
+    labels = np.array([0] * 30 + [1] * 10)
+    reduced = lm._normalize_rows(np.random.default_rng(1).normal(size=(40, 4)))
+    assert (lm.split_large(reduced, labels) == labels).all()
+
+
+def _label_box(t):
+    w = len(f"{t['label']} · {t['count']} pages") * 7.4
+    cx, top = t["x"] * 1400, t["y"] * 900 - t["ry"] * 900 - 12
+    return cx - w / 2, top - 13, cx + w / 2, top + 3
+
+
+def test_layout_is_balanced_area_proportional_and_labels_clear():
+    m = build_map(_centres_heads(300, 9), "k", 0).response
+    topics = m["topics"]
+    # Ellipse area (in world px) is proportional to the page count.
+    ratios = [t["rx"] * 1400 * t["ry"] * 900 / t["count"] for t in topics]
+    assert max(ratios) / min(ratios) == pytest.approx(1.0, rel=1e-3)
+    # Centred both ways, and spread over most of the box in both directions.
+    lo_x = min(t["x"] - t["rx"] for t in topics); hi_x = max(t["x"] + t["rx"] for t in topics)
+    lo_y = min(t["y"] - t["ry"] for t in topics); hi_y = max(t["y"] + t["ry"] for t in topics)
+    assert (lo_x + hi_x) / 2 == pytest.approx(0.5, abs=0.06)
+    assert (lo_y + hi_y) / 2 == pytest.approx(0.5, abs=0.06)
+    assert hi_x - lo_x > 0.5 and hi_y - lo_y > 0.5
+    # No topic label sits on another topic's oval.
+    for a in topics:
+        x0, y0, x1, y1 = _label_box(a)
+        for b in topics:
+            if a is b:
+                continue
+            cx, cy, rx, ry = b["x"] * 1400, b["y"] * 900, b["rx"] * 1400, b["ry"] * 900
+            nx, ny = min(max(cx, x0), x1), min(max(cy, y0), y1)
+            assert ((nx - cx) / rx) ** 2 + ((ny - cy) / ry) ** 2 >= 1, (a["label"], b["label"])

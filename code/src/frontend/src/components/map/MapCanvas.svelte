@@ -5,19 +5,25 @@
   //  - the hit layer: topic labels and one focusable button per page, plus the
   //    pointer handling for zoom, pan, click and double-click.
   // Sizes that should stay constant on screen (dots, strokes) are divided by
-  // the zoom so panning only changes one transform attribute per layer.
+  // the zoom, so panning only changes one transform attribute per layer.
+  //
+  // Readability at scale: page links are drawn only for the hovered or
+  // selected topic and the selected page; related topics get one dashed link
+  // between their ovals; big libraries start dim and brighten as you zoom in.
   import { createEventDispatcher, onDestroy } from 'svelte';
   import {
-    WORLD, clampView, contentBounds, dotState, fitBounds, easeInOut, fitView, lerpView, neighboursOf, panBy, toScreen, toWorld,
-    viewForTopic, zoomAt,
+    WORLD, clampView, contentBounds, detailLevel, dotRadius, dotState, easeInOut, fitBounds, fitScale,
+    lerpView, neighboursOf, ovalLink, panBy, panIntoView, toScreen, toWorld, viewForTopic, visibleEdges, zoomAt,
   } from '../../lib/mapView.js';
 
-  /** @type {{ topics: any[], pages: any[], edges: any[] }} */
+  /** @type {{ topics: any[], pages: any[], edges: any[], topic_links?: any[], version?: string }} */
   export let data;
   /** Panel selection: { mode, pageId, topicId } */
   export let panel;
   /** Find-a-topic state from findState() */
   export let find = null;
+  /** Screen space covered by the panel: { right, bottom } in px. */
+  export let obstruct = { right: 0, bottom: 0 };
 
   const dispatch = createEventDispatcher();
   const DRAG_THRESHOLD = 4;
@@ -26,6 +32,8 @@
   let height = 0;
   let view = { k: 1, tx: 0, ty: 0 };
   let fittedFor = null;
+  let fittedSize = '';
+  let userMoved = false;
   let hoverPageId = null;
   let hoverTopicId = null;
   let animation = 0;
@@ -33,16 +41,16 @@
   let hitSvg;
 
   $: viewport = { width, height };
+  $: bounds = contentBounds(data);
   $: pagesById = new Map(data.pages.map((p) => [p.id, p]));
   $: topicsById = new Map(data.topics.map((t) => [t.id, t]));
+  $: topicOf = new Map(data.pages.map((p) => [p.id, p.topic]));
   $: world = data.pages.map((p) => ({ ...p, ...toWorld(p.x, p.y) }));
   $: worldById = new Map(world.map((p) => [p.id, p]));
 
-  // Fit the whole map whenever a new map arrives. When the canvas is resized
-  // (window resize, the panel appearing), re-fit too, unless the user has
-  // zoomed or panned since the last fit; then just keep the view valid.
-  let fittedSize = '';
-  let userMoved = false;
+  // Fit when a new map arrives, or when the canvas itself is resized (window
+  // resize) and the user hasn't zoomed or panned since. The panel floats over
+  // the map, so opening or closing it never resizes the canvas.
   $: if (width && height) onSize(width, height, data.version ?? data);
 
   function onSize(w, h, version) {
@@ -51,10 +59,10 @@
       fittedFor = version;
       fittedSize = size;
       userMoved = false;
-      view = fitBounds(contentBounds(data), { width: w, height: h });
+      view = fitBounds(bounds, { width: w, height: h });
     } else if (fittedSize !== size) {
       fittedSize = size;
-      view = clampView(view, { width: w, height: h });
+      view = clampView(view, { width: w, height: h }, bounds);
     }
   }
 
@@ -63,6 +71,12 @@
   $: neighbourIds = neighboursOf(selectedId, data.edges);
   $: context = { selectedId, neighbourIds, find, topicId: panel.mode === 'topic' ? panel.topicId : null };
   $: k = view.k || 1;
+  $: detail = width ? detailLevel(view.k / fitScale(bounds, viewport), data.pages.length) : 1;
+  $: shownEdges = visibleEdges(data.edges, topicOf, { hoverTopicId, selectedTopicId: activeTopicId, selectedPageId: selectedId });
+  $: links = (data.topic_links || [])
+    .map((l) => ({ ...l, ta: topicsById.get(l.a), tb: topicsById.get(l.b) }))
+    .filter((l) => l.ta && l.tb)
+    .map((l) => ({ ...l, ...ovalLink(l.ta, l.tb) }));
 
   $: summary = `Map of ${data.pages.length} saved page${data.pages.length === 1 ? '' : 's'} in `
     + `${data.topics.length} topic${data.topics.length === 1 ? '' : 's'}`
@@ -73,7 +87,7 @@
 
   const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-  function animateTo(target, duration = 450) {
+  function animateTo(target, duration = 400) {
     cancelAnimationFrame(animation);
     if (reducedMotion()) {
       view = target;
@@ -89,27 +103,48 @@
     animation = requestAnimationFrame(step);
   }
 
-  export function fit() {
-    userMoved = false;
-    animateTo(fitBounds(contentBounds(data), viewport));
+  /** The part of the canvas not covered by the panel. */
+  function visibleArea() {
+    return { x0: 0, y0: 0, x1: width - (obstruct?.right || 0), y1: height - (obstruct?.bottom || 0) };
   }
 
-  export function focusTopic(topicId) {
+  export function fit() {
+    userMoved = false;
+    animateTo(fitBounds(bounds, viewport));
+  }
+
+  /** Zoom to a topic (Find a topic). */
+  export function zoomToTopic(topicId) {
     const topic = topicsById.get(topicId);
-    if (topic && width) {
+    if (!topic || !width) return;
+    userMoved = true;
+    animateTo(viewForTopic(topic, viewport, bounds, WORLD, visibleArea()));
+  }
+
+  /** Pan (without zooming) just enough that a topic's oval and label are visible. */
+  export function revealTopic(topicId) {
+    const t = topicsById.get(topicId);
+    if (!t || !width) return;
+    const c = toScreen(toWorld(t.x, t.y), view);
+    const rx = t.rx * WORLD.width * view.k;
+    const ry = t.ry * WORLD.height * view.k;
+    const next = panIntoView(view, { x0: c.x - rx, y0: c.y - ry - 30, x1: c.x + rx, y1: c.y + ry }, visibleArea());
+    if (next !== view) {
       userMoved = true;
-      animateTo(viewForTopic(topic, viewport));
+      animateTo(next, 250);
     }
   }
 
-  /** Bring a page into view (only moves if it is off screen or near the edge). */
-  export function focusPage(pageId) {
+  /** Pan (without zooming) just enough that a page's dot and title are visible. */
+  export function revealPage(pageId) {
     const p = worldById.get(pageId);
     if (!p || !width) return;
     const s = toScreen(p, view);
-    const margin = 60;
-    if (s.x > margin && s.x < width - margin && s.y > margin && s.y < height - margin) return;
-    animateTo(clampView({ k: view.k, tx: width / 2 - p.x * view.k, ty: height / 2 - p.y * view.k }, viewport));
+    const next = panIntoView(view, { x0: s.x - 12, y0: s.y - 12, x1: s.x + 12, y1: s.y + 12 }, visibleArea(), 40);
+    if (next !== view) {
+      userMoved = true;
+      animateTo(next, 250);
+    }
   }
 
   onDestroy(() => cancelAnimationFrame(animation));
@@ -122,7 +157,7 @@
     const rect = hitSvg.getBoundingClientRect();
     const factor = Math.exp(-event.deltaY * (event.deltaMode === 1 ? 0.05 : 0.0015));
     userMoved = true;
-    view = zoomAt(view, factor, { x: event.clientX - rect.left, y: event.clientY - rect.top }, viewport);
+    view = zoomAt(view, factor, { x: event.clientX - rect.left, y: event.clientY - rect.top }, viewport, bounds);
   }
 
   /** Svelte action: a non-passive wheel listener (so the page doesn't scroll). */
@@ -151,7 +186,7 @@
       }
     }
     userMoved = true;
-    view = panBy(view, dx, dy, viewport);
+    view = panBy(view, dx, dy, viewport, bounds);
     drag.x = event.clientX;
     drag.y = event.clientY;
   }
@@ -186,16 +221,12 @@
     }
   }
 
-  function onCanvasKeydown(event) {
-    if (event.key === 'Escape') dispatch('clear');
-  }
-
   // ---- drawing helpers ----------------------------------------------------------------
 
   function edgeClass(edge) {
     const touches = selectedId && (edge.a === selectedId || edge.b === selectedId);
     const dim = find?.active && !(find.matchIds.has(edge.a) && find.matchIds.has(edge.b));
-    return `edge ${edge.kind}${touches ? ' lit' : ''}${dim ? ' dim' : ''}`;
+    return `edge${touches ? ' lit' : ''}${dim ? ' dim' : ''}`;
   }
 
   function topicLabelPos(t, v) {
@@ -207,16 +238,10 @@
   $: titlePos = titlePage ? toScreen(titlePage, view) : null;
 </script>
 
-<div
-  class="canvas"
-  bind:clientWidth={width}
-  bind:clientHeight={height}
-  on:keydown={onCanvasKeydown}
-  role="presentation"
->
+<div class="canvas" bind:clientWidth={width} bind:clientHeight={height} role="presentation">
   {#if width && height}
     <svg class="drawing" {width} {height} role="img" aria-label={summary}>
-      <g transform="translate({view.tx} {view.ty}) scale({k})">
+      <g transform="translate({view.tx} {view.ty}) scale({k})" style="--detail: {detail}">
         {#each data.topics as t (t.id)}
           <ellipse
             class="topic"
@@ -227,7 +252,17 @@
             ry={t.ry * WORLD.height}
           />
         {/each}
-        {#each data.edges as e (e.a + '|' + e.b)}
+        {#each links as l (l.a + '|' + l.b)}
+          <line
+            class="topic-link"
+            class:lit={[l.a, l.b].includes(activeTopicId) || [l.a, l.b].includes(hoverTopicId)}
+            x1={l.x1}
+            y1={l.y1}
+            x2={l.x2}
+            y2={l.y2}
+          />
+        {/each}
+        {#each shownEdges as e (e.a + '|' + e.b)}
           {@const a = worldById.get(e.a)}
           {@const b = worldById.get(e.b)}
           {#if a && b}
@@ -242,14 +277,15 @@
           <circle
             class="dot {state}"
             class:hover={p.id === hoverPageId}
+            class:in-focus={p.topic && (p.topic === activeTopicId || p.topic === hoverTopicId)}
             cx={p.x}
             cy={p.y}
-            r={(state === 'selected' ? 3.5 : state === 'outlier' ? 2 : 2.5) / k}
+            r={(state === 'selected' ? 3.5 : dotRadius(p, topicsById.get(p.topic)?.count || 0)) / k}
           />
         {/each}
       </g>
       {#if titlePage && titlePos}
-        {@const flip = titlePos.x + 12 + titlePage.title.length * 6.6 > width - 8}
+        {@const flip = titlePos.x + 12 + titlePage.title.length * 6.6 > width - (obstruct?.right || 0) - 8}
         <text
           class="page-title"
           x={flip ? titlePos.x - 12 : titlePos.x + 12}
@@ -294,7 +330,7 @@
             data-page={p.id}
             cx={p.x}
             cy={p.y}
-            r={8 / k}
+            r={7 / k}
             stroke-width={2 / k}
             role="button"
             tabindex="0"
@@ -323,7 +359,7 @@
           on:pointerenter={() => (hoverTopicId = t.id)}
           on:pointerleave={() => (hoverTopicId = null)}
           on:keydown={(event) => onKey(event, () => dispatch('selectTopic', t.id))}
-        ><tspan class="name">{t.label}</tspan><tspan class="count">{" · "}{t.count} page{t.count === 1 ? '' : 's'}</tspan></text>
+        ><tspan class="name">{t.label}</tspan><tspan class="count">{' · '}{t.count} page{t.count === 1 ? '' : 's'}</tspan></text>
       {/each}
     </svg>
 
@@ -373,28 +409,43 @@
     stroke: var(--map-topic-border-active);
   }
 
+  /* Related topics: one faint dashed link, oval edge to oval edge. */
+  .topic-link {
+    stroke: var(--map-edge-cross);
+    stroke-width: 1px;
+    stroke-dasharray: 3 4;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .topic-link.lit {
+    stroke: var(--map-edge);
+  }
+
   .edge {
     stroke: var(--map-edge);
     stroke-width: 1px;
     vector-effect: non-scaling-stroke;
-  }
-
-  .edge.cross {
-    stroke: var(--map-edge-cross);
-    stroke-dasharray: 3 4;
+    opacity: var(--detail);
   }
 
   .edge.lit {
     stroke: var(--map-edge-lit);
+    opacity: 1;
   }
 
   .edge.dim {
-    opacity: 0.35;
+    opacity: calc(var(--detail) * 0.35);
   }
 
+  /* Dots start dim in big libraries at the fitted zoom (--detail < 1). */
   .dot {
     fill: var(--map-dot);
+    opacity: var(--detail);
     transition: fill 120ms ease, opacity 120ms ease;
+  }
+
+  .dot.in-focus {
+    opacity: 1;
   }
 
   .dot.outlier {
@@ -405,14 +456,16 @@
   .dot.match,
   .dot.hover {
     fill: var(--map-dot-lit);
+    opacity: 1;
   }
 
   .dot.selected {
     fill: var(--text);
+    opacity: 1;
   }
 
   .dot.dim {
-    opacity: 0.25;
+    opacity: calc(var(--detail) * 0.25);
   }
 
   .ring {
@@ -477,7 +530,7 @@
 
   .fit {
     position: absolute;
-    right: 12px;
+    left: 12px;
     bottom: 12px;
     height: 30px;
     padding: 0 12px;

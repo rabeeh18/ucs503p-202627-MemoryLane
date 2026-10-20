@@ -163,11 +163,13 @@ Uses the same hybrid pipeline as the CLI. Each result has a plain-text `snippet`
 Every page stores a page vector (`page_embedding`, the normalised mean of its chunk vectors) on chunk 0. `backend/library_map.py` builds the map on request and caches it per user (invalidated on save and delete):
 
 1. Fetch the user's most recent `MAP_MAX_PAGES` page vectors (cursorMark).
-2. k-means on a 32-d projection, k in 2..min(12, n/3) chosen by silhouette score, fixed seed.
-3. Pages below `MAP_OUTLIER_SIMILARITY` to their topic centre, and topics whose pages don't hang together, become unclustered.
-4. Layout in a 0..1 box: topic centres by PCA of the centroids, pushed apart; pages by a local PCA inside each topic's ellipse (radii grow with sqrt(page count)); unclustered pages between the topics they are closest to.
-5. Links: each page to its 2 nearest neighbours in its topic; one dashed link between similar topics.
-6. Labels: one Gemini call (up to 10 titles per topic), with c-TF-IDF keywords as the fallback.
+2. Project to ~50 dimensions (PCA) and normalise (cosine). k-means for k in [clamp(round(sqrt(n)/2), 3, 10), min(14, n/8)], chosen by silhouette score with a fixed seed. Any topic holding more than 25% of the pages (and more than 30) is split in two, repeatedly. 278 SciFact abstracts give 9 topics.
+3. Pages below `MAP_OUTLIER_SIMILARITY` to their topic centre are unclustered, and so is a "topic" whose pages don't hang together (mean pairwise similarity below the threshold squared).
+4. Labels: one Gemini call that sees every topic's titles, a keyword hint and the labels already in use, asked for distinct, specific 1-3 word labels; generic or duplicate answers are rejected. Fallback: c-TF-IDF over unigrams and bigrams from titles and descriptions (generic and title-filler words removed), as distinct Title Case labels. Every fallback is logged at WARNING. Labels are cached per topic membership.
+5. Layout in a 0..1 box (drawn into a 1400 x 900 world): ellipse area proportional to page count, all ellipses covering ~30% of the box; topics packed into centred rows whose shape matches the canvas (ordered by a PCA of the centroids), then relaxed by a few rounds of repulsion and centre pull, with each label's space reserved so it never sits on another oval. Pages are placed by a local PCA inside their ellipse; unclustered pages sit between the topics they are closest to.
+6. Links: each page to its 2 nearest neighbours in its topic (`edges`), and related topics (centroid similarity above `MAP_CROSS_TOPIC_SIMILARITY`, at most 2 per topic) in `topic_links`.
+
+The canvas draws page links only for the hovered or selected topic and the selected page, topic links oval to oval, and dims dots in libraries over 150 pages until you zoom in past 1.6x. Building the map for 2,000 pages takes ~0.2 s on a laptop.
 
 Related pages are a KNN over page vectors, pre-filtered to the user's other pages. `scripts/backfill_page_vectors.py` gives older pages their vector.
 
