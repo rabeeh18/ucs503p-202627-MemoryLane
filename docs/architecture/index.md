@@ -1,9 +1,11 @@
 # Architecture
 
-The architecture pages describe the implementation boundaries and the responsibilities of each major component.
+The architecture pages describe how MemoryLane is put together and what each part is responsible for.
 
 - [System Architecture](overview.md)
 - [Backend](backend.md)
-- [Frontend](frontend.md)
+- [Frontend and Extension](frontend.md)
 - [Processing Architecture](processing.md)
 - [Retrieval Architecture](retrieval.md)
+- [Library Map](map.md)
+- [Security](security.md)

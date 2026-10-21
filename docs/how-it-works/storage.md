@@ -1,36 +1,44 @@
-# Storing Memories
+# Storage
 
-Apache Solr is the storage and search engine used by MemoryLane.
-
-The project runs an Apache Solr 9.7 instance with a `memorylane` core.
+MemoryLane stores everything in **Apache Solr 9.7**, in a standalone core named `memorylane_v2`.
 
 ## Why Solr?
 
-Solr provides the search infrastructure needed by MemoryLane in one system. It supports the textual search, dense-vector search, indexing, and document management required by the application.
+One system covers what MemoryLane needs:
+
+- Full-text search with BM25, English stemming and stopwords (`text_en`)
+- Dense-vector KNN search (`DenseVectorField`, HNSW, cosine) **with pre-filtering**, so a vector search only ever looks at one user's pages
+- Updates and deletes by query, and cursor-based scans
 
 ## Document model
 
-MemoryLane stores individual chunks as Solr documents.
+Each chunk is one Solr document. Chunk 0 also carries the page-level fields.
 
-Each document contains information including:
+| Field | Type | Purpose |
+| --- | --- | --- |
+| `id` | string | `{page_id}::{chunk_index}` |
+| `user_id` | string | Owner (Cognito `sub`); every query filters on it |
+| `page_id` | string | Groups a page's chunks |
+| `url` | string | Normalised URL |
+| `domain` | string | Site |
+| `title` | `text_en` | Page title (boosted ×2 in search) |
+| `text` | `text_en` | Chunk text |
+| `chunk_id`, `total_chunks` | int | Position and count |
+| `timestamp` | date | When the page was saved |
+| `content_hash` | string | Skips re-processing unchanged pages |
+| `embedding_model` | string | Re-embeds when the model changes |
+| `description` | string, stored only | Snippet fallback |
+| `embedding` | vector, 384-d, not stored | Chunk vector for KNN |
+| `page_embedding` | vector, 384-d, stored (chunk 0) | Page vector for related pages and the map |
 
-| Field | Purpose |
-| --- | --- |
-| `id` | Unique chunk document identifier |
-| `webpage_id` | Associates chunks with one webpage |
-| `url` | Normalized webpage URL |
-| `domain` | Webpage domain |
-| `title` | Page title |
-| `text` | Chunk text |
-| `chunk_id` | Position of the chunk |
-| `total_chunks` | Number of chunks for the webpage |
-| `timestamp` | Storage timestamp |
-| `embedding` | 384-dimensional dense vector |
+`scripts/setup_solr.sh` is the single source of truth for this schema. Automatic field creation is turned off, so a document with an unknown field is rejected instead of silently adding a guessed field.
 
-The Solr schema uses a dense vector field for the stored embeddings.
+## Writes
 
-## Webpage identity
+- Saves use `commitWithin` (1 s) rather than explicit commits.
+- A re-saved page is upserted chunk by chunk, then any leftover higher-numbered chunks are deleted, so there are never duplicates.
+- Deleting a page deletes by `user_id` **and** `page_id`; deleting an account's data deletes by `user_id`.
 
-The `webpage_id` is derived deterministically from the normalized URL. This lets the system manage all chunks belonging to one webpage as a single logical memory.
+## Isolation
 
-When a webpage is reprocessed, older chunks associated with that webpage can be removed before the new chunks are stored.
+Every read, search, delete and scan in `backend/solr_client.py` adds a `user_id` filter, and refuses to run if the user id is missing or malformed. Vector searches pass the filter as a KNN pre-filter, so other users' vectors are never considered.

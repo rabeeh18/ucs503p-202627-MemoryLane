@@ -1,4 +1,5 @@
 site_name: "MemoryLane"
+site_description: "Save pages as you browse and find them later by meaning."
 site_url: https://rabeeh18.github.io/ucs503p-202627-MemoryLane/
 
 theme:
@@ -32,25 +33,32 @@ copyright: "MemoryLane - UCS503 Software Engineering Project"
 
 extra:
   social:
+    - icon: material/web
+      link: https://memorylane.site
+      name: MemoryLane
     - icon: fontawesome/brands/github
       link: https://github.com/rabeeh18/ucs503p-202627-MemoryLane
       name: MemoryLane GitHub Repository
 
 extra_css:
   - assets/stylesheets/extra.css
-  - https://unpkg.com/katex@0/dist/katex.min.css
+  - https://unpkg.com/katex@0.16.11/dist/katex.min.css
 
 extra_javascript:
-  - https://unpkg.com/katex@0/dist/katex.min.js
   - javascript/arithmatex.js
+  - https://unpkg.com/katex@0.16.11/dist/katex.min.js
+  - https://unpkg.com/katex@0.16.11/dist/contrib/auto-render.min.js
 
 markdown_extensions:
   - abbr
+  - admonition
   - md_in_html
   - attr_list
+  - footnotes
+  - sane_lists
   - toc:
       permalink: true
-  - footnotes
+      toc_depth: 4
 
   - pymdownx.arithmatex:
       generic: true
@@ -63,6 +71,7 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.superfences
+  - pymdownx.details
 
   - pymdownx.tabbed:
       alternate_style: true
@@ -77,13 +86,11 @@ markdown_extensions:
   - pymdownx.mark
   - pymdownx.tilde
 
-  - toc:
-      toc_depth: 4
-
-  - sane_lists
-
 nav:
-  - Home: index.md
+  - Home:
+      - MemoryLane: index.md
+      - Problem Statement: problem_statement.md
+      - Features: features.md
 
   - Getting Started:
       - Overview: getting-started/index.md
@@ -92,11 +99,13 @@ nav:
       - Running MemoryLane: getting-started/running.md
 
   - Using MemoryLane:
-      - Automatic Capture: user-guide/automatic-capture.md
-      - Search: user-guide/search.md
+      - Saving Pages: user-guide/automatic-capture.md
+      - Searching: user-guide/search.md
+      - Library and Account: user-guide/library.md
+      - Library Map: user-guide/map.md
+      - Summaries: user-guide/summarization.md
+      - YouTube Videos: user-guide/youtube.md
       - Voice Search: user-guide/voice-search.md
-      - YouTube Memories: user-guide/youtube.md
-      - Summarization: user-guide/summarization.md
 
   - How It Works:
       - Overview: how-it-works/overview.md
@@ -107,9 +116,11 @@ nav:
   - Architecture:
       - System Architecture: architecture/overview.md
       - Backend: architecture/backend.md
-      - Frontend: architecture/frontend.md
+      - Frontend and Extension: architecture/frontend.md
       - Processing Architecture: architecture/processing.md
       - Retrieval Architecture: architecture/retrieval.md
+      - Library Map: architecture/map.md
+      - Security: architecture/security.md
 
   - API Reference:
       - Overview: api/index.md
@@ -118,6 +129,7 @@ nav:
   - Development:
       - Project Structure: development/project-structure.md
       - Testing: development/testing.md
+      - Deployment: development/deployment.md
 
   - Evaluation:
       - Methodology: evaluation/methodology.md

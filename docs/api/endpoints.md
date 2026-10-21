@@ -1,111 +1,184 @@
 # API Endpoints
 
+Paths are relative to the API base (`https://memorylane.site/api` on the live site). All endpoints except `/health` need a bearer token. The rate limit is per user.
+
 ## `GET /health`
 
-Checks the availability of the main backend dependencies.
-
-The response reports:
+Public. Reports whether the backend's dependencies are ready.
 
 ```json
-{
-  "status": "ok",
-  "solr": true,
-  "embedding_model": true,
-  "gemini": true
-}
+{ "status": "ok", "solr": true, "embedding_model": true, "gemini": true }
 ```
 
-`gemini` may be false when optional Gemini functionality is not configured or available.
+`status` is `ok` when Solr and the embedding model are ready. `gemini: false` only means summaries are off.
 
 ---
 
 ## `POST /memory`
 
-Stores a webpage as a MemoryLane memory.
-
-### Request
+Save a page, or update it if it's already saved. Rate limit: 60/minute.
 
 ```json
 {
   "url": "https://example.com/article",
   "title": "Example Article",
-  "content": "Article content...",
+  "content": "Visible text of the page...",
+  "html": "<!doctype html>...",
   "canonical_url": "https://example.com/article",
-  "is_manual": false
+  "is_manual": true
 }
 ```
 
-### Processing
+`html` and `canonical_url` are optional. When `html` is present, the main text is extracted from it; `content` is the fallback.
 
-The backend validates the URL, normalizes it, creates a webpage identifier, handles supported YouTube URLs, chunks the content, generates embeddings, and indexes the resulting chunks in Solr.
+```json
+{
+  "status": "saved",
+  "message": "Memory stored successfully",
+  "page": {
+    "id": "3f9c...", "url": "https://example.com/article", "title": "Example Article",
+    "domain": "example.com", "timestamp": "2026-10-22T09:30:00Z", "chunks": 4
+  }
+}
+```
 
-### Response
+`status` is `saved`, `unchanged` (same text as before) or `skipped` (e.g. a YouTube video that can't be saved). A page with fewer than 50 words gets `422`.
 
-The response contains:
+---
 
-- `success`
-- `message`
-- `metadata`
+## `GET /memory/status?url=...&canonical_url=...`
 
-The metadata includes the URL, title, generated ID, chunk count, and timestamp.
+Whether you've saved this URL, normalised the same way as a save. Rate limit: 120/minute.
+
+```json
+{ "saved": true, "page": { "id": "3f9c...", "url": "...", "title": "...", "domain": "...", "timestamp": "..." } }
+```
+
+---
+
+## `DELETE /memory/{page_id}`
+
+Delete one of your pages. Returns `204`, or `404` if it isn't yours. Rate limit: 60/minute.
+
+---
+
+## `GET /memory/{page_id}/related?k=5`
+
+Your other pages closest in meaning to this one (`k` from 1 to 20). Rate limit: 120/minute.
+
+```json
+{
+  "page_id": "3f9c...",
+  "related": [
+    { "id": "a1b2...", "title": "...", "url": "...", "domain": "...", "saved_at": "...", "similarity": 0.81 }
+  ]
+}
+```
+
+---
+
+## `GET /memories?limit=20&offset=0`
+
+Your pages, newest first (`limit` up to 100). Rate limit: 60/minute.
+
+```json
+{ "total": 278, "pages": [ { "id": "...", "url": "...", "title": "...", "domain": "...", "timestamp": "...", "chunks": 3 } ] }
+```
 
 ---
 
 ## `POST /search`
 
-Searches stored memories.
-
-### Request
+Hybrid search over your pages. Rate limit: 60/minute.
 
 ```json
 {
   "query": "documentation about ROS navigation",
-  "num_results": 5,
+  "num_results": 10,
   "summarize": false,
-  "debug": false
+  "debug": false,
+  "topic": null
 }
 ```
 
-`num_results` accepts values from 1 to 20.
+| Field | Notes |
+| --- | --- |
+| `query` | Required, up to 500 characters |
+| `num_results` | 1–20, default 10 |
+| `summarize` | Also summarise each result with Gemini (slow; the web app uses `/summarize` per result instead) |
+| `debug` | Add ranks, scores and timings |
+| `topic` | A topic id from `GET /map`: search only that topic's pages. `409` if the map has changed |
 
-### Response
+```json
+{
+  "query": "documentation about ROS navigation",
+  "results": [
+    {
+      "rank": 1, "id": "3f9c...", "title": "Nav2 Documentation", "url": "...",
+      "domain": "docs.nav2.org", "timestamp": "...",
+      "snippet": "Nav2 is the professionally supported successor of the ROS Navigation Stack...",
+      "summary": null
+    }
+  ]
+}
+```
 
-A search response contains the original query and a list of webpage-level results.
-
-Each result includes:
-
-- rank
-- ID
-- title
-- URL
-- domain
-- timestamp
-- optional summary
-
-The `debug` option can expose retrieval scores for development and analysis.
+With `debug: true`, each result also has `bm25_rank`, `knn_rank`, `fused_score`, `rerank_score` and `vector_similarity`, and the response has `timings` in milliseconds.
 
 ---
 
 ## `POST /summarize`
 
-Requests a summary for a selected memory.
+Summarise one of your pages with Gemini. Rate limit: 20/minute.
 
-### Request
+```json
+{ "query": "brief overview", "id": "3f9c..." }
+```
+
+```json
+{ "id": "3f9c...", "summary": "..." }
+```
+
+`404` if the page isn't yours, `503` if Gemini isn't configured, `502` if it failed.
+
+---
+
+## `GET /map`
+
+Your library map. Rate limit: 30/minute.
 
 ```json
 {
-  "query": "What are the main ideas?",
-  "id": "memory-id"
+  "status": "ok",
+  "version": "9b1e4c",
+  "topics": [ { "id": "9b1e4c-3", "label": "Protein Folding", "count": 31, "x": 0.42, "y": 0.38, "rx": 0.09, "ry": 0.065 } ],
+  "pages": [ { "id": "3f9c...", "title": "...", "url": "...", "domain": "...", "saved_at": "...", "x": 0.44, "y": 0.36, "topic": "9b1e4c-3" } ],
+  "edges": [ { "a": "3f9c...", "b": "a1b2...", "kind": "intra" } ],
+  "topic_links": [ { "a": "9b1e4c-3", "b": "9b1e4c-7" } ],
+  "counts": { "pages": 278, "topics": 9, "unclustered": 12, "without_vectors": 0 }
 }
 ```
 
-### Response
+Coordinates are in a 0–1 box. A page with `topic: null` is unclustered. With fewer than 10 pages the response is `{ "status": "too_few", "count": 6, ... }`.
+
+---
+
+## `GET /map/search?q=...`
+
+Find topics on your map by name and by the pages inside them. Rate limit: 120/minute.
 
 ```json
-{
-  "id": "memory-id",
-  "summary": "..."
-}
+{ "query": "proteins", "version": "9b1e4c", "topics": [ { "id": "9b1e4c-3", "label": "Protein Folding", "score": 0.74 } ], "pages": ["3f9c...", "..."] }
 ```
 
-The summarization path uses Gemini when the service is available.
+---
+
+## `GET /me/export`
+
+Downloads `memorylane-export.json` with every page you saved (URL, title, timestamp and full text), newest first. Rate limit: 5/minute.
+
+---
+
+## `DELETE /me/data`
+
+Deletes all your pages. Returns `204`. Rate limit: 5/minute.

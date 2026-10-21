@@ -1,35 +1,31 @@
-# Summarization
+# Summaries
 
-MemoryLane provides optional AI-powered summarization for search results.
-
-## How it works
-
-Summarization is separate from the core retrieval process.
+Each search result, and each page selected on the map, has a **Summarise** button. It asks Google Gemini for a short summary of that one page.
 
 ```text
-Search
-  ↓
-Retrieve webpage
-  ↓
-Request summary
-  ↓
+Summarise
+   ↓
+POST /api/summarize {query, id}
+   ↓
+Load the page's stored text (your pages only)
+   ↓
 Gemini
-  ↓
-Display summary
+   ↓
+Summary shown under the result
 ```
 
-The `/search` endpoint can request summaries, and the frontend can also request a summary for an individual result.
+## What Gemini sees
 
-## Gemini
+Only the stored text of the page you chose (long pages are truncated), and your query. Gemini is asked to summarise that text only, without adding outside knowledge.
 
-The summarization component uses the Gemini API when Gemini is configured and available.
+## Length
 
-The backend also exposes Gemini availability through the `/health` endpoint.
+The wording of your query sets the length:
 
-## Detail level
+- **Short** (1–2 sentences): words like *brief*, *quick summary*, *tl;dr*, *in a nutshell*
+- **Long** (2–3 short paragraphs): words like *detailed*, *in-depth*, *comprehensive*, *explain fully*
+- **Medium** otherwise
 
-The summarization system can determine an appropriate level of detail from the query before generating the summary.
+## When it's unavailable
 
-## Privacy consideration
-
-Unlike local indexing and retrieval, Gemini-based summarization can send browsing content to an external service. Avoid enabling external summarization for content that should remain entirely local unless the privacy implications are acceptable.
+Summaries need a Gemini key on the server. Without one, or if Gemini fails, the result shows a short message instead, and search keeps working. `GET /health` reports whether Gemini is available.

@@ -1,25 +1,31 @@
 # Evaluation Results
 
-The retrieval evaluation produced the following results.
+!!! note "Which version these numbers come from"
+    These results were measured on the **earlier retrieval pipeline**: `all-MiniLM-L6-v2` embeddings, 300–500-word chunks, and min-max score fusion (0.5 / 0.5). The current pipeline (`bge-small-en-v1.5`, 150-word overlapping chunks with titles, Reciprocal Rank Fusion, a relevance floor) has not been re-benchmarked yet. Run the commands in [Methodology](methodology.md) to measure it.
 
 | Method | MRR@10 | Recall@10 | nDCG@10 |
 | --- | ---: | ---: | ---: |
-| BM25 Only | 0.6482 | 0.8117 | 0.6776 |
-| Vector Only | **0.7795** | 0.8867 | **0.8008** |
-| Combined Retrieval | 0.7538 | **0.9167** | 0.7890 |
+| BM25 only | 0.6482 | 0.8117 | 0.6776 |
+| Vector only | **0.7795** | 0.8867 | **0.8008** |
+| Hybrid (min-max fusion) | 0.7538 | **0.9167** | 0.7890 |
 
 ## What the results show
 
 ### BM25
 
-BM25 provides a useful lexical baseline and remains effective when query terminology matches stored content.
+A solid lexical baseline. It works well when the query uses the same terms as the document.
 
 ### Vector retrieval
 
-Vector retrieval achieved the highest MRR@10 and nDCG@10 on the selected benchmark. This indicates strong performance in placing relevant scientific content near the top of the ranking.
+Vector retrieval had the best MRR@10 and nDCG@10: it put a relevant abstract at the top most often.
 
-### Combined retrieval
+### Hybrid retrieval
 
-Combined retrieval achieved the highest Recall@10. It retrieved the largest proportion of relevant documents within the top ten.
+Hybrid retrieval had the best Recall@10: it found the largest share of relevant abstracts in the top ten. Its MRR@10 and nDCG@10 were slightly below vector-only, so mixing in BM25 scores sometimes moved the first relevant result down a place.
 
-The results therefore do not show one method winning every metric. Different retrieval approaches have different strengths on the selected corpus and queries.
+No single method won every metric, which motivated the later changes:
+
+- **Reciprocal Rank Fusion**, which combines ranks instead of raw scores
+- A **stronger embedding model** (BGE) with a search instruction for queries
+- **Smaller, overlapping chunks** embedded with the page title
+- A **relevance floor**, so weak vector-only matches are dropped instead of shown

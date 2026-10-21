@@ -1,41 +1,40 @@
 # Processing Architecture
 
-MemoryLane's processing pipeline turns captured browser content into searchable memory.
+Every page enters MemoryLane through one function, `ingest_page(user_id, url, title, content, html, canonical_url, is_manual)` in `backend/ingest.py`. The API, `scripts/reindex.py`, `scripts/backfill_page_vectors.py` and the evaluation scripts all call it, so a page is processed the same way whichever path it came in by.
 
 ## Pipeline
 
 ```text
-Captured content
+Request (url, title, content, html?, canonical_url?, is_manual)
       ↓
-URL validation
+Canonical URL preferred → normalise → page_id = sha256(user_id|url)[:32]
       ↓
-URL normalization
+YouTube? ── yes ─▶ transcript + metadata (built from the video id)
+      │ no
+      ▼
+trafilatura on html (fallback: content) → tidy
       ↓
-Webpage ID generation
+< 50 words? → 422
       ↓
-Content validation
+Same content_hash and embedding_model as stored? → "unchanged"
       ↓
-YouTube transcript handling (when applicable)
+Chunk → embed "title + chunk" → page vector = normalised mean
       ↓
-Chunking
+description = meta description or first readable sentences
       ↓
-Embedding generation
+Upsert {page_id}::0..n-1 → delete chunks ≥ n
       ↓
-Solr indexing
+Invalidate the user's library map
 ```
 
-## URL identity
+## Idempotence
 
-The normalized URL is used to generate a deterministic webpage identifier. This identifier is the link between all chunks belonging to one logical webpage.
+- The `content_hash` is a SHA-256 of the cleaned text. Saving an unchanged page costs one Solr lookup.
+- If the stored `embedding_model` differs from the current one, the page is re-embedded even when the text is unchanged. Switching models therefore only needs a re-save or re-index, not a schema change.
+- Pages stored before `description` existed are re-ingested once, on their next save, to gain it. Pages without a `page_embedding` get one from `scripts/backfill_page_vectors.py`.
 
-## Normal webpage content
+## Why the chunk upsert works this way
 
-For ordinary pages, extracted text is validated and then divided into chunks before embeddings are generated.
+Solr has no transactions across documents. Writing the new chunks first, then deleting only those numbered past the new count, means a reader always sees a complete version of the page: the old one or the new one, never an empty page.
 
-## YouTube content
-
-For supported YouTube URLs, the backend retrieves an available transcript and uses the resulting text as the content to be chunked and embedded.
-
-## Re-indexing
-
-If an existing webpage needs to be replaced, the backend can remove the old chunks associated with its webpage identifier before storing the new representation.
+The backfill never uses Solr atomic updates. Those rewrite the document from its stored fields, and the chunk `embedding` field is not stored, so an atomic update would silently drop it.

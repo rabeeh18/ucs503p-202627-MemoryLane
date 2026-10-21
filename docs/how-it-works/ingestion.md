@@ -1,51 +1,36 @@
 # Capturing Web Content
 
-The browser extension is the collection layer of MemoryLane.
+The Chrome extension is MemoryLane's collection layer. The server does the cleaning.
 
-## Capture process
+## What the extension sends
 
-When a page is eligible for capture, the extension extracts readable content from the page. It can obtain content through the content script and has an injection-based fallback when required.
+When you save a page (or auto-capture picks one up), the extension injects `content.js` into the tab, which returns:
 
-The extracted data sent to the backend includes:
+- The page's full **HTML**
+- Its visible **text** (the fallback if cleaning finds nothing)
+- The **canonical URL**, if the page declares one
 
-- URL
-- Page title
-- Textual content
-- Canonical URL when available
-- Whether the capture was manual
+The service worker posts these, with the URL, title and whether the save was manual, to `POST /api/memory`, using the signed-in user's access token. If the token has expired, the extension refreshes it once and retries.
 
-## Content extraction
+Auto-capture also checks the page against the [capture rules](../user-guide/automatic-capture.md#what-automatic-capture-skips) and your excluded sites before sending anything, and doesn't send a URL again while a save of it is in progress, or within a minute of auto-capturing it.
 
-The extension works from a clone of the page body and removes elements that generally do not represent the main readable content, including:
+## What the backend does
 
-- `script`
-- `style`
-- `noscript`
-- `nav`
-- `footer`
-- `aside`
-- `header`
-- common navigation, menu, sidebar, and advertisement elements
+All of this happens in one function, `ingest_page` (`backend/ingest.py`). It is shared by the API, the re-index and backfill scripts and the evaluation.
 
-The resulting text is sent to the backend for further processing.
+1. Take the user id from the verified token (never from the request).
+2. Prefer the canonical URL, then [normalise](processing.md#url-normalisation) it.
+3. Compute `page_id = sha256(user_id | normalised URL)[:32]`.
+4. **YouTube**: fetch the transcript and metadata instead of using the page (see [YouTube Videos](../user-guide/youtube.md)).
+5. **Other pages**: extract the main text from the HTML with trafilatura. If that fails, use the extension's text.
+6. Reject the page with `422` if it has fewer than 50 words.
+7. If the page is already stored with the same content hash and embedding model, return `unchanged` and do nothing.
+8. Chunk, embed, compute the page vector and description.
+9. Upsert the chunks as `{page_id}::{n}`, then delete any higher-numbered chunks left from an older, longer version.
+10. Clear the user's cached library map.
 
-## Duplicate prevention
+The response is `{status: saved | unchanged | skipped, message, page}`.
 
-The extension keeps track of recently captured URLs and captures currently in progress. This prevents repeated submissions for the same URL in a short period.
+## Duplicates
 
-The backend also checks whether the normalized webpage already exists before indexing it.
-
-## Backend ingestion
-
-The `/memory` endpoint then:
-
-1. Validates the URL.
-2. Normalizes the URL.
-3. Generates a deterministic webpage identifier.
-4. Checks for an existing webpage.
-5. Handles YouTube videos when applicable.
-6. Validates the content.
-7. Chunks the content.
-8. Generates embeddings.
-9. Removes outdated chunks for the same webpage when needed.
-10. Stores the resulting chunks and metadata in Solr.
+Because `page_id` is derived from the normalised URL, the same page saved twice (with or without `www.`, tracking parameters or a fragment) updates one entry instead of creating two. Different users saving the same URL get separate entries.

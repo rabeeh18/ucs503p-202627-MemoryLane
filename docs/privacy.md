@@ -1,38 +1,50 @@
 # Privacy
 
-MemoryLane deals with personal browsing information, so privacy is an important part of the system design.
+MemoryLane holds personal browsing information, so privacy is part of the design rather than an add-on.
 
-## Automatic capture filtering
+## Accounts and isolation
 
-Automatic capture does not blindly submit every browser page to the backend.
+- You sign in with Google or with email through Amazon Cognito. MemoryLane never sees your password.
+- The backend takes your user id from the verified access token (its `sub` claim). No endpoint accepts a user id from the browser.
+- Every read, write, search, summary, map and delete in Solr is filtered by that user id. A page id is derived from your user id and the URL, so two people saving the same page get separate copies.
+- Asking for another person's page returns `404`, the same as a page that doesn't exist.
 
-The eligibility rules exclude categories such as:
+## What is stored
 
-- Social-media pages
-- Banking and financial services
-- Login and authentication pages
-- Account, checkout, billing, payment, and wallet paths
-- Internal browser pages
+For each page you save: its URL, title, cleaned text, a short description, the time you saved it, and the embeddings used for search and for the map.
+
+The data lives in Solr on the MemoryLane server (AWS, Mumbai region). Solr is bound to the server's localhost and is not reachable from the internet; only Caddy (HTTPS) is public.
+
+## Automatic capture
+
+Automatic capture is **off by default**. It only runs when you're signed in and have turned it on in the extension. Even then, the extension skips:
+
+- Social-media sites
+- Banks and payment services
+- Login, sign-up, account, password, checkout, billing, payment and wallet pages
+- Browser-internal pages (`chrome://`, extensions, `file://`, ...)
 - Search-engine result pages
-- Utility pages
-- Common non-text resources
+- Utility pages such as error, privacy, terms, cookie and sitemap pages
+- Files such as PDFs, images, media, archives, CSV, JSON and XML
+- Any site you add to **Excluded sites** in the extension
+- MemoryLane's own website
 
-The filtering is applied by the browser extension before an automatically captured page is posted to the backend.
+The filtering happens in the extension, before anything is sent.
 
-## Stored browsing content
+## What is sent to Google Gemini
 
-A MemoryLane memory can contain the extracted textual content of a webpage, along with metadata such as its URL, title, domain, timestamp, and embeddings.
+Gemini is optional. When the server has a Gemini key:
 
-This means the local MemoryLane data store should be treated as sensitive personal data.
+- **Summaries:** the text of one page is sent when you press **Summarise** on that result.
+- **Map topic names:** when your map is built, the titles of a sample of pages in each topic (and a few keywords) are sent once so the topics get readable names. Names are cached, so this only happens again when a topic's pages change.
 
-## Gemini summarization
+Without a key, summaries are turned off and the map names topics from their keywords instead. Nothing else leaves the server.
 
-Gemini is optional and is not required for the core retrieval pipeline.
+## Export or delete
 
-When Gemini-based summarization is enabled, content used for summarization can be sent to an external API. This introduces a privacy consideration that does not apply in the same way to purely local retrieval.
+From the account menu (top right of the website):
 
-Sensitive pages or content should therefore not be sent to an external summarization service unless the user is comfortable with the associated data-handling implications.
+- **Export my data** downloads every page you saved as JSON.
+- **Delete all my data** removes all your pages from the index.
 
-## Privacy direction
-
-A future privacy-oriented direction for MemoryLane is greater local-first processing and storage, reducing the need to send personal browsing content to external services.
+Single pages can be deleted from the library, search results or the map, with a few seconds to undo.

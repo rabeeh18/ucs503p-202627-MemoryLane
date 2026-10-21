@@ -1,36 +1,48 @@
-﻿# Running MemoryLane
+# Running MemoryLane
 
-MemoryLane is currently deployed as a shared demonstration instance. The sections below explain how to try the system, add webpages, and understand the current setup.
+## The hosted site
 
-## Try MemoryLane
+MemoryLane runs at **[memorylane.site](https://memorylane.site)**.
 
-Access the MemoryLane search interface to explore its search capabilities.
+1. **Sign in** with **Continue with Google** or with email. Each account has its own private, empty library.
+2. **Get the extension** from **[memorylane.site/extension](https://memorylane.site/extension)**:
+    1. Download `memorylane-extension.zip` and unzip it.
+    2. Open `chrome://extensions` and turn on **Developer mode**.
+    3. Click **Load unpacked** and choose the unzipped folder.
+    4. Pin MemoryLane to the toolbar, open it, and sign in.
+3. **Save pages** with **Remember this page** in the extension popup. You can also turn on automatic capture there.
+4. **Search** on the website by describing what you remember. Your library, the map and related pages fill up as you save more.
 
-A collection of demo webpages has already been added to the system so you can test the **speed and accuracy of MemoryLane's search engines**.
+Once the extension is installed, the website stops showing "Get the extension".
 
-**[Open MemoryLane Search →](https://memory-lane-sage-omega.vercel.app/)**
+## Running it locally
 
-## Save Your Own Webpages
+After [installation](installation.md) and [configuration](configuration.md), with Solr running:
 
-Want to contribute webpages?
+```bash
+# API (from code/src)
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+curl http://localhost:8000/health
+# {"status":"ok","solr":true,"embedding_model":true,"gemini":true}
+```
 
-Install the MemoryLane browser extension to capture webpages and add them to the deployed MemoryLane dataset. Newly captured pages become available to the shared search system.
+```bash
+# Web app (from code/src/frontend)
+npm run dev        # http://localhost:5173, proxies /api to http://127.0.0.1:8000
+```
 
-**[Download the MemoryLane Extension](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/assets/memorylane-extension.zip)**
+`/health` reports `status: ok` when Solr and the embedding model are ready. Gemini is optional, so `gemini: false` is fine.
 
-### Installation
+### Command-line search
 
-1. Download the extension ZIP.
-2. Extract the ZIP.
-3. Open `chrome://extensions` in Chrome.
-4. Enable **Developer mode**.
-5. Click **Load unpacked**.
-6. Select the extracted extension folder.
+Search a user's pages without the web app:
 
-## Demonstration Dataset
+```bash
+python -m backend.cli "your query" --user-id <cognito-sub> --top-k 5 --debug --no-summarize
+```
 
-Several webpages have been preloaded into MemoryLane for demonstration purposes. These webpages are used to showcase the system's **retrieval speed and search accuracy** without requiring the evaluator to first build their own dataset.
+`--debug` prints each page's BM25 rank, KNN rank, fused score and timings.
 
-## Future Development
+## Running it on a server
 
-The current deployment uses a shared dataset. In a future version, MemoryLane will support **separate, user-specific webpage collections** through an **authentication system**, allowing each user to store and search their own webpages privately.
+The production setup is Docker Compose with Solr, the backend and Caddy on one machine. See [Deployment](../development/deployment.md).

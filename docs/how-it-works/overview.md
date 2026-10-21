@@ -1,55 +1,76 @@
 # System Overview
 
-MemoryLane is organized as a pipeline connecting the browser, frontend, backend, content-processing layer, search index, and retrieval system.
+MemoryLane is two pipelines that meet in Solr: one that saves pages and one that finds them. Both run under the signed-in user's id.
 
-## Memory ingestion
+## Saving a page
 
 ```text
-Browser Page / YouTube Video
+Page in Chrome (or a YouTube video)
           ↓
-    Browser Extension
+Extension: HTML + text + canonical URL
           ↓
-     Capture / Filter
+Caddy (HTTPS) → FastAPI, with a Cognito access token
           ↓
-        FastAPI
+Verify the token → user_id
           ↓
-    URL Normalization
+Normalise the URL → page_id = hash(user_id, URL)
           ↓
-   Content Processing
+Clean (trafilatura) or fetch the transcript
           ↓
-       Chunking
+At least 50 words? Changed since last save?
           ↓
-      Embeddings
+Chunk (≤150 words, 30-word overlap)
           ↓
-      Apache Solr
+Embed "title + chunk" (bge-small-en-v1.5, 384-d)
+          ↓
+Solr: chunks + page vector + description
 ```
 
-## Search
+## Finding it
 
 ```text
-     User Query
+Query (typed or spoken)
           ↓
-   Svelte Frontend
+Web app → Caddy → FastAPI (token → user_id)
           ↓
-        FastAPI
+   ┌──────────────┬──────────────┐
+BM25 (edismax)        Vector KNN (query embedding)
+   └──────────────┴──────────────┘
+          ↓   both filtered by user_id
+Reciprocal Rank Fusion
           ↓
-   Candidate Retrieval
+(optional cross-encoder rerank)
           ↓
-        Ranking
+Group chunks into pages
           ↓
- Webpage-level Results
+Relevance floor
+          ↓
+Snippets → results
+```
+
+## Mapping the library
+
+```text
+User's page vectors (newest 2,000)
+          ↓
+PCA → k-means (k chosen by silhouette) → split oversized topics
+          ↓
+Outliers left unclustered
+          ↓
+Topic names (Gemini, or keywords)
+          ↓
+Layout + links → cached per user
 ```
 
 ## Separation of responsibilities
 
-The system separates:
-
-- **Collection** — browser extension
-- **Presentation** — Svelte frontend
-- **Application logic** — FastAPI
-- **Representation** — Sentence Transformer embeddings
-- **Storage and search** — Apache Solr
-- **Retrieval and ranking** — backend retrieval module
-- **Optional summarization** — Gemini integration
-
-This separation keeps the browser, user interface, processing, storage, and retrieval concerns independent.
+| Part | Responsibility |
+| --- | --- |
+| Extension | Collecting pages, auto-capture rules, excluded sites |
+| Web app | Search, library, map, summaries, account |
+| Cognito | Who the user is |
+| Caddy | HTTPS, static files, routing `/api` |
+| FastAPI | Token checks, ingest, retrieval, map, summaries |
+| Sentence Transformers | Embeddings |
+| Solr | Storage, BM25 and KNN search |
+| Gemini | Optional summaries and topic names |

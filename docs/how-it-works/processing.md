@@ -1,58 +1,54 @@
 # Content Processing
 
-MemoryLane transforms captured content into smaller searchable units before storing it.
+Before it is stored, a saved page is cleaned and split into small passages, and each passage is turned into a vector.
 
-## URL normalization
+## URL normalisation
 
-URLs can have multiple representations that refer to the same logical resource.
+The same page can have many URLs. MemoryLane normalises them by:
 
-MemoryLane normalizes URLs by handling details such as:
+- Lower-casing the scheme and host
+- Removing `www.`
+- Removing fragments (`#...`)
+- Removing trailing slashes (except the root `/`)
+- Removing tracking parameters: `utm_*`, `fbclid`, `gclid`, `ref`, `ref_src`
+- Sorting the remaining query parameters
 
-- Scheme and hostname normalization
-- Removing the `www` prefix
-- Removing default ports
-- Removing fragments
-- Removing common tracking parameters
-- Normalizing trailing slashes
-- Sorting query parameters
+The page id is the first 32 hex characters of `sha256("{user_id}|{normalised_url}")`.
 
-A deterministic webpage identifier is generated from the normalized URL.
+## Cleaning
 
-## Validation
+Raw page text is full of menus, cookie banners, "related articles" lists and footers. MemoryLane runs **trafilatura** on the page's HTML to keep only the main content. If trafilatura finds fewer than 50 words, the text the extension sent is used instead. Either way, citation markers such as `[4]` and junk lines (dividers, table rules, icon rows, lone words) are removed and whitespace is tidied. YouTube transcripts skip trafilatura.
 
-Very short or invalid content is not treated as a useful webpage memory.
-
-For ordinary webpages, the extension also avoids sending pages with insufficient extracted text during automatic capture.
+Pages with fewer than **50 words** after cleaning are rejected.
 
 ## Chunking
 
-Large pages are divided into smaller chunks.
+The text is split into paragraphs, then sentences, and packed into chunks:
 
-The configured target range is approximately 300–500 words. Paragraph boundaries are used where possible. Oversized paragraphs can be split at sentence boundaries, with further word-based splitting when a single sentence is still too large.
+| Rule | Value |
+| --- | --- |
+| Largest chunk | 150 words |
+| Overlap | each chunk starts with ~30 words of the previous chunk's last sentences |
+| Short tail | a last chunk with under 40 new words merges into the one before |
+| Long sentences | hard-split by words |
 
-Very small trailing chunks may be merged back into the preceding chunk.
+Small, overlapping chunks keep each vector focused on one idea, and the overlap stops an idea being cut in half at a chunk boundary.
 
 ## Embeddings
 
-Each chunk is converted into a dense vector using:
+Each chunk is embedded as `title + chunk` with:
 
 ```text
-all-MiniLM-L6-v2
+BAAI/bge-small-en-v1.5   (384 dimensions, L2-normalised)
 ```
 
-The model produces a 384-dimensional representation.
+Queries are embedded with BGE's search instruction (`Represent this sentence for searching relevant passages: `) in front. Passages are embedded without it. `all-MiniLM-L6-v2` can be used instead by changing `EMBEDDING_MODEL` and clearing the prefix.
 
-The vectors are normalized and used with cosine similarity for dense retrieval.
+Embeddings are computed in batches of 32, and the last 1,024 query embeddings are cached.
 
-## Metadata
+## Page vector and description
 
-Chunks retain their relationship to the original webpage through fields such as:
+Two more values are computed per page:
 
-- `webpage_id`
-- URL
-- Domain
-- Title
-- Chunk identifier
-- Total chunk count
-- Timestamp
-- Embedding
+- **Page vector**: the normalised mean of the page's chunk vectors. It powers [related pages](../user-guide/map.md#pages) and the [library map](../architecture/map.md).
+- **Description**: the page's meta description, otherwise its first readable sentences (up to 300 characters). Snippets fall back to it when no sentence matches the query well.

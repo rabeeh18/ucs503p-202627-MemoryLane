@@ -1,10 +1,10 @@
 # Problem Statement
 
-## The Problem
+## The problem
 
-Users frequently consume information online but struggle to retrieve it later.
+People read a lot online but struggle to find it again later.
 
-Students, developers, researchers, and professionals often read useful resources but forget:
+Students, developers, researchers and professionals often read useful resources but forget:
 
 - Website names
 - URLs
@@ -13,30 +13,28 @@ Students, developers, researchers, and professionals often read useful resources
 
 ---
 
-## Limitations of Existing Solutions
+## Limitations of existing solutions
 
-### Browser History
+### Browser history
 
-Browser history requires users to remember website names or keywords.
+Browser history only matches titles and URLs, so you need to remember the website name or a word from the title.
 
 ### Bookmarks
 
-Bookmarks require manual saving and organization.
+Bookmarks have to be saved and organised by hand, and are searched by title only.
 
-### Search Engines
+### Search engines
 
-Search engines retrieve information from the internet, not from the user's personal browsing history.
+Search engines search the whole internet, not the pages you personally read.
 
 ---
 
-## Proposed Solution
+## Proposed solution
 
-MemoryLane creates an AI-powered memory layer over browsing activity.
-
-Instead of searching using exact keywords, users can describe what they remember.
+MemoryLane is a personal memory layer over the pages you read. It stores their text, and you search it by describing what you remember instead of typing exact keywords.
 
 Example:
 
 > "Find that article about reinforcement learning I read last week"
 
-MemoryLane retrieves the relevant webpage.
+MemoryLane returns the page with a snippet of the matching sentences. From there you can see related pages and the topic the page belongs to on your library map.

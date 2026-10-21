@@ -1,58 +1,42 @@
-# Searching Memories
+# Searching
 
-MemoryLane provides a natural-language search interface for previously stored web content.
-
-## Searching
-
-Enter a description of the information you remember and submit the query.
-
-For example:
+Describe what you remember in the search box on the home page. Press `/` anywhere on the home page to jump to it.
 
 ```text
-Find the documentation I read about ROS navigation
+the article on reducing database query latency
 ```
-
-or:
 
 ```text
-article explaining ways to reduce database query latency
+docs about ROS navigation
 ```
 
-The query does not have to reproduce the exact wording used by the original page.
-
-## What happens after a search
-
-```text
-Natural-language query
-        ↓
-FastAPI search endpoint
-        ↓
-Candidate retrieval
-        ↓
-Ranking
-        ↓
-Webpage-level results
-```
-
-The search system can use both exact terminology and semantic similarity to identify useful memories.
+The query doesn't need the page's exact words. MemoryLane matches by meaning as well as by keywords.
 
 ## Results
 
-Results are presented as webpages rather than individual internal chunks.
+Each result shows:
 
-A result contains information such as:
+- The page title, linking to the page
+- The site, with a letter tile for the domain
+- A **snippet**: two or three sentences from the page that best match your query, with the query words highlighted
+- When you saved it
+- **Summarise**, for a short summary of that page
 
-- Rank
-- Page title
-- URL
-- Domain
-- Timestamp
-- Optional summary
+Up to 10 pages are shown. Pages that only loosely match your query are left out instead of padding the list, so a short list means nothing else was close enough. If nothing matches, MemoryLane suggests describing the idea rather than exact words.
 
-The frontend can also request an on-demand summary for an individual result.
+## Keyboard
 
-## Search result count
+| Key | Action |
+| --- | --- |
+| `↑` `↓` | Move between results |
+| `Enter` | Open the selected page |
+| `Shift` + `Del` | Delete the selected page (with undo) |
+| `Esc` | Clear the search |
 
-The API accepts a requested result count between 1 and 20. The default is 5.
+## Searching within a topic
 
-The internal retrieval process may consider more candidate chunks before producing the final webpage-level list.
+From the [library map](map.md), **Search only these pages** limits a search to one topic. The results page shows the topic as a chip; remove it to search everything again. If the topic changed because you saved or deleted pages in the meantime, MemoryLane finds the same topic by name, or searches all pages and tells you.
+
+## How it works
+
+Every search runs a keyword search (BM25) and a meaning search (vector KNN) over your pages at the same time, then combines them. See [Retrieval Architecture](../architecture/retrieval.md).

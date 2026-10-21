@@ -1,38 +1,52 @@
 # Testing
 
-MemoryLane includes automated tests for important backend behaviors.
+## Backend (pytest)
 
-## Test areas
-
-The current test suite covers areas including:
-
-- URL normalization
-- Chunking behavior
-- Retrieval behavior
-- API behavior
-
-Representative test files are:
-
-```text
-tests/
-├── test_api.py
-├── test_chunking.py
-├── test_retrieval.py
-└── test_url_normalization.py
+```bash
+cd code/src
+pytest tests/ -v
 ```
 
-## What the tests protect
+The tests need no running Solr, Cognito or Gemini. Solr is replaced by an in-memory fake or a mock, `test_auth.py` signs its own tokens with a throwaway RSA key, other API tests override the signed-in user, and embeddings are stubbed.
 
-URL tests verify normalization and deterministic webpage identifiers.
+| File | Covers |
+| --- | --- |
+| `test_auth.py` | Token verification: signature, expiry, issuer, `token_use`, `client_id` |
+| `test_isolation.py` | Two users can never see, search, summarise, map or delete each other's pages |
+| `test_api.py` | Endpoint contracts, status codes, Gemini-off behaviour |
+| `test_ingest.py` | Save, unchanged, update without duplicate chunks, 422 on short pages |
+| `test_cleaning.py` | trafilatura extraction, fallbacks, junk lines, descriptions |
+| `test_chunking.py` | Chunk sizes, overlap, short tails, long sentences |
+| `test_url_normalization.py` | URL normalisation and page ids |
+| `test_retrieval.py` | RRF, page grouping, the relevance floor |
+| `test_rerank.py` | Optional cross-encoder reranking |
+| `test_snippets.py` | Snippet sentence choice, length and fallbacks |
+| `test_solr_client.py` | Every Solr query carries the user filter; commit behaviour; escaping |
+| `test_youtube.py` | Video ids, transcripts, the two-hour auto-capture limit |
+| `test_library_map.py` | Number of topics, splits, outliers, labels, layout, links |
+| `test_map_api.py` | `/map`, `/map/search`, related pages, topic search and `409` |
+| `test_reindex.py`, `test_backfill.py` | The re-index and page-vector backfill scripts |
 
-Chunking tests verify that text is divided according to the configured rules.
+## Web app (vitest)
 
-Retrieval tests cover score normalization, score fusion, and webpage grouping.
+```bash
+cd code/src/frontend
+npm test          # vitest
+npm run check     # svelte-check (types and Svelte diagnostics)
+```
 
-API tests cover backend endpoint behavior.
+Unit tests cover the pure modules in `src/lib/`: map geometry and state (`mapView.test.js`), delete-with-undo (`deletes.test.js`) and domain letters (`domain.test.js`).
 
-## Evaluation
+## Retrieval quality
 
-The repository also contains a retrieval evaluation pipeline under `evaluation/`. It evaluates BM25-only, vector-only, and combined retrieval configurations using retrieval metrics.
+Retrieval quality is measured separately, with the [SciFact evaluation](../evaluation/methodology.md), because it needs a real Solr core and the embedding model.
 
-The evaluation is separate from the normal automated unit tests.
+## Manual check
+
+1. `GET /health` → all `true`
+2. Save a page from the extension → it appears under **Recently saved**
+3. Save it again → `unchanged`, same chunk count
+4. Search with different wording from the page → it's found, with a sensible snippet
+5. **Summarise** → a summary (with a Gemini key)
+6. Open **Map** with 10+ pages → named topics; click a page → related pages
+7. Sign in as a second user → none of the first user's pages are visible
