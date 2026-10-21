@@ -6,6 +6,8 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
+        <meta name="description" content="Save pages as you browse and find them later by meaning.">
+      
       
       
         <link rel="canonical" href="https://rabeeh18.github.io/ucs503p-202627-MemoryLane/architecture/backend/">
@@ -24,8 +26,7 @@
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
-  <title>UCS503: Software Engineering; Raghav
-    B. Venkataramaiyer @TIET</title>
+  <title>Backend - MemoryLane</title>
 
     
       <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
@@ -58,7 +59,7 @@
     
       <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
     
-      <link rel="stylesheet" href="https://unpkg.com/katex@0/dist/katex.min.css">
+      <link rel="stylesheet" href="https://unpkg.com/katex@0.16.11/dist/katex.min.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -238,9 +239,20 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
   
   
   <span class="md-ellipsis">
@@ -254,7 +266,107 @@
   
   
 
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Home
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MemoryLane
+  
+
+    
+  </span>
+  
+  
+
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../problem_statement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Problem Statement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -486,7 +598,7 @@
   <span class="md-ellipsis">
     
   
-    Automatic Capture
+    Saving Pages
   
 
     
@@ -514,7 +626,119 @@
   <span class="md-ellipsis">
     
   
-    Search
+    Searching
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/library/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Library and Account
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Library Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/summarization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summaries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/youtube/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTube Videos
   
 
     
@@ -543,62 +767,6 @@
     
   
     Voice Search
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user-guide/youtube/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    YouTube Memories
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user-guide/summarization/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Summarization
   
 
     
@@ -929,140 +1097,57 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#main-modules" class="md-nav__link">
+  <a href="#modules" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Main modules
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Main modules">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#mainpy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        main.py
+        Modules
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#modelspy" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#request-flow" class="md-nav__link">
     <span class="md-ellipsis">
       
-        models.py
+        Request flow
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#url_utilspy" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#start-up" class="md-nav__link">
     <span class="md-ellipsis">
       
-        url_utils.py
+        Start-up
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#page_filterpy" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#caches" class="md-nav__link">
     <span class="md-ellipsis">
       
-        page_filter.py
+        Caches
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#chunkingpy" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#scripts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        chunking.py
+        Scripts
       
     </span>
   </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#embeddingspy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        embeddings.py
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#retrievalpy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        retrieval.py
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#solr_clientpy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        solr_client.py
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#youtube_utilspy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        youtube_utils.py
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#summarizerpy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        summarizer.py
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#configpy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        config.py
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1089,7 +1174,7 @@
   <span class="md-ellipsis">
     
   
-    Frontend
+    Frontend and Extension
   
 
     
@@ -1146,6 +1231,62 @@
     
   
     Retrieval Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Library Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
   
 
     
@@ -1379,6 +1520,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1543,44 +1712,101 @@
   
 
 
-<h1 id="backend-architecture">Backend Architecture</h1>
-<p>The backend is implemented with FastAPI and is responsible for coordinating MemoryLane's core operations.</p>
-<h2 id="main-modules">Main modules</h2>
+<h1 id="backend-architecture">Backend Architecture<a class="headerlink" href="#backend-architecture" title="Permanent link">&para;</a></h1>
+<p>The backend is a FastAPI application in <code>code/src/backend</code>.</p>
+<h2 id="modules">Modules<a class="headerlink" href="#modules" title="Permanent link">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>backend/
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── main.py
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── models.py
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── config.py
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── url_utils.py
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── page_filter.py
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├── chunking.py
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>├── embeddings.py
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>├── retrieval.py
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>├── solr_client.py
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>├── summarizer.py
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>└── youtube_utils.py
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── main.py           API endpoints, rate limits, CORS, error handling
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── auth.py           Cognito access-token verification → user_id
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── models.py         Pydantic request and response models
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── config.py         Settings from .env
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── ingest.py         ingest_page: the one way a page gets saved
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├── cleaning.py       trafilatura extraction, junk-line removal, descriptions
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>├── url_utils.py      URL normalisation and page ids
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>├── youtube_utils.py  Video ids, metadata and transcripts
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>├── chunking.py       Sentence-aware overlapping chunks
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>├── embeddings.py     Sentence Transformers model, passage and query embeddings
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>├── retrieval.py      Hybrid search: BM25 + KNN, RRF, grouping, relevance floor
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>├── rerank.py         Optional cross-encoder reranker
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>├── snippets.py       Query-focused snippets
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>├── library_map.py    Topics, labels, layout, links, per-user map cache
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>├── summarizer.py     Gemini summaries and topic names
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>├── solr_client.py    Every Solr call, always scoped by user_id
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>├── page_filter.py    Server copy of the URL eligibility rules
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>└── cli.py            Command-line search
 </span></code></pre></div>
-<h3 id="mainpy"><code>main.py</code></h3>
-<p>Defines the FastAPI application and API endpoints. It coordinates memory ingestion, search, health checks, and summarization.</p>
-<h3 id="modelspy"><code>models.py</code></h3>
-<p>Defines Pydantic request and response models used by the API.</p>
-<h3 id="url_utilspy"><code>url_utils.py</code></h3>
-<p>Handles URL normalization and deterministic webpage ID generation.</p>
-<h3 id="page_filterpy"><code>page_filter.py</code></h3>
-<p>Contains the URL eligibility rules used for automatic capture.</p>
-<h3 id="chunkingpy"><code>chunking.py</code></h3>
-<p>Converts long text into chunks suitable for embedding and retrieval.</p>
-<h3 id="embeddingspy"><code>embeddings.py</code></h3>
-<p>Loads and uses the Sentence Transformer embedding model.</p>
-<h3 id="retrievalpy"><code>retrieval.py</code></h3>
-<p>Handles candidate retrieval, score normalization, score fusion, and webpage-level aggregation.</p>
-<h3 id="solr_clientpy"><code>solr_client.py</code></h3>
-<p>Provides the backend interface to the Solr index.</p>
-<h3 id="youtube_utilspy"><code>youtube_utils.py</code></h3>
-<p>Provides YouTube URL detection, video-ID handling, and transcript-related utilities.</p>
-<h3 id="summarizerpy"><code>summarizer.py</code></h3>
-<p>Handles optional Gemini-based summarization.</p>
-<h3 id="configpy"><code>config.py</code></h3>
-<p>Contains application and retrieval configuration values.</p>
+<h2 id="request-flow">Request flow<a class="headerlink" href="#request-flow" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Rate limiting</strong> (slowapi): per user once authenticated, otherwise per IP. Limits range from 5/minute (export, delete all) to 120/minute (status checks, related pages, map search).</li>
+<li><strong>Authentication</strong>: the <code>current_user_id</code> dependency verifies the bearer token and returns its <code>sub</code>. Every endpoint except <code>/health</code> requires it.</li>
+<li><strong>The endpoint</strong> calls <code>ingest_page</code>, <code>hybrid_search</code>, <code>map_service</code> or the summariser with that user id.</li>
+<li><strong>Solr</strong> calls go through <code>SolrClient</code>, which adds the <code>user_id</code> filter to every query and rejects malformed ids.</li>
+</ol>
+<h2 id="start-up">Start-up<a class="headerlink" href="#start-up" title="Permanent link">&para;</a></h2>
+<p>The embedding model loads at start-up so the first save or search is fast. The API refuses to start if the Cognito settings are missing.</p>
+<h2 id="caches">Caches<a class="headerlink" href="#caches" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Cache</th>
+<th>Scope</th>
+<th>Cleared when</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Query embeddings</td>
+<td>last 1,024 queries</td>
+<td>process restart</td>
+</tr>
+<tr>
+<td>Sentence embeddings for snippets</td>
+<td>LRU of 4,096 sentences</td>
+<td>process restart</td>
+</tr>
+<tr>
+<td>Library map</td>
+<td>per user, 50 users, 10-minute TTL</td>
+<td>the user saves or deletes a page</td>
+</tr>
+<tr>
+<td>Topic labels</td>
+<td>per topic membership</td>
+<td>process restart</td>
+</tr>
+</tbody>
+</table>
+<h2 id="scripts">Scripts<a class="headerlink" href="#scripts" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Script</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>scripts/setup_solr.sh</code> / <code>.ps1</code></td>
+<td>Create the core and install the schema, with a smoke test</td>
+</tr>
+<tr>
+<td><code>scripts/add_description_field.sh</code></td>
+<td>Add the <code>description</code> field to an existing core</td>
+</tr>
+<tr>
+<td><code>scripts/add_page_embedding_field.sh</code></td>
+<td>Add the <code>page_embedding</code> field to an existing core</td>
+</tr>
+<tr>
+<td><code>scripts/backfill_page_vectors.py</code></td>
+<td>Give older pages a page vector (resumable)</td>
+</tr>
+<tr>
+<td><code>scripts/reindex.py</code></td>
+<td>Copy pages from another core under a user id</td>
+</tr>
+</tbody>
+</table>
 
 
 
@@ -1635,13 +1861,13 @@
         
         
           
-          <a href="../frontend/" class="md-footer__link md-footer__link--next" aria-label="Next: Frontend">
+          <a href="../frontend/" class="md-footer__link md-footer__link--next" aria-label="Next: Frontend and Extension">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Frontend
+                Frontend and Extension
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1676,6 +1902,14 @@
     
     
     
+    <a href="https://memorylane.site" target="_blank" rel="noopener" title="MemoryLane" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M16.36 14c.08-.66.14-1.32.14-2s-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2m-5.15 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95a8.03 8.03 0 0 1-4.33 3.56M14.34 14H9.66c-.1-.66-.16-1.32-.16-2s.06-1.35.16-2h4.68c.09.65.16 1.32.16 2s-.07 1.34-.16 2M12 19.96c-.83-1.2-1.5-2.53-1.91-3.96h3.82c-.41 1.43-1.08 2.76-1.91 3.96M8 8H5.08A7.92 7.92 0 0 1 9.4 4.44C8.8 5.55 8.35 6.75 8 8m-2.92 8H8c.35 1.25.8 2.45 1.4 3.56A8 8 0 0 1 5.08 16m-.82-2C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2s.06 1.34.14 2M12 4.03c.83 1.2 1.5 2.54 1.91 3.97h-3.82c.41-1.43 1.08-2.77 1.91-3.97M18.92 8h-2.95a15.7 15.7 0 0 0-1.38-3.56c1.84.63 3.37 1.9 4.33 3.56M12 2C6.47 2 2 6.5 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2"/></svg>
+    </a>
+  
+    
+    
+    
+    
     <a href="https://github.com/rabeeh18/ucs503p-202627-MemoryLane" target="_blank" rel="noopener" title="MemoryLane GitHub Repository" class="md-social__link">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
     </a>
@@ -1700,9 +1934,11 @@
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
-        <script src="https://unpkg.com/katex@0/dist/katex.min.js"></script>
-      
         <script src="../../javascript/arithmatex.js"></script>
+      
+        <script src="https://unpkg.com/katex@0.16.11/dist/katex.min.js"></script>
+      
+        <script src="https://unpkg.com/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
       
     
   </body>

@@ -6,6 +6,8 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
+        <meta name="description" content="Save pages as you browse and find them later by meaning.">
+      
       
       
         <link rel="canonical" href="https://rabeeh18.github.io/ucs503p-202627-MemoryLane/user-guide/search/">
@@ -14,7 +16,7 @@
         <link rel="prev" href="../automatic-capture/">
       
       
-        <link rel="next" href="../voice-search/">
+        <link rel="next" href="../library/">
       
       
         
@@ -24,8 +26,7 @@
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
-  <title>UCS503: Software Engineering; Raghav
-    B. Venkataramaiyer @TIET</title>
+  <title>Searching - MemoryLane</title>
 
     
       <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
@@ -58,7 +59,7 @@
     
       <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
     
-      <link rel="stylesheet" href="https://unpkg.com/katex@0/dist/katex.min.css">
+      <link rel="stylesheet" href="https://unpkg.com/katex@0.16.11/dist/katex.min.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -83,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#searching-memories" class="md-skip">
+        <a href="#searching" class="md-skip">
           Skip to content
         </a>
       
@@ -118,7 +119,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Search
+              Searching
             
           </span>
         </div>
@@ -238,9 +239,20 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
   
   
   <span class="md-ellipsis">
@@ -254,7 +266,107 @@
   
   
 
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Home
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MemoryLane
+  
+
+    
+  </span>
+  
+  
+
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../problem_statement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Problem Statement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -488,7 +600,7 @@
   <span class="md-ellipsis">
     
   
-    Automatic Capture
+    Saving Pages
   
 
     
@@ -525,7 +637,7 @@
   <span class="md-ellipsis">
     
   
-    Search
+    Searching
   
 
     
@@ -543,7 +655,7 @@
   <span class="md-ellipsis">
     
   
-    Search
+    Searching
   
 
     
@@ -569,28 +681,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#searching" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Searching
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-happens-after-a-search" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What happens after a search
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -602,10 +692,32 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#search-result-count" class="md-nav__link">
+  <a href="#keyboard" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Search result count
+        Keyboard
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#searching-within-a-topic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Searching within a topic
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
       
     </span>
   </a>
@@ -628,14 +740,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../voice-search/" class="md-nav__link">
+      <a href="../library/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Voice Search
+    Library and Account
   
 
     
@@ -656,14 +768,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../youtube/" class="md-nav__link">
+      <a href="../map/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    YouTube Memories
+    Library Map
   
 
     
@@ -691,7 +803,63 @@
   <span class="md-ellipsis">
     
   
-    Summarization
+    Summaries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../youtube/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTube Videos
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../voice-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Voice Search
   
 
     
@@ -995,7 +1163,7 @@
   <span class="md-ellipsis">
     
   
-    Frontend
+    Frontend and Extension
   
 
     
@@ -1052,6 +1220,62 @@
     
   
     Retrieval Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Library Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
   
 
     
@@ -1285,6 +1509,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1449,44 +1701,54 @@
   
 
 
-<h1 id="searching-memories">Searching Memories</h1>
-<p>MemoryLane provides a natural-language search interface for previously stored web content.</p>
-<h2 id="searching">Searching</h2>
-<p>Enter a description of the information you remember and submit the query.</p>
-<p>For example:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Find the documentation I read about ROS navigation
+<h1 id="searching">Searching<a class="headerlink" href="#searching" title="Permanent link">&para;</a></h1>
+<p>Describe what you remember in the search box on the home page. Press <code>/</code> anywhere on the home page to jump to it.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>the article on reducing database query latency
 </span></code></pre></div>
-<p>or:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>article explaining ways to reduce database query latency
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>docs about ROS navigation
 </span></code></pre></div>
-<p>The query does not have to reproduce the exact wording used by the original page.</p>
-<h2 id="what-happens-after-a-search">What happens after a search</h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Natural-language query
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>        ↓
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>FastAPI search endpoint
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>        ↓
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>Candidate retrieval
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>        ↓
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>Ranking
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        ↓
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>Webpage-level results
-</span></code></pre></div>
-<p>The search system can use both exact terminology and semantic similarity to identify useful memories.</p>
-<h2 id="results">Results</h2>
-<p>Results are presented as webpages rather than individual internal chunks.</p>
-<p>A result contains information such as:</p>
+<p>The query doesn't need the page's exact words. MemoryLane matches by meaning as well as by keywords.</p>
+<h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
+<p>Each result shows:</p>
 <ul>
-<li>Rank</li>
-<li>Page title</li>
-<li>URL</li>
-<li>Domain</li>
-<li>Timestamp</li>
-<li>Optional summary</li>
+<li>The page title, linking to the page</li>
+<li>The site, with a letter tile for the domain</li>
+<li>A <strong>snippet</strong>: two or three sentences from the page that best match your query, with the query words highlighted</li>
+<li>When you saved it</li>
+<li><strong>Summarise</strong>, for a short summary of that page</li>
 </ul>
-<p>The frontend can also request an on-demand summary for an individual result.</p>
-<h2 id="search-result-count">Search result count</h2>
-<p>The API accepts a requested result count between 1 and 20. The default is 5.</p>
-<p>The internal retrieval process may consider more candidate chunks before producing the final webpage-level list.</p>
+<p>Up to 10 pages are shown. Pages that only loosely match your query are left out instead of padding the list, so a short list means nothing else was close enough. If nothing matches, MemoryLane suggests describing the idea rather than exact words.</p>
+<h2 id="keyboard">Keyboard<a class="headerlink" href="#keyboard" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>↑</code> <code>↓</code></td>
+<td>Move between results</td>
+</tr>
+<tr>
+<td><code>Enter</code></td>
+<td>Open the selected page</td>
+</tr>
+<tr>
+<td><code>Shift</code> + <code>Del</code></td>
+<td>Delete the selected page (with undo)</td>
+</tr>
+<tr>
+<td><code>Esc</code></td>
+<td>Clear the search</td>
+</tr>
+</tbody>
+</table>
+<h2 id="searching-within-a-topic">Searching within a topic<a class="headerlink" href="#searching-within-a-topic" title="Permanent link">&para;</a></h2>
+<p>From the <a href="../map/">library map</a>, <strong>Search only these pages</strong> limits a search to one topic. The results page shows the topic as a chip; remove it to search everything again. If the topic changed because you saved or deleted pages in the meantime, MemoryLane finds the same topic by name, or searches all pages and tells you.</p>
+<h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
+<p>Every search runs a keyword search (BM25) and a meaning search (vector KNN) over your pages at the same time, then combines them. See <a href="../../architecture/retrieval/">Retrieval Architecture</a>.</p>
 
 
 
@@ -1524,7 +1786,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../automatic-capture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Automatic Capture">
+          <a href="../automatic-capture/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Saving Pages">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1534,20 +1796,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Automatic Capture
+                Saving Pages
               </div>
             </div>
           </a>
         
         
           
-          <a href="../voice-search/" class="md-footer__link md-footer__link--next" aria-label="Next: Voice Search">
+          <a href="../library/" class="md-footer__link md-footer__link--next" aria-label="Next: Library and Account">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Voice Search
+                Library and Account
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1582,6 +1844,14 @@
     
     
     
+    <a href="https://memorylane.site" target="_blank" rel="noopener" title="MemoryLane" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M16.36 14c.08-.66.14-1.32.14-2s-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2m-5.15 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95a8.03 8.03 0 0 1-4.33 3.56M14.34 14H9.66c-.1-.66-.16-1.32-.16-2s.06-1.35.16-2h4.68c.09.65.16 1.32.16 2s-.07 1.34-.16 2M12 19.96c-.83-1.2-1.5-2.53-1.91-3.96h3.82c-.41 1.43-1.08 2.76-1.91 3.96M8 8H5.08A7.92 7.92 0 0 1 9.4 4.44C8.8 5.55 8.35 6.75 8 8m-2.92 8H8c.35 1.25.8 2.45 1.4 3.56A8 8 0 0 1 5.08 16m-.82-2C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2s.06 1.34.14 2M12 4.03c.83 1.2 1.5 2.54 1.91 3.97h-3.82c.41-1.43 1.08-2.77 1.91-3.97M18.92 8h-2.95a15.7 15.7 0 0 0-1.38-3.56c1.84.63 3.37 1.9 4.33 3.56M12 2C6.47 2 2 6.5 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2"/></svg>
+    </a>
+  
+    
+    
+    
+    
     <a href="https://github.com/rabeeh18/ucs503p-202627-MemoryLane" target="_blank" rel="noopener" title="MemoryLane GitHub Repository" class="md-social__link">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
     </a>
@@ -1606,9 +1876,11 @@
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
-        <script src="https://unpkg.com/katex@0/dist/katex.min.js"></script>
-      
         <script src="../../javascript/arithmatex.js"></script>
+      
+        <script src="https://unpkg.com/katex@0.16.11/dist/katex.min.js"></script>
+      
+        <script src="https://unpkg.com/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
       
     
   </body>

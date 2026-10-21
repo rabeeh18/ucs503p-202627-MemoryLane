@@ -6,6 +6,8 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
+        <meta name="description" content="Save pages as you browse and find them later by meaning.">
+      
       
       
         <link rel="canonical" href="https://rabeeh18.github.io/ucs503p-202627-MemoryLane/getting-started/running/">
@@ -24,8 +26,7 @@
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
-  <title>UCS503: Software Engineering; Raghav
-    B. Venkataramaiyer @TIET</title>
+  <title>Running MemoryLane - MemoryLane</title>
 
     
       <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
@@ -58,7 +59,7 @@
     
       <link rel="stylesheet" href="../../assets/stylesheets/extra.css">
     
-      <link rel="stylesheet" href="https://unpkg.com/katex@0/dist/katex.min.css">
+      <link rel="stylesheet" href="https://unpkg.com/katex@0.16.11/dist/katex.min.css">
     
     <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
@@ -238,9 +239,20 @@
   
   
   
-    <li class="md-nav__item">
-      <a href="../.." class="md-nav__link">
+    
+    
+    
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
   
   
   <span class="md-ellipsis">
@@ -254,7 +266,107 @@
   
   
 
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Home
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MemoryLane
+  
+
+    
+  </span>
+  
+  
+
       </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../problem_statement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Problem Statement
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../features/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
     </li>
   
 
@@ -459,10 +571,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#try-memorylane" class="md-nav__link">
+  <a href="#the-hosted-site" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Try MemoryLane
+        The hosted site
       
     </span>
   </a>
@@ -470,22 +582,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#save-your-own-webpages" class="md-nav__link">
+  <a href="#running-it-locally" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Save Your Own Webpages
+        Running it locally
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Save Your Own Webpages">
+    <nav class="md-nav" aria-label="Running it locally">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#installation" class="md-nav__link">
+  <a href="#command-line-search" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Installation
+        Command-line search
       
     </span>
   </a>
@@ -498,21 +610,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#demonstration-dataset" class="md-nav__link">
+  <a href="#running-it-on-a-server" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Demonstration Dataset
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#future-development" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Future Development
+        Running it on a server
       
     </span>
   </a>
@@ -596,7 +697,7 @@
   <span class="md-ellipsis">
     
   
-    Automatic Capture
+    Saving Pages
   
 
     
@@ -624,7 +725,119 @@
   <span class="md-ellipsis">
     
   
-    Search
+    Searching
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/library/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Library and Account
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Library Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/summarization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Summaries
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/youtube/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YouTube Videos
   
 
     
@@ -653,62 +866,6 @@
     
   
     Voice Search
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user-guide/youtube/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    YouTube Memories
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user-guide/summarization/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Summarization
   
 
     
@@ -1012,7 +1169,7 @@
   <span class="md-ellipsis">
     
   
-    Frontend
+    Frontend and Extension
   
 
     
@@ -1069,6 +1226,62 @@
     
   
     Retrieval Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/map/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Library Map
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../architecture/security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
   
 
     
@@ -1302,6 +1515,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1466,29 +1707,40 @@
   
 
 
-<h1 id="running-memorylane">Running MemoryLane</h1>
-<p>MemoryLane is currently deployed as a shared demonstration instance. The sections below explain how to try the system, add webpages, and understand the current setup.</p>
-<h2 id="try-memorylane">Try MemoryLane</h2>
-<p>Access the MemoryLane search interface to explore its search capabilities.</p>
-<p>A collection of demo webpages has already been added to the system so you can test the <strong>speed and accuracy of MemoryLane's search engines</strong>.</p>
-<p><strong><a href="https://memory-lane-sage-omega.vercel.app/">Open MemoryLane Search →</a></strong></p>
-<h2 id="save-your-own-webpages">Save Your Own Webpages</h2>
-<p>Want to contribute webpages?</p>
-<p>Install the MemoryLane browser extension to capture webpages and add them to the deployed MemoryLane dataset. Newly captured pages become available to the shared search system.</p>
-<p><strong><a href="https://rabeeh18.github.io/ucs503p-202627-MemoryLane/assets/memorylane-extension.zip">Download the MemoryLane Extension</a></strong></p>
-<h3 id="installation">Installation</h3>
+<h1 id="running-memorylane">Running MemoryLane<a class="headerlink" href="#running-memorylane" title="Permanent link">&para;</a></h1>
+<h2 id="the-hosted-site">The hosted site<a class="headerlink" href="#the-hosted-site" title="Permanent link">&para;</a></h2>
+<p>MemoryLane runs at <strong><a href="https://memorylane.site">memorylane.site</a></strong>.</p>
 <ol>
-<li>Download the extension ZIP.</li>
-<li>Extract the ZIP.</li>
-<li>Open <code>chrome://extensions</code> in Chrome.</li>
-<li>Enable <strong>Developer mode</strong>.</li>
-<li>Click <strong>Load unpacked</strong>.</li>
-<li>Select the extracted extension folder.</li>
+<li><strong>Sign in</strong> with <strong>Continue with Google</strong> or with email. Each account has its own private, empty library.</li>
+<li><strong>Get the extension</strong> from <strong><a href="https://memorylane.site/extension">memorylane.site/extension</a></strong>:<ol>
+<li>Download <code>memorylane-extension.zip</code> and unzip it.</li>
+<li>Open <code>chrome://extensions</code> and turn on <strong>Developer mode</strong>.</li>
+<li>Click <strong>Load unpacked</strong> and choose the unzipped folder.</li>
+<li>Pin MemoryLane to the toolbar, open it, and sign in.</li>
 </ol>
-<h2 id="demonstration-dataset">Demonstration Dataset</h2>
-<p>Several webpages have been preloaded into MemoryLane for demonstration purposes. These webpages are used to showcase the system's <strong>retrieval speed and search accuracy</strong> without requiring the evaluator to first build their own dataset.</p>
-<h2 id="future-development">Future Development</h2>
-<p>The current deployment uses a shared dataset. In a future version, MemoryLane will support <strong>separate, user-specific webpage collections</strong> through an <strong>authentication system</strong>, allowing each user to store and search their own webpages privately.</p>
+</li>
+<li><strong>Save pages</strong> with <strong>Remember this page</strong> in the extension popup. You can also turn on automatic capture there.</li>
+<li><strong>Search</strong> on the website by describing what you remember. Your library, the map and related pages fill up as you save more.</li>
+</ol>
+<p>Once the extension is installed, the website stops showing "Get the extension".</p>
+<h2 id="running-it-locally">Running it locally<a class="headerlink" href="#running-it-locally" title="Permanent link">&para;</a></h2>
+<p>After <a href="../installation/">installation</a> and <a href="../configuration/">configuration</a>, with Solr running:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># API (from code/src)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uvicorn<span class="w"> </span>backend.main:app<span class="w"> </span>--reload<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>curl<span class="w"> </span>http://localhost:8000/health
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># {&quot;status&quot;:&quot;ok&quot;,&quot;solr&quot;:true,&quot;embedding_model&quot;:true,&quot;gemini&quot;:true}</span>
+</span></code></pre></div>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Web app (from code/src/frontend)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>npm<span class="w"> </span>run<span class="w"> </span>dev<span class="w">        </span><span class="c1"># http://localhost:5173, proxies /api to http://127.0.0.1:8000</span>
+</span></code></pre></div>
+<p><code>/health</code> reports <code>status: ok</code> when Solr and the embedding model are ready. Gemini is optional, so <code>gemini: false</code> is fine.</p>
+<h3 id="command-line-search">Command-line search<a class="headerlink" href="#command-line-search" title="Permanent link">&para;</a></h3>
+<p>Search a user's pages without the web app:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>-m<span class="w"> </span>backend.cli<span class="w"> </span><span class="s2">&quot;your query&quot;</span><span class="w"> </span>--user-id<span class="w"> </span>&lt;cognito-sub&gt;<span class="w"> </span>--top-k<span class="w"> </span><span class="m">5</span><span class="w"> </span>--debug<span class="w"> </span>--no-summarize
+</span></code></pre></div>
+<p><code>--debug</code> prints each page's BM25 rank, KNN rank, fused score and timings.</p>
+<h2 id="running-it-on-a-server">Running it on a server<a class="headerlink" href="#running-it-on-a-server" title="Permanent link">&para;</a></h2>
+<p>The production setup is Docker Compose with Solr, the backend and Caddy on one machine. See <a href="../../development/deployment/">Deployment</a>.</p>
 
 
 
@@ -1543,13 +1795,13 @@
         
         
           
-          <a href="../../user-guide/automatic-capture/" class="md-footer__link md-footer__link--next" aria-label="Next: Automatic Capture">
+          <a href="../../user-guide/automatic-capture/" class="md-footer__link md-footer__link--next" aria-label="Next: Saving Pages">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Automatic Capture
+                Saving Pages
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -1584,6 +1836,14 @@
     
     
     
+    <a href="https://memorylane.site" target="_blank" rel="noopener" title="MemoryLane" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M16.36 14c.08-.66.14-1.32.14-2s-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2m-5.15 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95a8.03 8.03 0 0 1-4.33 3.56M14.34 14H9.66c-.1-.66-.16-1.32-.16-2s.06-1.35.16-2h4.68c.09.65.16 1.32.16 2s-.07 1.34-.16 2M12 19.96c-.83-1.2-1.5-2.53-1.91-3.96h3.82c-.41 1.43-1.08 2.76-1.91 3.96M8 8H5.08A7.92 7.92 0 0 1 9.4 4.44C8.8 5.55 8.35 6.75 8 8m-2.92 8H8c.35 1.25.8 2.45 1.4 3.56A8 8 0 0 1 5.08 16m-.82-2C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2s.06 1.34.14 2M12 4.03c.83 1.2 1.5 2.54 1.91 3.97h-3.82c.41-1.43 1.08-2.77 1.91-3.97M18.92 8h-2.95a15.7 15.7 0 0 0-1.38-3.56c1.84.63 3.37 1.9 4.33 3.56M12 2C6.47 2 2 6.5 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2"/></svg>
+    </a>
+  
+    
+    
+    
+    
     <a href="https://github.com/rabeeh18/ucs503p-202627-MemoryLane" target="_blank" rel="noopener" title="MemoryLane GitHub Repository" class="md-social__link">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
     </a>
@@ -1608,9 +1868,11 @@
     
       <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
       
-        <script src="https://unpkg.com/katex@0/dist/katex.min.js"></script>
-      
         <script src="../../javascript/arithmatex.js"></script>
+      
+        <script src="https://unpkg.com/katex@0.16.11/dist/katex.min.js"></script>
+      
+        <script src="https://unpkg.com/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
       
     
   </body>
