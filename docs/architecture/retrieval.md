@@ -69,7 +69,7 @@ KNN always returns 50 neighbours, however unrelated. A page with **no** BM25 mat
 
 ## Snippets
 
-For each result, `backend/snippets.py` picks 2–3 consecutive readable sentences around the sentence that contains the most query terms. Ties are broken by embedding similarity to the query. A readable sentence has 8+ words, is at least 70% letters, has no table pipes and ends in punctuation. Snippets are 200–280 characters. If no sentence qualifies, the page's stored description is used.
+For each result, `backend/snippets.py` picks 2–3 consecutive readable sentences around the sentence that contains the most query terms (the first one on a tie). If no sentence contains a query term, the first 3 readable sentences are compared with the query by embedding, so the snippet still fits a search by meaning. Embedding runs on the server's CPU during the search, which is why it's limited to this case. A readable sentence has 8+ words, is at least 70% letters, has no table pipes and ends in punctuation. Snippets are 200–280 characters. If no sentence qualifies, the page's stored description is used.
 
 ## Search within a topic
 

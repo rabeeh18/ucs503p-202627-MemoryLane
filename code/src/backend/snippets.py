@@ -2,11 +2,12 @@
 
 A snippet is 2-3 consecutive readable sentences from the result's best chunk,
 around the sentence that best matches the query, aiming for 200-280 characters.
-The best sentence is the one matching the most distinct query terms; ties
-(including "no sentence matches") go to the sentence most similar to the query
-by embedding. Pages with no readable sentence fall back to their stored
-description, and to nothing when that is empty. Snippets are plain text; the
-frontend bolds the query terms.
+The best sentence is the one matching the most distinct query terms, the first
+such sentence on a tie. When no sentence matches a term, the first few readable
+sentences are compared with the query by embedding. Embedding runs on the CPU
+during the search, so it is kept to that case. Pages with no readable sentence
+fall back to their stored description, and to nothing when that is empty.
+Snippets are plain text; the frontend bolds the query terms.
 """
 import logging
 import re
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 SNIPPET_MIN_CHARS = 200
 SNIPPET_MAX_CHARS = 280
 MAX_SNIPPET_SENTENCES = 3
-MAX_TIE_CANDIDATES = 12
+MAX_EMBED_CANDIDATES = 3
 
 # Very common words that would otherwise match almost every sentence.
 _STOPWORDS = {
@@ -85,7 +86,7 @@ class _Plan:
     def __init__(self, sentences, eligible, candidates, description):
         self.sentences = sentences
         self.eligible = eligible
-        self.candidates = candidates  # indices tied on term score
+        self.candidates = candidates  # indices to choose between by embedding
         self.description = description
         self.best = candidates[0] if candidates else None
 
@@ -98,8 +99,9 @@ def _plan(text: str, description: str | None, terms: Sequence[str]) -> _Plan:
         return _Plan(sentences, eligible, [], description)
     scores = {i: term_score(sentences[i], terms) for i in indices}
     top = max(scores.values())
-    tied = [i for i in indices if scores[i] == top][:MAX_TIE_CANDIDATES]
-    return _Plan(sentences, eligible, tied, description)
+    if top > 0:
+        return _Plan(sentences, eligible, [next(i for i in indices if scores[i] == top)], description)
+    return _Plan(sentences, eligible, indices[:MAX_EMBED_CANDIDATES], description)
 
 
 def _dot(a: Sequence[float], b: Sequence[float]) -> float:
@@ -109,19 +111,19 @@ def _dot(a: Sequence[float], b: Sequence[float]) -> float:
 def build_snippets(items: Sequence[tuple[str, str | None]], query: str,
                    query_vector: Sequence[float] | None = None,
                    embed: Callable[[list[str]], list[Sequence[float]]] | None = None) -> list[str | None]:
-    """Snippets for (chunk_text, description) pairs. Tied candidate sentences
-    across all items are embedded in one `embed` call and compared with the
-    (normalized) `query_vector`; without them the first tied sentence wins."""
+    """Snippets for (chunk_text, description) pairs. Candidate sentences of items
+    with no term match are embedded in one `embed` call and compared with the
+    (normalized) `query_vector`; without them the first candidate wins."""
     terms = query_terms(query)
     plans = [_plan(text, description, terms) for text, description in items]
 
-    tie_texts = []
+    candidate_texts = []
     if query_vector is not None and embed is not None:
         for plan in plans:
             if len(plan.candidates) > 1:
-                tie_texts.extend(plan.sentences[i] for i in plan.candidates)
-    if tie_texts:
-        unique = list(dict.fromkeys(tie_texts))
+                candidate_texts.extend(plan.sentences[i] for i in plan.candidates)
+    if candidate_texts:
+        unique = list(dict.fromkeys(candidate_texts))
         try:
             vectors = dict(zip(unique, embed(unique)))
         except Exception as e:  # snippets must never break search

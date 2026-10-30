@@ -155,7 +155,7 @@ Uses the same hybrid pipeline as the CLI. Each result has a plain-text `snippet`
 3. Optional cross-encoder rerank of the top `RERANK_TOP_N` chunks
 4. Group by `page_id`: best chunk + `PAGE_SECOND_CHUNK_WEIGHT` × second-best chunk
 5. Relevance floor: drop pages with no BM25 match whose best chunk has cosine similarity below `MIN_VECTOR_SIMILARITY` (Solr's KNN score is `(1 + cos) / 2`; debug output shows `vector_similarity`)
-6. Snippet (`backend/snippets.py`): 2–3 consecutive readable sentences (8+ words, 70%+ letters, no `|`, ending in punctuation) around the sentence matching the most query terms, ties broken by embedding similarity; 200–280 characters; else the page's stored `description`; else none
+6. Snippet (`backend/snippets.py`): 2–3 consecutive readable sentences (8+ words, 70%+ letters, no `|`, ending in punctuation) around the sentence matching the most query terms (the first on a tie); when no sentence matches a term, the first 3 readable sentences are compared with the query by embedding; 200–280 characters; else the page's stored `description`; else none
 7. Return the top-K pages with their snippets
 
 ## 10b. Library map and related pages

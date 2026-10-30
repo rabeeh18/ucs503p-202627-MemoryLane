@@ -76,20 +76,33 @@ def test_window_function_directly():
     assert window(sentences, [False, True, False], 1) == S2
 
 
-def test_ties_are_broken_by_embedding_similarity():
+def test_no_term_match_is_decided_by_embedding_similarity():
     query_vector = [1.0, 0.0]
     vectors = {S1: [0.1, 0.9], S2: [0.2, 0.8], S3: [0.95, 0.05], S4: [0.3, 0.7], S5: [0.0, 1.0]}
     embed = MagicMock(side_effect=lambda texts: [vectors[t] for t in texts])
-    # No sentence contains "zebra", so every eligible sentence is tied at 0 matches.
+    # No sentence contains "zebra", so the first few are compared by embedding.
     [snippet] = build_snippets([(TEXT, None)], "zebra", query_vector=query_vector, embed=embed)
     assert snippet.startswith(S3)
     embed.assert_called_once()
 
 
-def test_embeddings_only_used_for_ties():
+def test_embeddings_not_used_when_a_sentence_matches():
     embed = MagicMock()
     build_snippets([(TEXT, None)], "glossary", query_vector=[1.0], embed=embed)
     embed.assert_not_called()
+
+
+def test_tied_term_matches_take_the_first_without_embedding():
+    embed = MagicMock()
+    [snippet] = build_snippets([(TEXT, None)], "topic terms", query_vector=[1.0], embed=embed)
+    assert snippet.startswith(S1)
+    embed.assert_not_called()
+
+
+def test_embedding_compares_at_most_three_sentences_per_result():
+    embed = MagicMock(side_effect=lambda texts: [[1.0] for _ in texts])
+    build_snippets([(TEXT, None)], "zebra", query_vector=[1.0], embed=embed)
+    assert embed.call_args.args[0] == [S1, S2, S3]
 
 
 def test_one_embedding_call_for_all_results():
