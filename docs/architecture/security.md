@@ -42,6 +42,7 @@ The user id is the token's `sub`. **No endpoint accepts a user id from the clien
 ## Abuse limits
 
 - Rate limits per user (or per IP before sign-in), from 5/minute for export and delete-all to 120/minute for light reads.
+- At most 5,000 saved pages per account (`MAX_PAGES_PER_USER`).
 - Request size limits: URL 2,048 characters, title 500, text 500 KB, HTML 3 MB, query 500 characters.
 - The backend never fetches a URL supplied by the client. YouTube requests are built from a validated video id.
 

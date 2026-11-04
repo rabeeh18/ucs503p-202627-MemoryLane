@@ -13,7 +13,7 @@ MemoryLane holds personal browsing information, so privacy is part of the design
 
 For each page you save: its URL, title, cleaned text, a short description, the time you saved it, and the embeddings used for search and for the map.
 
-The data lives in Solr on the MemoryLane server (AWS, Mumbai region). Solr is bound to the server's localhost and is not reachable from the internet; only Caddy (HTTPS) is public.
+The data lives in Solr on the MemoryLane server (AWS, Mumbai region). The server's logs record page ids, not the URLs you save. Solr is bound to the server's localhost and is not reachable from the internet; only Caddy (HTTPS) is public.
 
 ## Automatic capture
 
@@ -36,7 +36,7 @@ The filtering happens in the extension, before anything is sent.
 Gemini is optional. When the server has a Gemini key:
 
 - **Summaries:** the text of one page is sent when you press **Summarise** on that result.
-- **Map topic names:** when your map is built, the titles of a sample of pages in each topic (and a few keywords) are sent once so the topics get readable names. Names are cached, so this only happens again when a topic's pages change.
+- **Map topic names:** when a topic has no name yet, up to 10 of its page titles (and a few keywords) are sent once, in the background, so it gets a readable name. Names are cached, so this only happens again when a topic's pages change.
 
 Without a key, summaries are turned off and the map names topics from their keywords instead. Nothing else leaves the server.
 

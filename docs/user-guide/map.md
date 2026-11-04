@@ -8,7 +8,7 @@ The map needs at least 10 saved pages. With fewer, it asks you to save a few mor
 
 - **Scroll** to zoom, **drag** to pan.
 - **Fit** (bottom left) brings the whole map back into view.
-- **Find a topic…** searches topic names and the pages inside them, and zooms to the best topic.
+- **Find a topic…** zooms to the best topic: one named like what you typed, otherwise the one holding the best search results for it. Those pages are highlighted.
 - **List** shows the same topics and pages as a list.
 
 In large libraries, page dots stay dim until you zoom in, so the topics stay readable.
@@ -40,5 +40,7 @@ On a phone the panel opens as a sheet from the bottom of the screen.
 ## When the map changes
 
 Saving or deleting a page rebuilds the map the next time you open it. Topic names are kept when a topic's pages stay the same.
+
+A new topic first shows a name made from its keywords. MemoryLane then asks Gemini for a better name in the background, and it appears the next time the map loads.
 
 See [Library Map Architecture](../architecture/map.md) for how topics and their names are made.

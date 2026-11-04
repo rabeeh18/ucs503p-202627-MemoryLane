@@ -27,7 +27,8 @@ code/src/
 │   └── caddy/                 Caddyfile + image that builds the web app and extension zip
 ├── docs/                      Implementation plan
 ├── docker-compose.yml         solr + backend + caddy
-├── requirements.txt
+├── requirements.txt           What the server image installs
+├── requirements-dev.txt       Plus the test tools
 ├── pytest.ini
 └── .env.example               Every setting, with defaults
 ```

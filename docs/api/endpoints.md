@@ -42,7 +42,9 @@ Save a page, or update it if it's already saved. Rate limit: 60/minute.
 }
 ```
 
-`status` is `saved`, `unchanged` (same text as before) or `skipped` (e.g. a YouTube video that can't be saved). A page with fewer than 50 words gets `422`.
+`status` is `saved`, `unchanged` (same text as before) or `skipped` (e.g. a YouTube video that can't be saved). A page with fewer than 50 words gets `422`. A new page once the account has `MAX_PAGES_PER_USER` pages (5,000 by default) gets `403`; saved pages still update.
+
+The canonical URL is used only when it's on the same site and isn't a parent of the page. Single-page apps such as Reddit keep the first page's canonical while the address changes.
 
 ---
 
@@ -165,7 +167,7 @@ Coordinates are in a 0–1 box. A page with `topic: null` is unclustered. With f
 
 ## `GET /map/search?q=...`
 
-Find topics on your map by name and by the pages inside them. Rate limit: 120/minute.
+Find topics on your map. Topics named like `q` come first (score 2 for the exact name, 1 when every word matches); the rest are ranked by where the top 20 search results for `q` sit (0–1, their share of rank-weighted votes). `pages` are those results. Rate limit: 120/minute.
 
 ```json
 { "query": "proteins", "version": "9b1e4c", "topics": [ { "id": "9b1e4c-3", "label": "Protein Folding", "score": 0.74 } ], "pages": ["3f9c...", "..."] }

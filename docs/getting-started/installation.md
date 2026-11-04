@@ -19,7 +19,7 @@ git clone https://github.com/rabeeh18/ucs503p-202627-MemoryLane.git
 cd ucs503p-202627-MemoryLane/code/src
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # requirements.txt plus the test tools
 cp .env.example .env               # Windows: copy .env.example .env
 ```
 

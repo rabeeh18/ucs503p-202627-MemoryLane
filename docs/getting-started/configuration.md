@@ -51,6 +51,12 @@ Changing the model means re-embedding every page.
 | `CHUNK_MIN_WORDS` | `40` | A last chunk with fewer new words merges into the previous one |
 | `CHUNK_OVERLAP_WORDS` | `30` | Words carried over from the previous chunk |
 
+## Limits
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `MAX_PAGES_PER_USER` | `5000` | Saved pages per account; new pages past it get `403`, saved pages still update |
+
 ## Library map
 
 | Variable | Default | Purpose |

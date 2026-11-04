@@ -7,7 +7,7 @@ cd code/src
 pytest tests/ -v
 ```
 
-The tests need no running Solr, Cognito or Gemini. Solr is replaced by an in-memory fake or a mock, `test_auth.py` signs its own tokens with a throwaway RSA key, other API tests override the signed-in user, and embeddings are stubbed.
+Install the test tools with `pip install -r requirements-dev.txt`. The tests need no running Solr, Cognito or Gemini (the test setup clears `GEMINI_API_KEY`, so they never call it). Solr is replaced by an in-memory fake or a mock, `test_auth.py` signs its own tokens with a throwaway RSA key, other API tests override the signed-in user, and embeddings are stubbed.
 
 | File | Covers |
 | --- | --- |
@@ -36,6 +36,10 @@ npm run check     # svelte-check (types and Svelte diagnostics)
 ```
 
 Unit tests cover the pure modules in `src/lib/`: map geometry and state (`mapView.test.js`), delete-with-undo (`deletes.test.js`) and domain letters (`domain.test.js`).
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs the backend tests and the frontend tests and checks on every push and pull request. `.github/workflows/mkdocs.yml` publishes this documentation to GitHub Pages on every push to `master`.
 
 ## Retrieval quality
 

@@ -39,6 +39,7 @@ See [Endpoints](endpoints.md) for details.
 | --- | --- |
 | `400` | Missing required input (e.g. empty query) |
 | `401` | No valid access token |
+| `403` | A new page past the account's page limit |
 | `404` | Page not found, or not yours |
 | `409` | Topic search on a map that has since changed |
 | `422` | Invalid input, or a page with fewer than 50 words |

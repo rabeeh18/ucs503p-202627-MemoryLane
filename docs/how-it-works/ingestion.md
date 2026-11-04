@@ -19,11 +19,11 @@ Auto-capture also checks the page against the [capture rules](../user-guide/auto
 All of this happens in one function, `ingest_page` (`backend/ingest.py`). It is shared by the API, the re-index and backfill scripts and the evaluation.
 
 1. Take the user id from the verified token (never from the request).
-2. Prefer the canonical URL, then [normalise](processing.md#url-normalisation) it.
+2. Prefer the canonical URL if it's on the same site and isn't a parent of the page (single-page apps such as Reddit keep a stale one), then [normalise](processing.md#url-normalisation) it.
 3. Compute `page_id = sha256(user_id | normalised URL)[:32]`.
 4. **YouTube**: fetch the transcript and metadata instead of using the page (see [YouTube Videos](../user-guide/youtube.md)).
 5. **Other pages**: extract the main text from the HTML with trafilatura. If that fails, use the extension's text.
-6. Reject the page with `422` if it has fewer than 50 words.
+6. Reject the page with `422` if it has fewer than 50 words, and a new page with `403` once the account has reached its page limit (5,000 by default).
 7. If the page is already stored with the same content hash and embedding model, return `unchanged` and do nothing.
 8. Chunk, embed, compute the page vector and description.
 9. Upsert the chunks as `{page_id}::{n}`, then delete any higher-numbered chunks left from an older, longer version.

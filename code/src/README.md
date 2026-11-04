@@ -40,7 +40,7 @@ cd memorylane
 python -m venv .venv
 # Windows: .venv\Scripts\activate
 # Unix:    source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # the server image uses requirements.txt
 copy .env.example .env   # Windows
 # cp .env.example .env   # Unix
 ```
@@ -123,7 +123,7 @@ Every endpoint except `/health` needs `Authorization: Bearer <Cognito access tok
 | Method & path | Purpose |
 |---|---|
 | `GET /health` | Public status |
-| `POST /memory` | Save a page → `{status: saved\|unchanged\|skipped, message, page}`; 422 if too little text |
+| `POST /memory` | Save a page → `{status: saved\|unchanged\|skipped, message, page}`; 422 if too little text; 403 for a new page past `MAX_PAGES_PER_USER` |
 | `GET /memory/status?url=[&canonical_url=]` | `{saved, page?}` |
 | `DELETE /memory/{page_id}` | 204, or 404 if not the caller's |
 | `GET /memories?limit=20&offset=0` | `{total, pages}`, newest first |
@@ -133,14 +133,14 @@ Every endpoint except `/health` needs `Authorization: Bearer <Cognito access tok
 | `DELETE /me/data` | 204; deletes all the caller's chunks |
 | `GET /memory/{page_id}/related?k=5` | `{page_id, related: [{id, title, url, domain, saved_at, similarity}]}`; 404 if not the caller's |
 | `GET /map` | `{status, version, topics, pages, edges, counts}` or `{status: "too_few", count}` |
-| `GET /map/search?q=` | `{query, version, topics: [{id, label, score}], pages: [ids]}` |
+| `GET /map/search?q=` | `{query, version, topics: [{id, label, score}], pages: [ids]}`: topics named like `q` first, then by where its search results are |
 | `POST /search` with `topic` | Searches only that map topic's pages; 409 if the map has changed |
 
 ## 8. Indexing (`POST /memory`)
 
 Body: `{ "url", "title", "content", "html"?, "canonical_url"?, "is_manual" }`.
 
-Pipeline (`backend/ingest.py`): canonical + normalized URL → `page_id = sha256(user_id|url)[:32]` → YouTube transcript, or `trafilatura` cleaning of `html` (falling back to `content`) → reject with 422 below 50 words → skip as `unchanged` if the content hash and embedding model match → sentence chunking → embed `title + chunk` → upsert `{page_id}::{n}` and delete stale higher-numbered chunks. Re-saving a changed page updates it with no duplicate chunks.
+Pipeline (`backend/ingest.py`): canonical URL (only on the same site and not a parent of the page, since single-page apps such as Reddit keep a stale one) + normalized URL → `page_id = sha256(user_id|url)[:32]` → YouTube transcript, or `trafilatura` cleaning of `html` (falling back to `content`) → reject with 422 below 50 words → skip as `unchanged` if the content hash and embedding model match → sentence chunking → embed `title + chunk` → upsert `{page_id}::{n}` and delete stale higher-numbered chunks. Re-saving a changed page updates it with no duplicate chunks.
 
 ## 9. Search (`POST /search`)
 
@@ -160,16 +160,18 @@ Uses the same hybrid pipeline as the CLI. Each result has a plain-text `snippet`
 
 ## 10b. Library map and related pages
 
-Every page stores a page vector (`page_embedding`, the normalised mean of its chunk vectors) on chunk 0. `backend/library_map.py` builds the map on request and caches it per user (invalidated on save and delete):
+Every page stores a page vector (`page_embedding`, the normalised mean of its chunk vectors) on chunk 0. `backend/library_map.py` builds the map on request and caches it per user (invalidated on save and delete). The map's `version` and topic ids are a hash of the pages it was built from (ids and save times), so rebuilding the same pages keeps the ids a client holds:
 
 1. Fetch the user's most recent `MAP_MAX_PAGES` page vectors (cursorMark).
 2. Project to ~50 dimensions (PCA) and normalise (cosine). k-means for k in [clamp(round(sqrt(n)/2), 3, 10), min(14, n/8)], chosen by silhouette score with a fixed seed. Any topic holding more than 25% of the pages (and more than 30) is split in two, repeatedly. 278 SciFact abstracts give 9 topics.
 3. Pages below `MAP_OUTLIER_SIMILARITY` to their topic centre are unclustered, and so is a "topic" whose pages don't hang together (mean pairwise similarity below the threshold squared).
-4. Labels: one Gemini call that sees every topic's titles, a keyword hint and the labels already in use, asked for distinct, specific 1-3 word labels; generic or duplicate answers are rejected. Fallback: c-TF-IDF over unigrams and bigrams from titles and descriptions (generic and title-filler words removed), as distinct Title Case labels. Every fallback is logged at WARNING. Labels are cached per topic membership.
+4. Labels: the map never waits for Gemini. It is built with cached labels or the keyword fallback (c-TF-IDF over unigrams and bigrams from titles and descriptions, generic and title-filler words removed, as distinct Title Case labels), and topics without a cached label are named in the background: one Gemini call (30 s limit) that sees those topics' titles, a keyword hint and the labels already in use, asked for distinct, specific 1-3 word labels. Generic or duplicate answers are rejected. Accepted labels are cached per topic membership and the next load uses them; after a failed call none is made for 10 minutes.
 5. Layout in a 0..1 box (drawn into a 1400 x 900 world): ellipse area proportional to page count, all ellipses covering ~30% of the box; topics packed into centred rows whose shape matches the canvas (ordered by a PCA of the centroids), then relaxed by a few rounds of repulsion and centre pull, with each label's space reserved so it never sits on another oval. Pages are placed by a local PCA inside their ellipse; unclustered pages sit between the topics they are closest to.
 6. Links: each page to its 2 nearest neighbours in its topic (`edges`), and related topics (centroid similarity above `MAP_CROSS_TOPIC_SIMILARITY`, at most 2 per topic) in `topic_links`.
 
 The canvas draws page links only for the hovered or selected topic and the selected page, topic links oval to oval, and dims dots in libraries over 150 pages until you zoom in past 1.6x. Building the map for 2,000 pages takes ~0.2 s on a laptop.
+
+Find a topic (`GET /map/search`) ranks topics named like the query first (exact, then by words), then by where the query's top 20 hybrid search results sit (each votes for its topic with `1 / (60 + rank)`).
 
 Related pages are a KNN over page vectors, pre-filtered to the user's other pages. `scripts/backfill_page_vectors.py` gives older pages their vector.
 

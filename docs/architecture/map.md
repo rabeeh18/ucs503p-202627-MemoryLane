@@ -38,10 +38,14 @@ A page whose cosine similarity to its topic centre is below `MAP_OUTLIER_SIMILAR
 
 ## Topic names
 
-1. **Gemini**, in one call for the whole map: for each topic it sees up to 10 page titles, a keyword hint, and the names already taken. It is asked for distinct, specific names of 1–3 words. Generic names ("Articles", "Resources", ...) and duplicates are rejected.
-2. **Fallback**: c-TF-IDF over the unigrams and bigrams of each topic's titles and descriptions, with generic words and title filler removed, made into distinct Title Case names.
+The map never waits for Gemini:
 
-Every fallback is logged at WARNING. Names are cached by topic membership, so an unchanged topic keeps its name and costs no Gemini call.
+1. A topic whose pages already have a name (cached by topic membership) keeps it.
+2. Any other topic first shows a **keyword name**: c-TF-IDF over the unigrams and bigrams of its titles and descriptions, with generic words and title filler removed, made into distinct Title Case names.
+3. Those topics are then named by **Gemini in the background**, in one call on a single worker thread (30 s limit). For each topic it sees up to 10 page titles, a keyword hint, and the names already taken, and is asked for distinct, specific names of 1–3 words. Generic names ("Articles", "Resources", ...) and duplicates are rejected.
+4. Accepted names are cached and the cached map is dropped, so the next load rebuilds it with them (same version and topic ids).
+
+After a failed Gemini call no new call is made for 10 minutes, and every fallback is logged at WARNING.
 
 ## Layout
 
@@ -59,7 +63,18 @@ All coordinates are in a 0–1 box, drawn into a 1400 × 900 world:
 
 ## Caching and freshness
 
-`MapService` keeps an LRU of up to 50 users' maps for 10 minutes. Saving or deleting a page invalidates that user's map, and each map has a `version`. `GET /map/search` and topic-filtered search use the cached map; if the version a client holds is gone, topic search returns `409`.
+`MapService` keeps an LRU of up to 50 users' maps for 10 minutes, with vectors as float32. Saving or deleting a page invalidates that user's map.
+
+A map's `version`, and so its topic ids, is a hash of the pages it was built from (their ids and save times, and the embedding model). Rebuilding the same pages, after the cache expires or a restart, gives the same ids, so ids a client holds stay valid. Topic-filtered search rebuilds the map if needed and returns `409` only when the topic is gone because the pages changed. The Map page reloads the map when Find a topic answers for a newer version.
+
+## Find a topic
+
+`GET /map/search` ranks the topics for a query:
+
+1. Topics **named like the query** come first: an exact name scores 2, a name whose words all match the query's (by prefix) scores 1.
+2. The query then runs through the normal [hybrid search](retrieval.md) (top 20, no snippets). Each result votes for its topic with \(1 / (60 + \text{rank})\), and a topic adds its share of the votes (0–1).
+
+So a topic wins by holding the query's best search results, not by having one page that happens to sit close to the query. The response's `pages` are those results, which the map highlights.
 
 ## Performance
 

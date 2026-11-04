@@ -44,7 +44,9 @@ docker compose up -d --build
 docker compose logs -f backend
 ```
 
-Rebuilding the backend clears its in-memory map and label caches. Maps are rebuilt on the next request.
+Rebuilding the backend clears its in-memory map and label caches. Maps are rebuilt on the next request, with keyword topic names until Gemini's arrive in the background. Topic ids stay the same.
+
+Container logs are capped at 3 files of 10 MB per service. They contain page ids, not the URLs people save.
 
 ### Schema changes
 
