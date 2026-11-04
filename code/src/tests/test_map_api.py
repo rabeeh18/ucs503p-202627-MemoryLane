@@ -66,8 +66,17 @@ def test_map_is_cached_and_invalidated_on_save(client, solr):
     with patch("backend.ingest.embed_passages", side_effect=lambda texts: [[0.1] * 384 for _ in texts]):
         saved = client.post("/memory", json={"url": "https://e.com/x", "title": "T", "content": "hello world " * 40})
     assert saved.json()["status"] == "saved"
+    solr.scan_page_heads.side_effect = lambda user_id, fields, limit: iter(make_heads()[1:])
     assert client.get("/map").json()["version"] != first["version"]
     assert solr.scan_page_heads.call_count == 2
+
+
+def test_rebuilding_the_same_pages_keeps_version_and_topic_ids(client, service):
+    first = client.get("/map").json()
+    service.invalidate(USER)  # e.g. the cache expired
+    again = client.get("/map").json()
+    assert again["version"] == first["version"]
+    assert [t["id"] for t in again["topics"]] == [t["id"] for t in first["topics"]]
 
 
 def test_unchanged_save_keeps_the_map(client, solr):
@@ -80,13 +89,14 @@ def test_unchanged_save_keeps_the_map(client, solr):
 
 
 def test_map_is_invalidated_on_delete_and_delete_all(client, solr):
-    v1 = client.get("/map").json()["version"]
+    client.get("/map")
     solr.get_page_head.return_value = {"page_id": PAGE_ID}
     assert client.delete(f"/memory/{PAGE_ID}").status_code == 204
-    v2 = client.get("/map").json()["version"]
-    assert v2 != v1
+    client.get("/map")
+    assert solr.scan_page_heads.call_count == 2
     assert client.delete("/me/data").status_code == 204
-    assert client.get("/map").json()["version"] != v2
+    client.get("/map")
+    assert solr.scan_page_heads.call_count == 3
 
 
 def test_search_within_a_topic_prefilters_to_its_pages(client):
@@ -105,9 +115,10 @@ def test_search_without_topic_has_no_page_filter(client):
     assert mock_search.call_args.kwargs["page_ids"] is None
 
 
-def test_search_with_stale_topic_is_409(client, service):
+def test_search_with_stale_topic_is_409(client, solr, service):
     topic = client.get("/map").json()["topics"][0]["id"]
-    service.invalidate(USER)  # e.g. a page was saved since
+    service.invalidate(USER)  # a page was saved since, so the pages differ
+    solr.scan_page_heads.side_effect = lambda user_id, fields, limit: iter(make_heads(prefix="q"))
     with patch("backend.main.hybrid_search", return_value=[]) as mock_search:
         response = client.post("/search", json={"query": "neural", "topic": topic})
     assert response.status_code == 409
@@ -118,16 +129,17 @@ def test_search_with_topic_before_any_map_is_409(client):
     assert client.post("/search", json={"query": "q", "topic": "abc-0"}).status_code == 409
 
 
-def test_map_search_endpoint(client):
-    ml = np.zeros(384)
-    ml[0], ml[300] = 0.8, 0.6
-    with patch("backend.main._cached_query_embedding", return_value=tuple(ml)):
+def test_map_search_endpoint_ranks_topics_by_where_search_results_are(client):
+    pages = client.get("/map").json()["pages"]
+    ml = [p["id"] for p in pages if "-ml-" in p["id"]]
+    results = [{"page_id": pid} for pid in ml[:3] + ["not-on-the-map"]]
+    with patch("backend.main.hybrid_search", return_value=results) as mock_search:
         data = client.get("/map/search", params={"q": "neural nets"}).json()
+    assert mock_search.call_args.kwargs["snippets"] is False
     assert data["query"] == "neural nets"
-    assert data["topics"] and data["topics"][0]["score"] >= 0.55
-    top_members = {p["id"] for p in client.get("/map").json()["pages"] if p["topic"] == data["topics"][0]["id"]}
-    assert all("-ml-" in p for p in top_members)
-    assert data["pages"] and all("-ml-" in p for p in data["pages"])
+    top_members = {p["id"] for p in pages if p["topic"] == data["topics"][0]["id"]}
+    assert set(ml[:3]) <= top_members
+    assert data["pages"] == ml[:3]
 
 
 def test_map_search_requires_q(client):

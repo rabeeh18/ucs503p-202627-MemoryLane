@@ -87,6 +87,13 @@
     try {
       const result = await mapSearch(q, mine.signal);
       if (mine !== findController || findQuery.trim() !== q) return;
+      // The library changed since this map was loaded: topic ids are the new
+      // map's, so load it before selecting one.
+      if (result.version && raw && result.version !== raw.version) {
+        await refresh();
+        await tick();
+        if (mine !== findController || findQuery.trim() !== q) return;
+      }
       findResult = result;
       const best = result.topics[0];
       if (best) {

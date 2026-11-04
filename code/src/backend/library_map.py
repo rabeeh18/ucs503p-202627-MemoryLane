@@ -23,8 +23,8 @@ from sklearn.metrics import silhouette_score
 from sklearn.utils.extmath import randomized_svd
 
 from backend.config import (
-    MAP_CACHE_TTL_SECONDS, MAP_CACHE_USERS, MAP_CROSS_TOPIC_SIMILARITY, MAP_MAX_PAGES,
-    MAP_MIN_PAGES, MAP_OUTLIER_SIMILARITY, MIN_VECTOR_SIMILARITY,
+    EMBEDDING_MODEL, MAP_CACHE_TTL_SECONDS, MAP_CACHE_USERS, MAP_CROSS_TOPIC_SIMILARITY,
+    MAP_MAX_PAGES, MAP_MIN_PAGES, MAP_OUTLIER_SIMILARITY,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,6 +39,9 @@ SPLIT_MIN_PAGES = 30
 SILHOUETTE_SAMPLE = 600
 INTRA_NEIGHBOURS = 2
 HEAD_FIELDS = "page_id,url,title,domain,timestamp,description,page_embedding"
+# Rank constant for topic votes in collection search (as in search's RRF).
+SEARCH_VOTE_K = 60
+_LABEL_WORD = re.compile(r"\w+")
 
 Labeler = Callable[[list[list[str]]], "list[str | None] | None"]
 
@@ -678,6 +681,33 @@ def build_map(heads: list[dict], key: str, version: int, labeler: Labeler | None
                       vectors, topic_of, centroids, topic_ids)
 
 
+# ---- collection search ------------------------------------------------------------
+
+def label_match(query: str, label: str) -> int:
+    """2 when the query is the label, 1 when every query word starts a label word
+    (or the other way round: "machines" finds "Machine learning"), else 0."""
+    q = _LABEL_WORD.findall((query or "").lower())
+    words = _LABEL_WORD.findall((label or "").lower())
+    if not q or not words:
+        return 0
+    if q == words:
+        return 2
+    terms = [w for w in q if len(w) >= 2]
+    if terms and all(any(x.startswith(w) or w.startswith(x) for x in words) for w in terms):
+        return 1
+    return 0
+
+
+def content_key(user_id: str, heads: list[dict]) -> str:
+    """Map version from what the map is built from: the same pages (saved at the
+    same times, with the same model) give the same version and topic ids, so a
+    rebuild after the cache expires doesn't invalidate ids a client holds."""
+    digest = hashlib.sha1(f"{user_id}|{EMBEDDING_MODEL}".encode())
+    for head in sorted(heads, key=lambda h: str(h.get("page_id") or "")):
+        digest.update(f"|{head.get('page_id')}:{head.get('timestamp')}:{bool(head.get('page_embedding'))}".encode())
+    return digest.hexdigest()[:10]
+
+
 # ---- per-user cache ----------------------------------------------------------------
 
 class StaleMap(Exception):
@@ -723,7 +753,7 @@ class MapService:
             return entry
         version = self.version(user_id)
         heads = list(solr.scan_page_heads(user_id, HEAD_FIELDS, MAP_MAX_PAGES))
-        key = hashlib.sha1(f"{user_id}|{version}|{time.time()}".encode()).hexdigest()[:8]
+        key = content_key(user_id, heads)
         started = time.perf_counter()
         built = build_map(heads, key, version, labeler, self._labels)
         logger.info(f"Built library map: {len(heads)} pages in {(time.perf_counter() - started) * 1000:.0f} ms")
@@ -735,37 +765,45 @@ class MapService:
                     self._maps.popitem(last=False)
         return built
 
-    def topic_page_ids(self, user_id: str, topic_id: str) -> list[str]:
-        """Page ids of a topic in the current map; StaleMap if the map has changed."""
-        entry = self.peek(user_id)
-        if entry is None or entry.vectors is None:
+    def topic_page_ids(self, user_id: str, topic_id: str, solr, labeler: Labeler | None = None) -> list[str]:
+        """Page ids of a topic in the current map (rebuilt if needed); StaleMap if
+        the topic isn't in it because the pages have changed."""
+        entry = self.get(user_id, solr, labeler)
+        if entry.vectors is None:
             raise StaleMap()
         ids = entry.topic_page_ids(topic_id)
         if ids is None:
             raise StaleMap()
         return ids
 
-    def search(self, user_id: str, solr, query_vector: Sequence[float],
-               labeler: Labeler | None = None, min_similarity: float = None) -> dict:
-        """Topics and pages close to a query vector, using the cached map."""
-        if min_similarity is None:
-            min_similarity = MIN_VECTOR_SIMILARITY
+    def search(self, user_id: str, solr, query: str, ranked_page_ids: Sequence[str],
+               labeler: Labeler | None = None) -> dict:
+        """Topics for a query, best first. A topic named like the query ranks first
+        (exact name, then by words); the rest is decided by where the query's
+        search results (`ranked_page_ids`, best first) sit: each result votes for
+        its topic with 1 / (SEARCH_VOTE_K + rank). Score = name match (0-2) + the
+        topic's share of the votes (0-1). `pages` are the results on the map."""
         entry = self.get(user_id, solr, labeler)
         if entry.vectors is None or not len(entry.topic_ids):
             return {"version": entry.response.get("version"), "topics": [], "pages": []}
-        q = _normalize(np.asarray(query_vector, dtype=float))
-        page_sims = entry.vectors @ q
-        centroid_sims = entry.centroids @ q
+        index = {page_id: i for i, page_id in enumerate(entry.page_ids)}
+        votes = np.zeros(len(entry.topic_ids))
+        pages = []
+        for rank, page_id in enumerate(ranked_page_ids, start=1):
+            i = index.get(page_id)
+            if i is None:
+                continue
+            pages.append(page_id)
+            if entry.topic_of[i] >= 0:
+                votes[entry.topic_of[i]] += 1.0 / (SEARCH_VOTE_K + rank)
+        total = float(votes.sum())
         topics = []
         for t, topic in enumerate(entry.response["topics"]):
-            member_sims = np.sort(page_sims[entry.topic_of == t])[::-1][:3]
-            # A topic matches its centre or a few of its pages: names that aren't
-            # the label ("neural nets" for "Machine learning") still land.
-            score = max(float(centroid_sims[t]), float(member_sims.mean()) if len(member_sims) else -1.0)
-            if score >= min_similarity:
-                topics.append({"id": topic["id"], "label": topic["label"], "score": round(score, 4)})
+            name = label_match(query, topic["label"])
+            share = float(votes[t]) / total if total else 0.0
+            if name or share:
+                topics.append({"id": topic["id"], "label": topic["label"], "score": round(name + share, 4)})
         topics.sort(key=lambda t: -t["score"])
-        pages = [entry.page_ids[i] for i in np.argsort(-page_sims) if page_sims[i] >= min_similarity]
         return {"version": entry.response["version"], "topics": topics, "pages": pages}
 
 

@@ -5,7 +5,9 @@ import numpy as np
 import pytest
 
 from backend import library_map as lm
-from backend.library_map import MapService, StaleMap, build_map, choose_k, cluster, ctfidf_labels
+from backend.library_map import (
+    MapService, StaleMap, build_map, choose_k, cluster, content_key, ctfidf_labels, label_match,
+)
 
 DIM = 384
 TOPICS = {
@@ -261,8 +263,19 @@ def test_service_caches_until_invalidated():
     service.invalidate("u")
     second = service.get("u", solr)
     assert second is not first
-    assert second.response["version"] != first.response["version"]
     assert solr.scan_page_heads.call_count == 2
+    # Same pages: same version and topic ids, so ids a client holds stay valid
+    assert second.response["version"] == first.response["version"]
+    assert second.topic_ids == first.topic_ids
+
+
+def test_version_follows_the_pages():
+    heads = make_heads()
+    assert content_key("u", heads) == content_key("u", list(reversed(heads)))
+    assert content_key("u", heads) != content_key("u", heads[1:])
+    assert content_key("u", heads) != content_key("other", heads)
+    resaved = [dict(heads[0], timestamp="2025-06-01T00:00:00Z")] + heads[1:]
+    assert content_key("u", heads) != content_key("u", resaved)
 
 
 def test_service_ttl_expires():
@@ -286,37 +299,60 @@ def test_topic_page_ids_and_staleness():
     service = MapService()
     m = service.get("u", _service_solr(make_heads()))
     topic = m.response["topics"][0]
-    ids = service.topic_page_ids("u", topic["id"])
+    solr = _service_solr(make_heads())
+    ids = service.topic_page_ids("u", topic["id"], solr)
     assert len(ids) == topic["count"]
     with pytest.raises(StaleMap):
-        service.topic_page_ids("u", "nope-0")
-    service.invalidate("u")
+        service.topic_page_ids("u", "nope-0", solr)
+    service.invalidate("u")  # cache gone, pages the same: the id still works
+    assert service.topic_page_ids("u", topic["id"], solr) == ids
+    service.invalidate("u")  # pages changed: the old id is stale
     with pytest.raises(StaleMap):
-        service.topic_page_ids("u", topic["id"])
+        service.topic_page_ids("u", topic["id"], _service_solr(make_heads(prefix="q")))
     with pytest.raises(StaleMap):
-        service.topic_page_ids("other-user", topic["id"])
+        service.topic_page_ids("other-user", topic["id"], solr)
 
 
-def test_collection_search_finds_a_topic_from_a_paraphrase():
-    """'neural nets' isn't a label, but its (mocked) embedding sits near the ML pages."""
+def _labelled_service():
     labeler = MagicMock(side_effect=lambda groups, **kw: [
         "Machine learning" if any("neural" in t.lower() for t in g) else
         "Search and retrieval" if any("search" in t.lower() for t in g) else
         "Sleep and memory" if any("sleep" in t.lower() for t in g) else "Interface design"
         for g in groups
     ])
-    service = MapService()
-    solr = _service_solr(make_heads())
-    neural_nets = _axis(0) * 0.8 + _axis(300) * 0.6  # mostly the ML direction
-    found = service.search("u", solr, neural_nets, labeler, min_similarity=0.55)
+    return MapService(), _service_solr(make_heads()), labeler
+
+
+def test_collection_search_votes_by_where_the_search_results_are():
+    """'neural nets' isn't a label, but its search results are ML pages."""
+    service, solr, labeler = _labelled_service()
+    ranked = [h["page_id"] for h in make_heads() if "-ml-" in h["page_id"]][:3]
+    found = service.search("u", solr, "neural nets", ranked, labeler)
     assert found["topics"][0]["label"] == "Machine learning"
-    assert all(t["score"] >= 0.55 for t in found["topics"])
-    assert found["pages"] and all("-ml-" in p for p in found["pages"])
+    assert found["topics"][0]["score"] == pytest.approx(1.0)
+    assert found["pages"] == ranked
+
+
+def test_collection_search_ranks_a_topic_named_like_the_query_first():
+    service, solr, labeler = _labelled_service()
+    ranked = [h["page_id"] for h in make_heads() if "-ml-" in h["page_id"]][:3]
+    found = service.search("u", solr, "sleep and memory", ranked, labeler)
+    assert [t["label"] for t in found["topics"][:2]] == ["Sleep and memory", "Machine learning"]
+    found = service.search("u", solr, "retriev", [], labeler)
+    assert [t["label"] for t in found["topics"]] == ["Search and retrieval"]
+
+
+def test_label_match():
+    assert label_match("Machine learning", "machine learning") == 2
+    assert label_match("machines", "Machine learning") == 1
+    assert label_match("learning machine", "Machine learning") == 1
+    assert label_match("deep learning", "Machine learning") == 0
+    assert label_match("", "Machine learning") == 0
 
 
 def test_collection_search_with_no_match():
     service = MapService()
-    found = service.search("u", _service_solr(make_heads()), _axis(350), None, min_similarity=0.55)
+    found = service.search("u", _service_solr(make_heads()), "zebra", ["not-on-the-map"], None)
     assert found["topics"] == [] and found["pages"] == []
 
 

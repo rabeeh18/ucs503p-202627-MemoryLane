@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from backend import retrieval
 from backend.auth import current_user_id
 from backend.main import app, limiter
 from backend.library_map import MapService
@@ -252,8 +253,11 @@ def test_map_search_only_scores_own_pages(env):
     fake, as_user = env
     _seed_library(fake, A, "a")
     b_ids = _seed_library(fake, B, "b", offset=10)
-    with patch("backend.main._cached_query_embedding", return_value=tuple(_unit(10))):
+    # The query points straight at B's pages; A's search must still only see A's.
+    retrieval._cached_query_embedding.cache_clear()
+    with patch("backend.retrieval.embed_query", return_value=_unit(10)):
         found = as_user(A).get("/map/search", params={"q": "b group 0"}).json()
+    retrieval._cached_query_embedding.cache_clear()
     assert not set(found["pages"]) & set(b_ids)
 
 

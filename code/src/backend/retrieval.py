@@ -151,7 +151,7 @@ def _rerank(query: str, candidates_map: dict, fused: dict[str, float],
 
 def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: int = None,
                   timings: dict | None = None, solr: SolrClient | None = None,
-                  page_ids: list[str] | None = None) -> list[dict]:
+                  page_ids: list[str] | None = None, snippets: bool = True) -> list[dict]:
     """Full hybrid search pipeline.
 
     Steps:
@@ -164,7 +164,8 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
 
     Only `user_id`'s chunks are searched. If `timings` is given, it is filled
     with per-stage durations in ms. `solr` targets a specific core. `page_ids`
-    limits both searches to those pages (e.g. one map topic).
+    limits both searches to those pages (e.g. one map topic). `snippets=False`
+    skips snippets for callers that only need the ranking.
     Returns list of webpage-level results.
     """
     top_k = top_k or DEFAULT_TOP_K
@@ -216,14 +217,14 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
     results = grouped[:top_k]
 
     snippet_start = time.perf_counter()
-    snippets = build_snippets(
+    texts = build_snippets(
         [(r.get("text", ""), r.get("description")) for r in results],
         query,
         query_vector=_cached_query_embedding(query),
         embed=_sentence_embeddings,
-    )
+    ) if snippets else [None] * len(results)
     snippet_ms = (time.perf_counter() - snippet_start) * 1000
-    for i, (result, snippet) in enumerate(zip(results, snippets)):
+    for i, (result, snippet) in enumerate(zip(results, texts)):
         result["rank"] = i + 1
         result["snippet"] = snippet
 

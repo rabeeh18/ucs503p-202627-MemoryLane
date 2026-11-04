@@ -23,7 +23,7 @@ from backend.chunking import join_chunks
 from backend.embeddings import is_model_loaded, get_model
 from backend.ingest import IngestError, ingest_page, resolve_canonical_url
 from backend.solr_client import get_solr_client
-from backend.retrieval import _cached_query_embedding, hybrid_search, knn_score_to_cosine
+from backend.retrieval import hybrid_search, knn_score_to_cosine
 from backend.summarizer import summarize, detect_detail_level, is_gemini_available, label_topics
 from backend.url_utils import normalize_url, generate_page_id
 
@@ -216,6 +216,10 @@ def _labeler():
     return label_topics if is_gemini_available() else None
 
 
+# Search results that vote for topics in /map/search.
+MAP_SEARCH_RESULTS = 20
+
+
 @app.get("/map")
 @limiter.limit("30/minute")
 def library_map(request: Request, user_id: str = Depends(current_user_id)):
@@ -230,10 +234,14 @@ def library_map_search(
     q: str = Query(min_length=1, max_length=500),
     user_id: str = Depends(current_user_id),
 ):
-    """Topics and pages of the caller's map that are close to `q` in meaning."""
+    """Topics of the caller's map for `q`: topics named like it first, then the
+    topics holding its search results. `pages` are those results."""
     if not q.strip():
         raise HTTPException(status_code=400, detail="q is required")
-    found = map_service.search(user_id, get_solr_client(), _cached_query_embedding(q.strip()), _labeler())
+    query = q.strip()
+    solr = get_solr_client()
+    results = hybrid_search(query, user_id, top_k=MAP_SEARCH_RESULTS, solr=solr, snippets=False)
+    found = map_service.search(user_id, solr, query, [r["page_id"] for r in results], _labeler())
     return MapSearchResponse(query=q, **found)
 
 
@@ -304,7 +312,7 @@ def search_memory(request: Request, search: SearchInput, user_id: str = Depends(
         page_ids = None
         if search.topic:
             try:
-                page_ids = map_service.topic_page_ids(user_id, search.topic)
+                page_ids = map_service.topic_page_ids(user_id, search.topic, get_solr_client(), _labeler())
             except StaleMap:
                 raise HTTPException(status_code=409, detail="The library map has changed. Reload the map.")
         timings = {}
