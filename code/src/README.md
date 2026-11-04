@@ -208,10 +208,12 @@ CORE_NAME=memorylane_eval ./scripts/setup_solr.sh
 python -m evaluation.scifact_ingest      # index the SciFact corpus
 python -m evaluation.scifact_evaluate    # hybrid vs BM25-only vs vector-only: MRR, Recall, nDCG @10
 python -m evaluation.generate_eval       # build queries from indexed pages
-python -m evaluation.evaluate            # Recall@1/3/5/10 and MRR
+python -m evaluation.evaluate            # Recall@1/3/5/10 and MRR, per query category
 ```
 
 Metrics use the production `hybrid_search` path. Relevant URLs are compared after normalization.
+
+To measure search on a real library, with queries written by its owner, use `generate_eval --starter` (a sample of pages with empty queries to fill in), `evaluate --core memorylane_v2 --user-id <id>` and `evaluation/compare.py` (before/after). The steps for running them on the server are in `docs/evaluation/methodology.md`. `evaluation/personal*` files are git-ignored.
 
 ## 17. Tests
 

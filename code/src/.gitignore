@@ -10,6 +10,8 @@ venv/
 .venv/
 *.egg
 evaluation/evaluation_report.json
+# Personal eval sets and reports hold your real URLs and titles.
+evaluation/personal*
 node_modules/
 .svelte-kit/
 # Private keys (extension signing key)

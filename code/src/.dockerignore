@@ -14,3 +14,5 @@ frontend/dist
 frontend/.mock
 docs
 tests
+evaluation/personal*
+evaluation/evaluation_report.json
