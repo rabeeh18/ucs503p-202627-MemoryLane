@@ -255,3 +255,11 @@ def test_description_override_is_kept():
     solr = _solr()
     ingest_page("u", "https://example.com/a", "T", TEXT, solr=solr, description="Kept description.")
     assert solr.upsert_page_chunks.call_args.args[1][0]["description"] == "Kept description."
+
+
+def test_clean_title_drops_unread_count():
+    from backend.ingest import clean_title
+    assert clean_title("(3) Why do lifetimes feel hard? : r/rust") == "Why do lifetimes feel hard? : r/rust"
+    assert clean_title("(12+) Inbox") == "Inbox"
+    assert clean_title("Chapter (3) of the guide") == "Chapter (3) of the guide"
+    assert clean_title("(1)") == "(1)"

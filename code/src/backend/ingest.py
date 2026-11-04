@@ -1,6 +1,7 @@
 import hashlib
 import logging
 import math
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse
@@ -82,6 +83,16 @@ def _is_ancestor(canonical, page) -> bool:
     return len(canon) < len(path) and path[:len(canon)] == canon
 
 
+# "(3) Reddit", "(12+) Inbox": an unread count the site puts in the tab title.
+_UNREAD_COUNT = re.compile(r"^\s*\(\d+\+?\)\s+")
+
+
+def clean_title(title: str) -> str:
+    """The page title without an unread count in front."""
+    cleaned = _UNREAD_COUNT.sub("", title or "").strip()
+    return cleaned or (title or "").strip()
+
+
 def resolve_canonical_url(url: str, canonical_url: str | None) -> str:
     """Use the page's canonical URL (resolved against url) when it is a valid
     http(s) URL on the same site that isn't a parent of the page itself;
@@ -129,7 +140,7 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
 
     if not title or not title.strip() or title.strip().lower() in ("untitled", "untitled document"):
         title = domain
-    title = title.strip()
+    title = clean_title(title)
 
     # 1-2. Canonical + normalized URL, per-user page id
     normalized_url = normalize_url(resolve_canonical_url(url, canonical_url))

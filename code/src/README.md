@@ -60,6 +60,8 @@ Copy `.env.example` to `.env`. Variables:
 | `BM25_WEIGHT` / `VECTOR_WEIGHT` | `1.0` / `1.0` | RRF weights |
 | `PAGE_SECOND_CHUNK_WEIGHT` | `0.3` | Weight of a page's second-best chunk |
 | `MIN_VECTOR_SIMILARITY` | `0.55` | Pages with no BM25 match need at least this cosine similarity |
+| `QUERY_INTENT_ENABLED` | `true` | Rank pages from a site, time or URL named in the query higher |
+| `INTENT_WEIGHT` | `1.0` | Weight of those site/time lists in the fusion, relative to the main ones |
 | `MAP_MAX_PAGES` / `MAP_MIN_PAGES` | `2000` / `10` | Library map: most recent pages mapped; fewer than the minimum shows "save a few more" |
 | `MAP_OUTLIER_SIMILARITY` / `MAP_CROSS_TOPIC_SIMILARITY` | `0.35` / `0.65` | Unclustered threshold; similarity for a dashed link between topics |
 | `MAP_CACHE_USERS` / `MAP_CACHE_TTL_SECONDS` | `50` / `600` | In-memory map cache (per user, LRU) |
@@ -157,6 +159,8 @@ Uses the same hybrid pipeline as the CLI. Each result has a plain-text `snippet`
 5. Relevance floor: drop pages with no BM25 match whose best chunk has cosine similarity below `MIN_VECTOR_SIMILARITY` (Solr's KNN score is `(1 + cos) / 2`; debug output shows `vector_similarity`)
 6. Snippet (`backend/snippets.py`): 2–3 consecutive readable sentences (8+ words, 70%+ letters, no `|`, ending in punctuation) around the sentence matching the most query terms (the first on a tie); when no sentence matches a term, the first 3 readable sentences are compared with the query by embedding; 200–280 characters; else the page's stored `description`; else none
 7. Return the top-K pages with their snippets
+
+Site words, time phrases and URLs in the query (`backend/query_intent.py`): a word that names one of the user's domains ("reddit", "nvidia", "rotten tomatoes"; cached facet on `domain`), a time phrase (yesterday, last week, on 31 august, in march, ...) or a URL makes BM25 run a second time on the rest of the query, and KNN on the same query vector (no second embedding), filtered to those domains and that `timestamp` range, and both lists join the fusion (`INTENT_WEIGHT`). With nothing left ("what I read yesterday"), the matching pages are listed nearest the named day first (or newest first) at double weight. A saved URL typed as the query comes first. These pages also pass the relevance floor if they matched by keyword. `QUERY_INTENT_ENABLED=false` turns it off.
 
 ## 10b. Library map and related pages
 

@@ -17,6 +17,10 @@ VECTOR_WEIGHT = float(os.getenv('VECTOR_WEIGHT', '1.0'))
 PAGE_SECOND_CHUNK_WEIGHT = float(os.getenv('PAGE_SECOND_CHUNK_WEIGHT', '0.3'))
 # Pages with no BM25 match need at least this cosine similarity on some chunk.
 MIN_VECTOR_SIMILARITY = float(os.getenv('MIN_VECTOR_SIMILARITY', '0.55'))
+# Site words, time phrases and URLs in a query (backend/query_intent.py) also rank
+# the matching pages; their lists count this much relative to the main ones.
+QUERY_INTENT_ENABLED = os.getenv('QUERY_INTENT_ENABLED', 'true').strip().lower() in ('1', 'true', 'yes', 'on')
+INTENT_WEIGHT = float(os.getenv('INTENT_WEIGHT', '1.0'))
 
 # Library map
 MAP_MAX_PAGES = int(os.getenv('MAP_MAX_PAGES', '2000'))

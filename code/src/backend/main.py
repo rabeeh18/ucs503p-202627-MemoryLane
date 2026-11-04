@@ -23,7 +23,7 @@ from backend.chunking import join_chunks
 from backend.embeddings import is_model_loaded, get_model
 from backend.ingest import IngestError, ingest_page, resolve_canonical_url
 from backend.solr_client import get_solr_client
-from backend.retrieval import hybrid_search, knn_score_to_cosine
+from backend.retrieval import forget_user_sites, hybrid_search, knn_score_to_cosine
 from backend.summarizer import summarize, detect_detail_level, is_gemini_available, label_topics
 from backend.url_utils import normalize_url, generate_page_id
 
@@ -158,6 +158,7 @@ def save_memory(request: Request, memory: MemoryInput, user_id: str = Depends(cu
 
     if result.status == "saved":
         map_service.invalidate(user_id)
+        forget_user_sites(user_id)
 
     page = None
     if result.status != "skipped":
@@ -193,6 +194,7 @@ def delete_memory(request: Request, page_id: str, user_id: str = Depends(current
     page_id = _owned_page_id(page_id, user_id)
     get_solr_client().delete_page(page_id, user_id)
     map_service.invalidate(user_id)
+    forget_user_sites(user_id)
     return Response(status_code=204)
 
 
@@ -408,4 +410,5 @@ def delete_my_data(request: Request, user_id: str = Depends(current_user_id)):
     """Delete every chunk the caller owns."""
     get_solr_client().delete_user(user_id)
     map_service.invalidate(user_id)
+    forget_user_sites(user_id)
     return Response(status_code=204)

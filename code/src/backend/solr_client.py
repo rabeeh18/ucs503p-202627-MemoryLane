@@ -43,6 +43,7 @@ def sanitize_query(query: str) -> str:
     return cleaned[:MAX_QUERY_CHARS]
 
 
+_SOLR_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _USER_ID_RE = re.compile(r"^[A-Za-z0-9-]{1,64}$")
 
 
@@ -74,6 +75,17 @@ def page_ids_filter(page_ids) -> str:
     if any("," in p for p in ids):
         raise ValueError("page ids must not contain commas")
     return "{!terms f=page_id}" + ",".join(ids)
+
+
+def domains_filter(domains) -> str:
+    """Filter to pages from any of `domains` (exact, as stored)."""
+    names = sorted({d for d in domains if d and "," not in d})
+    return "{!terms f=domain}" + ",".join(names) if names else "-*:*"
+
+
+def saved_between_filter(start: str, end: str) -> str:
+    """Filter to pages saved from `start` (inclusive) to `end` (exclusive), Solr dates."""
+    return f"timestamp:[{start} TO {end}}}"
 
 
 def user_filter(user_id: str) -> str:
@@ -149,12 +161,12 @@ class SolrClient:
     # ---- reads --------------------------------------------------------------
 
     def bm25_search(self, query: str, user_id: str, rows: int = 30,
-                    page_ids: list[str] | None = None) -> list[dict]:
+                    page_ids: list[str] | None = None, filters: list[str] | None = None) -> list[dict]:
         """BM25 search on text and title fields, within one user's chunks
-        (and, if given, only within `page_ids`).
+        (and, if given, only within `page_ids` and matching every one of `filters`).
         Returns list of chunk docs (CHUNK_FIELDS) with score.
         """
-        filters = user_filter(user_id) if page_ids is None else [user_filter(user_id), page_ids_filter(page_ids)]
+        filters = [user_filter(user_id)] + ([page_ids_filter(page_ids)] if page_ids is not None else [])             + list(filters or [])
         data = self._select({
             "q": sanitize_query(query),
             "defType": "edismax",
@@ -168,8 +180,38 @@ class SolrClient:
         docs = data.get("response", {}).get("docs", [])
         return [normalize_solr_doc(doc) for doc in docs]
 
+    def recent_pages(self, user_id: str, filters: list[str], rows: int = 30,
+                     near: str | None = None) -> list[dict]:
+        """The user's pages (chunk 0) matching `filters`, newest first, or nearest
+        first to `near` (a Solr date). For searches that only say where or when
+        ("my reddit saves", "what I read yesterday")."""
+        if near is not None and not _SOLR_DATE.match(near):
+            raise ValueError("near must be a Solr date")
+        data = self._select({
+            "q": "*:*",
+            "fq": [user_filter(user_id), "chunk_id:0"] + list(filters),
+            "fl": CHUNK_FIELDS,
+            "sort": f"abs(ms(timestamp,{near})) asc, id asc" if near else "timestamp desc, id asc",
+            "rows": rows,
+        })
+        return [normalize_solr_doc(d) for d in data.get("response", {}).get("docs", [])]
+
+    def list_domains(self, user_id: str) -> list[tuple[str, int]]:
+        """The sites the user has saved pages from: (domain, pages), most pages first."""
+        data = self._select({
+            "q": "*:*",
+            "fq": [user_filter(user_id), "chunk_id:0"],
+            "rows": 0,
+            "facet": "true",
+            "facet.field": "domain",
+            "facet.limit": 2000,
+            "facet.mincount": 1,
+        })
+        flat = data.get("facet_counts", {}).get("facet_fields", {}).get("domain", [])
+        return list(zip(flat[::2], flat[1::2]))
+
     def knn_search(self, vector: list[float], user_id: str, k: int = 30,
-                   page_ids: list[str] | None = None) -> list[dict]:
+                   page_ids: list[str] | None = None, filters: list[str] | None = None) -> list[dict]:
         """Dense vector KNN search within one user's chunks.
 
         The user filter (and optional page filter) goes in `filter`; with knn as
@@ -178,9 +220,10 @@ class SolrClient:
         """
         url = f"{self.base_url}/select"
         vector_str = "[" + ",".join(str(v) for v in vector) + "]"
-        filters = [user_filter(user_id)]
+        extra_filters, filters = filters, [user_filter(user_id)]
         if page_ids is not None:
             filters.append(page_ids_filter(page_ids))
+        filters += list(extra_filters or [])
         payload = {
             "query": f"{{!knn f=embedding topK={k}}}{vector_str}",
             "filter": filters,

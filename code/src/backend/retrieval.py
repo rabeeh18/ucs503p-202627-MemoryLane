@@ -1,22 +1,30 @@
 import logging
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 from functools import lru_cache
 
 from backend.config import (
     BM25_WEIGHT, VECTOR_WEIGHT, DEFAULT_CANDIDATE_POOL, DEFAULT_TOP_K,
     RRF_K, PAGE_SECOND_CHUNK_WEIGHT, RERANK_ENABLED, RERANK_TOP_N, MIN_VECTOR_SIMILARITY,
+    QUERY_INTENT_ENABLED, INTENT_WEIGHT,
 )
 from backend.embeddings import embed_passages, embed_query
 from backend import rerank
+from backend.query_intent import QueryIntent, parse_query
 from backend.snippets import SentenceEmbeddingCache, build_snippet, build_snippets  # noqa: F401
-from backend.solr_client import SolrClient, get_solr_client, unwrap_solr_value
+from backend.solr_client import (
+    SolrClient, domains_filter, get_solr_client, page_ids_filter, saved_between_filter,
+    unwrap_solr_value,
+)
+from backend.url_utils import generate_page_id
 
 logger = logging.getLogger(__name__)
 
-# Shared pool so BM25 and (embed -> KNN) run concurrently without paying
+# Shared pool so BM25, (embed -> KNN) and the site/time BM25 run concurrently without paying
 # thread start-up cost on every request.
-_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="retrieval")
+_executor = ThreadPoolExecutor(max_workers=6, thread_name_prefix="retrieval")
 
 # Embeddings of candidate snippet sentences (for picking the best sentence).
 _sentence_embeddings = SentenceEmbeddingCache(lambda texts: embed_passages(texts))
@@ -26,19 +34,69 @@ def knn_score_to_cosine(score: float) -> float:
     """Solr's cosine DenseVectorField scores (1 + cos) / 2; undo that."""
     return 2.0 * float(score) - 1.0
 
-def rrf_fuse(bm25_ids: list[str], knn_ids: list[str], k: int,
-             w_bm25: float, w_knn: float) -> dict[str, float]:
-    """Reciprocal Rank Fusion.
+def rrf_fuse_lists(ranked_lists: list[tuple[list[str], float]], k: int) -> dict[str, float]:
+    """Reciprocal Rank Fusion of any number of (ranked ids, weight) lists.
 
-    score(chunk) = w_bm25 / (k + rank_bm25) + w_knn / (k + rank_knn), ranks start at 1.
-    A chunk missing from one list gets nothing from it.
+    score(chunk) = sum over lists of weight / (k + rank), ranks start at 1.
+    A chunk missing from a list gets nothing from it.
     """
     fused: dict[str, float] = {}
-    for rank, doc_id in enumerate(bm25_ids, start=1):
-        fused[doc_id] = fused.get(doc_id, 0.0) + w_bm25 / (k + rank)
-    for rank, doc_id in enumerate(knn_ids, start=1):
-        fused[doc_id] = fused.get(doc_id, 0.0) + w_knn / (k + rank)
+    for ids, weight in ranked_lists:
+        for rank, doc_id in enumerate(ids, start=1):
+            fused[doc_id] = fused.get(doc_id, 0.0) + weight / (k + rank)
     return fused
+
+
+def rrf_fuse(bm25_ids: list[str], knn_ids: list[str], k: int,
+             w_bm25: float, w_knn: float) -> dict[str, float]:
+    """Reciprocal Rank Fusion of the BM25 and KNN lists."""
+    return rrf_fuse_lists([(bm25_ids, w_bm25), (knn_ids, w_knn)], k)
+
+
+# ---- sites in the user's library (for site words in queries) ----------------
+
+SITE_CACHE_SECONDS = 300
+SITE_CACHE_USERS = 1000
+_site_cache: dict[tuple[str, str], tuple[float, list[str]]] = {}
+_site_lock = threading.Lock()
+
+
+def user_domains(solr: SolrClient, user_id: str) -> list[str]:
+    """The domains the user has saved pages from, cached for a few minutes
+    (and dropped on save and delete, see forget_user_sites)."""
+    key = (solr.base_url, user_id)
+    now = time.monotonic()
+    with _site_lock:
+        cached = _site_cache.get(key)
+        if cached and cached[0] > now:
+            return cached[1]
+    domains = [domain for domain, _ in solr.list_domains(user_id)]
+    with _site_lock:
+        if len(_site_cache) >= SITE_CACHE_USERS:
+            for old in sorted(_site_cache, key=lambda k: _site_cache[k][0])[: SITE_CACHE_USERS // 10]:
+                _site_cache.pop(old, None)
+        _site_cache[key] = (now + SITE_CACHE_SECONDS, domains)
+    return domains
+
+
+def forget_user_sites(user_id: str) -> None:
+    with _site_lock:
+        for key in [k for k in _site_cache if k[1] == user_id]:
+            _site_cache.pop(key, None)
+
+
+def _solr_date(value: datetime) -> str:
+    return value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def intent_filters(intent: QueryIntent) -> list[str]:
+    """Solr filters for the pages a query's site words or time phrase point at."""
+    filters = []
+    if intent.domains:
+        filters.append(domains_filter(intent.domains))
+    if intent.saved_from:
+        filters.append(saved_between_filter(_solr_date(intent.saved_from), _solr_date(intent.saved_until)))
+    return filters
 
 
 def group_by_webpage(candidates: list[dict], fused_scores: dict[str, float],
@@ -83,6 +141,7 @@ def group_by_webpage(candidates: list[dict], fused_scores: dict[str, float],
             "bm25_rank": best.get("_bm25_rank"),
             "knn_rank": best.get("_knn_rank"),
             "bm25_match": any(d.get("_bm25_rank") for _, d in scored),
+            "intent_match": any(d.get("_intent_match") for _, d in scored),
             "vector_similarity": max(similarities) if similarities else None,
         })
 
@@ -92,12 +151,14 @@ def group_by_webpage(candidates: list[dict], fused_scores: dict[str, float],
 
 def apply_relevance_floor(pages: list[dict], min_similarity: float = None) -> list[dict]:
     """Drop pages that matched no BM25 term and whose best chunk is less similar
-    to the query than min_similarity (cosine)."""
+    to the query than min_similarity (cosine). Pages the query points at by site,
+    time or URL, and that matched the rest of it by keyword (or there was no rest),
+    are kept."""
     if min_similarity is None:
         min_similarity = MIN_VECTOR_SIMILARITY
     return [
         page for page in pages
-        if page.get("bm25_match")
+        if page.get("bm25_match") or page.get("intent_match")
         or (page.get("vector_similarity") is not None and page["vector_similarity"] >= min_similarity)
     ]
 
@@ -111,19 +172,70 @@ def _page_filter_kwargs(page_ids):
     return {} if page_ids is None else {"page_ids": page_ids}
 
 
-def _timed_bm25(solr, query: str, user_id: str, rows: int, page_ids=None):
+def _timed_bm25(solr, query: str, user_id: str, rows: int, page_ids=None, filters=None):
     start = time.perf_counter()
-    docs = solr.bm25_search(query, user_id, rows=rows, **_page_filter_kwargs(page_ids))
+    kwargs = _page_filter_kwargs(page_ids)
+    if filters:
+        kwargs["filters"] = filters
+    docs = solr.bm25_search(query, user_id, rows=rows, **kwargs)
     return docs, (time.perf_counter() - start) * 1000
 
 
-def _timed_knn(solr, query: str, user_id: str, k: int, page_ids=None):
+def _timed_knn(solr, query: str, user_id: str, k: int, page_ids=None, filters=None):
     start = time.perf_counter()
     vector = list(_cached_query_embedding(query))
     embedded = time.perf_counter()
-    docs = solr.knn_search(vector, user_id, k=k, **_page_filter_kwargs(page_ids))
+    kwargs = _page_filter_kwargs(page_ids)
+    if filters:
+        kwargs["filters"] = filters
+    docs = solr.knn_search(vector, user_id, k=k, **kwargs)
     done = time.perf_counter()
     return docs, (embedded - start) * 1000, (done - embedded) * 1000
+
+
+def _intent_lists(solr, intent: QueryIntent, user_id: str, rows: int, page_ids,
+                  query_vector) -> list[tuple[list[dict], float, str]]:
+    """Ranked lists of just the pages the query points at, as (docs, weight, kind).
+
+    With words left over, BM25 for them and KNN for the whole query (reusing its
+    vector, so no second embedding) within those pages; with none ("my reddit
+    saves", "what I read yesterday"), those pages nearest the named day or newest
+    first. A URL query also puts that saved page first. `query_vector()` waits for
+    the main search's embedding.
+    """
+    lists = []
+    filters = intent_filters(intent)
+    if filters:
+        if intent.text:
+            bm25 = _executor.submit(_timed_bm25, solr, intent.text, user_id, rows, page_ids, filters)
+            knn = solr.knn_search(query_vector(), user_id, k=rows, filters=filters,
+                                  **_page_filter_kwargs(page_ids))
+            lists.append((bm25.result()[0], BM25_WEIGHT * INTENT_WEIGHT, "bm25"))
+            lists.append((knn, VECTOR_WEIGHT * INTENT_WEIGHT, "knn"))
+        else:
+            if page_ids is not None:
+                filters = filters + [page_ids_filter(page_ids)]
+            near = _solr_date(intent.saved_near) if intent.saved_near else None
+            # The query is only where or when, so the main lists have little to go on:
+            # this list counts as much as both of them together, twice over.
+            lists.append((solr.recent_pages(user_id, filters, rows=rows, near=near),
+                          2 * (BM25_WEIGHT + VECTOR_WEIGHT) * INTENT_WEIGHT, "recent"))
+    if intent.url:
+        head = solr.get_page_head(generate_page_id(user_id, intent.url), user_id)
+        if head and (page_ids is None or head.get("page_id") in page_ids):
+            # Far ahead of anything else: the person typed this page's address.
+            lists.append(([head], 10 * (BM25_WEIGHT + VECTOR_WEIGHT), "url"))
+    return lists
+
+
+def _query_intent(solr, query: str, user_id: str) -> QueryIntent | None:
+    if not QUERY_INTENT_ENABLED:
+        return None
+    try:
+        return parse_query(query, user_domains(solr, user_id))
+    except Exception as e:  # never let this break a search
+        logger.warning(f"Query intent skipped: {e}")
+        return None
 
 
 def _rerank(query: str, candidates_map: dict, fused: dict[str, float],
@@ -176,9 +288,26 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
 
     bm25_future = _executor.submit(_timed_bm25, solr, query, user_id, candidate_pool, page_ids)
     knn_future = _executor.submit(_timed_knn, solr, query, user_id, candidate_pool, page_ids)
+
+    # Meanwhile: does the query name a site, a time or a URL?
+    intent_start = time.perf_counter()
+    intent = _query_intent(solr, query, user_id)
+    intent_lists = []
+    if intent and intent.active:
+        try:
+            def query_vector():
+                knn_future.result()  # it embeds the query first; the vector is then cached
+                return list(_cached_query_embedding(query))
+
+            intent_lists = _intent_lists(solr, intent, user_id, candidate_pool, page_ids, query_vector)
+        except Exception as e:
+            logger.warning(f"Query intent search skipped: {e}")
+    intent_ms = (time.perf_counter() - intent_start) * 1000
+
     bm25_docs, bm25_ms = bm25_future.result()
     knn_docs, embed_ms, knn_ms = knn_future.result()
-    logger.info(f"BM25 returned {len(bm25_docs)} candidates, KNN returned {len(knn_docs)}")
+    logger.info(f"BM25 returned {len(bm25_docs)} candidates, KNN returned {len(knn_docs)}"
+                + (f", intent lists {[len(docs) for docs, _, _ in intent_lists]}" if intent_lists else ""))
 
     fuse_start = time.perf_counter()
 
@@ -199,10 +328,23 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
             doc["_vector_sim"] = similarity
             candidates_map[doc["id"]] = doc
 
-    fused = rrf_fuse(
-        [doc["id"] for doc in bm25_docs],
-        [doc["id"] for doc in knn_docs],
-        k=RRF_K, w_bm25=BM25_WEIGHT, w_knn=VECTOR_WEIGHT,
+    for docs, _, kind in intent_lists:
+        for doc in docs:
+            current = candidates_map.get(doc["id"])
+            if current is None:
+                doc.setdefault("_bm25_rank", None)
+                doc.setdefault("_knn_rank", None)
+                candidates_map[doc["id"]] = current = doc
+            if kind == "knn":
+                similarity = knn_score_to_cosine(doc.get("score", 0.0))
+                current["_vector_sim"] = max(similarity, current.get("_vector_sim") or -1.0)
+            else:
+                current["_intent_match"] = True
+
+    fused = rrf_fuse_lists(
+        [([doc["id"] for doc in bm25_docs], BM25_WEIGHT), ([doc["id"] for doc in knn_docs], VECTOR_WEIGHT)]
+        + [([doc["id"] for doc in docs], weight) for docs, weight, _ in intent_lists],
+        k=RRF_K,
     )
 
     grouped = apply_relevance_floor(group_by_webpage(list(candidates_map.values()), fused))
@@ -232,6 +374,7 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
         "embed_ms": round(embed_ms, 1),
         "bm25_ms": round(bm25_ms, 1),
         "knn_ms": round(knn_ms, 1),
+        "intent_ms": round(intent_ms, 1),
         "fuse_ms": round(fuse_ms, 1),
         "rerank_ms": round(rerank_ms, 1),
         "snippet_ms": round(snippet_ms, 1),

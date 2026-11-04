@@ -66,7 +66,7 @@ def test_bm25_query_uses_phrase_boost_and_blocks_field_queries():
     assert params["qf"] == "title^2 text"
     assert params["pf"] == "text^2 title^3"
     assert params["uf"] == "-*"
-    assert params["fq"] == FILTER
+    assert params["fq"] == [FILTER]
     assert "\x00" not in params["q"]
 
 

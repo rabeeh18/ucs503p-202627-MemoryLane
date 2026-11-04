@@ -84,6 +84,31 @@ python3 evaluation/compare.py evaluation/personal_baseline.json evaluation/perso
 
 `compare.py` needs only the standard library, so it runs on the host. It prints each metric with its change, and every query whose rank went up or down.
 
+A feature behind a setting can be compared without deploying old code, since `docker compose exec -e` overrides it for that one run. For example, search with and without [site, time and URL handling](../architecture/retrieval.md#site-time-and-url-in-the-query):
+
+```bash
+docker compose exec -T -e QUERY_INTENT_ENABLED=false backend python -m evaluation.evaluate \
+    --core memorylane_v2 --user-id <user id> --eval-file - --out - \
+    < evaluation/personal.json > evaluation/personal_off.json
+docker compose exec -T backend python -m evaluation.evaluate \
+    --core memorylane_v2 --user-id <user id> --eval-file - --out - \
+    < evaluation/personal.json > evaluation/personal_on.json
+python3 evaluation/compare.py evaluation/personal_off.json evaluation/personal_on.json
+```
+
+### Results on a development library
+
+Tested on a copy of an early real library: 31 browsed pages from about a dozen sites, among about 1,000 SciFact pages as distractors, with queries written by hand.
+
+| Set | Search | Right page first | MRR |
+| --- | --- | --- | --- |
+| 35 queries, used while building it | before | 0.86 | 0.900 |
+| | after | 0.94 | 0.971 |
+| 18 held-out queries | before | 0.72 | 0.787 |
+| | after | 0.94 | 0.944 |
+
+The held-out set was written after the feature and not tuned on, except for one fix it led to (browsing verbs like *look* added to the filler words), after which it scores 1.00. Most of the gain is in site queries (held-out MRR 0.75 → 1.00) and time queries (0.38 → 1.00, three queries); topic-only queries don't change, and neither do SciFact's 100 test claims (MRR@10 0.581 either way). Both sets are small, so the numbers on your own library are what count.
+
 `evaluation/personal*` is git-ignored and kept out of the Docker image, since these files hold real URLs and titles.
 
 Queries made from page titles (`generate_eval.py` without `--starter`) are near-certain hits for keyword search, so they say little about precision. The starter set is meant to be written by hand.

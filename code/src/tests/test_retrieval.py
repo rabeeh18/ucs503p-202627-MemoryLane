@@ -122,7 +122,7 @@ def test_hybrid_search_fuses_ranks_and_reports_timings():
     assert results[1]["snippet"] == sentence
     assert results[2]["vector_similarity"] == pytest.approx(0.7)
     assert [r["rank"] for r in results] == [1, 2, 3]
-    assert set(timings) == {"embed_ms", "bm25_ms", "knn_ms", "fuse_ms", "rerank_ms", "snippet_ms", "total_ms"}
+    assert set(timings) == {"embed_ms", "bm25_ms", "knn_ms", "intent_ms", "fuse_ms", "rerank_ms", "snippet_ms", "total_ms"}
 
 
 def test_query_embedding_is_cached():
@@ -196,3 +196,89 @@ def test_hybrid_search_passes_user_to_both_searches():
         assert retrieval.hybrid_search("q", "user-a", solr=solr) == []
     assert solr.bm25_search.call_args.args[1] == "user-a"
     assert solr.knn_search.call_args.args[1] == "user-a"
+
+
+# ---- site words, time phrases and URLs in queries -----------------------------
+
+def _intent_solr(domains, main_bm25=(), main_knn=(), site_bm25=(), site_knn=(), recent=(), head=None):
+    solr = MagicMock()
+    solr.base_url = "http://solr/test"
+    solr.list_domains.return_value = [(d, 1) for d in domains]
+    solr.bm25_search.side_effect = lambda q, u, rows, **kw: list(site_bm25 if kw.get("filters") else main_bm25)
+    solr.knn_search.side_effect = lambda v, u, k, **kw: list(site_knn if kw.get("filters") else main_knn)
+    solr.recent_pages.return_value = list(recent)
+    solr.get_page_head.return_value = head
+    return solr
+
+
+def _search(solr, query, **kw):
+    retrieval._site_cache.clear()
+    with patch("backend.retrieval.embed_query", return_value=[0.1] * 384):
+        return retrieval.hybrid_search(query, "user-a", top_k=5, candidate_pool=10, solr=solr,
+                                       snippets=False, **kw)
+
+
+def test_site_word_ranks_that_sites_page_first():
+    other = [_chunk(f"o{i}::0", f"o{i}", score=0.9 - i / 100) for i in range(4)]
+    reddit = _chunk("r::0", "r", domain="reddit.com", score=0.8)
+    solr = _intent_solr(["reddit.com", "example.com"], main_bm25=other, main_knn=other + [reddit],
+                        site_bm25=[reddit], site_knn=[reddit])
+    results = _search(solr, "reddit post on rust lifetimes")
+    assert results[0]["page_id"] == "r"
+    site_calls = [c for c in solr.bm25_search.call_args_list if c.kwargs.get("filters")]
+    assert site_calls[0].args[0] == "rust lifetimes"
+    assert site_calls[0].kwargs["filters"] == ["{!terms f=domain}reddit.com"]
+
+
+def test_query_without_intent_makes_no_extra_searches():
+    page = _chunk("a::0", "a", score=0.9)
+    solr = _intent_solr(["reddit.com"], main_bm25=[page], main_knn=[page])
+    _search(solr, "rust lifetimes")
+    assert solr.bm25_search.call_count == 1 and solr.knn_search.call_count == 1
+    solr.recent_pages.assert_not_called()
+
+
+def test_time_only_query_keeps_pages_from_then_past_the_floor():
+    old = _chunk("t::0", "t", timestamp="2026-08-30T10:00:00Z")
+    noise = _chunk("n::0", "n", score=0.6)  # cosine 0.2: below the floor
+    solr = _intent_solr(["example.com"], main_knn=[noise], recent=[old])
+    results = _search(solr, "what i read on 30 august")
+    assert [r["page_id"] for r in results] == ["t"]
+    filters = solr.recent_pages.call_args.args[1]
+    assert filters[0].startswith("timestamp:[") and filters[0].endswith("}")
+    assert solr.recent_pages.call_args.kwargs["near"].endswith("T12:00:00Z")
+
+
+def test_typed_url_puts_that_page_first():
+    others = [_chunk(f"o{i}::0", f"o{i}", score=0.95) for i in range(3)]
+    mine = _chunk("m::0", "m", domain="github.com", url="https://github.com/tokio-rs/axum")
+    solr = _intent_solr(["github.com"], main_bm25=others, main_knn=others, head=mine)
+    results = _search(solr, "github.com/tokio-rs/axum")
+    assert results[0]["page_id"] == "m"
+
+
+def test_intent_lookup_failure_does_not_break_search():
+    page = _chunk("a::0", "a", score=0.9)
+    solr = _intent_solr([], main_bm25=[page], main_knn=[page])
+    solr.list_domains.side_effect = RuntimeError("solr down")
+    assert [r["page_id"] for r in _search(solr, "reddit rust")] == ["a"]
+
+
+def test_intent_can_be_turned_off():
+    page = _chunk("a::0", "a", score=0.9)
+    solr = _intent_solr(["reddit.com"], main_bm25=[page], main_knn=[page])
+    with patch("backend.retrieval.QUERY_INTENT_ENABLED", False):
+        _search(solr, "reddit rust from yesterday")
+    solr.list_domains.assert_not_called()
+    assert solr.bm25_search.call_count == 1
+
+
+def test_sites_are_cached_until_forgotten():
+    solr = _intent_solr(["reddit.com"])
+    retrieval._site_cache.clear()
+    assert retrieval.user_domains(solr, "user-a") == ["reddit.com"]
+    retrieval.user_domains(solr, "user-a")
+    assert solr.list_domains.call_count == 1
+    retrieval.forget_user_sites("user-a")
+    retrieval.user_domains(solr, "user-a")
+    assert solr.list_domains.call_count == 2
