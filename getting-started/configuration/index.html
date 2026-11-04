@@ -1874,6 +1874,16 @@
 <td>Pages with no keyword match need at least this cosine similarity</td>
 </tr>
 <tr>
+<td><code>QUERY_INTENT_ENABLED</code></td>
+<td><code>true</code></td>
+<td>Rank pages from a site, time or URL named in the query higher (<a href="../../architecture/retrieval/#site-time-and-url-in-the-query">how</a>)</td>
+</tr>
+<tr>
+<td><code>INTENT_WEIGHT</code></td>
+<td><code>1.0</code></td>
+<td>Weight of those site and time rankings, relative to the main ones</td>
+</tr>
+<tr>
 <td><code>RERANK_ENABLED</code>, <code>RERANK_MODEL</code>, <code>RERANK_TOP_N</code></td>
 <td><code>false</code>, <code>cross-encoder/ms-marco-MiniLM-L-6-v2</code>, <code>20</code></td>
 <td>Optional cross-encoder reranker (more memory)</td>

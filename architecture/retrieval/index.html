@@ -1203,6 +1203,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#site-time-and-url-in-the-query" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Site, time and URL in the query
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#reciprocal-rank-fusion" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1762,26 +1773,37 @@
 <li><strong>Lexical (BM25)</strong> finds pages that use the query's words, including exact names, codes and jargon.</li>
 <li><strong>Semantic (vector KNN)</strong> finds pages about the same idea, even in different words.</li>
 </ol>
-<p>Both run over chunks and are restricted to the signed-in user's pages. Their rankings are fused, grouped into pages, filtered for relevance, and given snippets.</p>
+<p>Both run over chunks and are restricted to the signed-in user's pages. If the query names a site, a time or a URL, the same two searches also run over just the pages it points at. All rankings are fused, grouped into pages, filtered for relevance, and given snippets.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Query
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>  ├─▶ BM25 (edismax on title^2 text)          ─┐
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  └─▶ embed query → KNN on chunk embeddings   ─┤  top 50 chunks each, user-filtered
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>                                               ▼
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                         Reciprocal Rank Fusion
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  ├─▶ embed query → KNN on chunk embeddings   ─┤  top 50 chunks each, user-filtered
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  └─▶ site / time / URL in the query?         ─┤  if so: BM25 on the rest of the query
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                                               │  + KNN (same vector), within those pages
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                                               ▼
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                       (optional) cross-encoder rerank
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                         Reciprocal Rank Fusion
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>                                               ▼
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>                        Group chunks by page_id
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>                       (optional) cross-encoder rerank
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>                                               ▼
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>                           Relevance floor
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>                        Group chunks by page_id
 </span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>                                               ▼
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>                       Snippets → top-K pages
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>                           Relevance floor
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>                                               ▼
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>                       Snippets → top-K pages
 </span></code></pre></div>
 <p>The BM25 query and the query embedding run concurrently.</p>
 <h2 id="lexical-retrieval">Lexical retrieval<a class="headerlink" href="#lexical-retrieval" title="Permanent link">&para;</a></h2>
 <p>Solr's <strong>edismax</strong> parser searches <code>title^2 text</code>, with a phrase boost <code>pf=text^2 title^3</code> so pages containing the query as a phrase rank higher. Both fields use <code>text_en</code> (possessives, stopwords, Porter stemming), so <em>learning</em> matches <em>learn</em>. Field queries in user input are disabled (<code>uf=-*</code>).</p>
 <h2 id="semantic-retrieval">Semantic retrieval<a class="headerlink" href="#semantic-retrieval" title="Permanent link">&para;</a></h2>
 <p>The query is embedded with <code>BAAI/bge-small-en-v1.5</code> (with BGE's search instruction in front) into the same 384-dimensional space as the chunks. Solr runs <code>{!knn f=embedding topK=50}</code> with the user filter as a <strong>pre-filter</strong>, so the 50 nearest chunks are all the user's own.</p>
+<h2 id="site-time-and-url-in-the-query">Site, time and URL in the query<a class="headerlink" href="#site-time-and-url-in-the-query" title="Permanent link">&para;</a></h2>
+<p><code>backend/query_intent.py</code> reads the parts of a query that say where or when a page was seen:</p>
+<ul>
+<li><strong>Site words.</strong> Each of the user's domains gets names: its labels without the ending and generic parts (<code>www</code>, <code>docs</code>, <code>en</code>, <code>m</code>, ...), with hyphens removed. So <code>en.wikipedia.org</code> is <em>wikipedia</em>, <code>docs.nvidia.com</code> and <code>nvidia.com</code> are both <em>nvidia</em>, <code>rotten-tomatoes.com</code> is <em>rottentomatoes</em>. A query word, or two or three words run together ("rotten tomatoes"), that matches a name points at those domains. A few nicknames are known (<em>wiki</em>, <em>yt</em>, <em>gh</em>, <em>twitter</em>). Single words under 3 letters never count. The domain list comes from one facet query and is cached per user for 5 minutes, and dropped when they save or delete a page.</li>
+<li><strong>Time phrases</strong>, in UTC: today, yesterday, <em>N</em> days/weeks/months/years ago, this/last/past week/month/year, recently or lately (2 weeks), a date (<code>31 august</code>, <code>aug 31st</code>, <code>on the 3rd of may 2025</code>, with a day's slack either side), a month after <em>in</em>, <em>from</em>, <em>during</em>, <em>last</em> (<code>in march</code>; a bare month name could be a topic, such as "march madness"), and a year after <em>from</em> or alongside a word like <em>saved</em> or <em>read</em>. A month or date without a year is the latest one not in the future.</li>
+<li><strong>A URL or domain</strong> as the whole query.</li>
+</ul>
+<p>When it finds one, the rest of the query (without the site, time and filler words like <em>page</em>, <em>article</em>, <em>saved</em>) runs through BM25 again, and the query's vector through KNN again (reused, so there is no second embedding), both filtered to those domains and that time range. Those two lists join the fusion below with the same weights as the main ones (<code>INTENT_WEIGHT</code> scales them). If nothing is left of the query ("what I read yesterday"), the matching pages are listed instead, nearest the named day first or newest first, and that list counts as both main lists together, twice over. A URL query also puts that saved page far ahead.</p>
+<p>These are boosts, not filters: a page the main searches rank highly still competes. Pages from the site or time lists that matched the rest of the query by keyword, or where nothing was left, pass the relevance floor. Queries without a site, time or URL make no extra searches. Ones with them make two or three more Solr requests, alongside the main ones: about 6 ms more at the median in local tests. <code>QUERY_INTENT_ENABLED=false</code> turns this off.</p>
 <h2 id="reciprocal-rank-fusion">Reciprocal Rank Fusion<a class="headerlink" href="#reciprocal-rank-fusion" title="Permanent link">&para;</a></h2>
 <p>BM25 scores and cosine similarities are on different scales, so MemoryLane fuses <strong>ranks</strong>, not scores. For a chunk <span class="arithmatex">\(d\)</span>:</p>
 <div class="arithmatex">\[
@@ -1790,7 +1812,7 @@
 +
 \frac{w_{\mathrm{knn}}}{k + r_{\mathrm{knn}}(d)}
 \]</div>
-<p>with <span class="arithmatex">\(k = 60\)</span> and both weights 1.0. A chunk missing from one list gets nothing from it. Chunks found by both retrievers rise to the top.</p>
+<p>with <span class="arithmatex">\(k = 60\)</span> and both weights 1.0. A chunk missing from one list gets nothing from it. Chunks found by both retrievers rise to the top. The site and time lists add terms of the same form.</p>
 <div class="admonition note">
 <p class="admonition-title">Earlier versions</p>
 <p>The first version min-max normalised the two score lists and averaged them (0.5 / 0.5). Min-max depends on the highest and lowest score in each list, so a single outlier changes every other score. RRF uses only ranks and has no such dependence.</p>
@@ -1804,13 +1826,13 @@ S_{\mathrm{page}} = s_{\mathrm{best}} + 0.3 \cdot s_{\mathrm{second}}
 \]</div>
 <p>so a page with two good passages beats a page with one, without long pages winning just by having many chunks.</p>
 <h2 id="relevance-floor">Relevance floor<a class="headerlink" href="#relevance-floor" title="Permanent link">&para;</a></h2>
-<p>KNN always returns 50 neighbours, however unrelated. A page with <strong>no</strong> BM25 match is dropped unless its best chunk's cosine similarity is at least <code>MIN_VECTOR_SIMILARITY</code> (0.55). Solr reports KNN scores as <span class="arithmatex">\((1 + \cos)/2\)</span>, so the backend converts them first. Pages that match a query word are always kept.</p>
+<p>KNN always returns 50 neighbours, however unrelated. A page with <strong>no</strong> BM25 match is dropped unless its best chunk's cosine similarity is at least <code>MIN_VECTOR_SIMILARITY</code> (0.55). Solr reports KNN scores as <span class="arithmatex">\((1 + \cos)/2\)</span>, so the backend converts them first. Pages that match a query word are always kept, and so are pages a site or time in the query points at that matched the rest of it by keyword.</p>
 <h2 id="snippets">Snippets<a class="headerlink" href="#snippets" title="Permanent link">&para;</a></h2>
 <p>For each result, <code>backend/snippets.py</code> picks 2–3 consecutive readable sentences around the sentence that contains the most query terms (the first one on a tie). If no sentence contains a query term, the first 3 readable sentences are compared with the query by embedding, so the snippet still fits a search by meaning. Embedding runs on the server's CPU during the search, which is why it's limited to this case. A readable sentence has 8+ words, is at least 70% letters, has no table pipes and ends in punctuation. Snippets are 200–280 characters. If no sentence qualifies, the page's stored description is used.</p>
 <h2 id="search-within-a-topic">Search within a topic<a class="headerlink" href="#search-within-a-topic" title="Permanent link">&para;</a></h2>
 <p><code>POST /search</code> with a <code>topic</code> restricts both retrievers to the page ids in that <a href="../map/">library-map</a> topic. If the user's map has changed since the topic id was issued, the API returns <code>409</code>, and the web app finds the topic again by name.</p>
 <h2 id="debugging">Debugging<a class="headerlink" href="#debugging" title="Permanent link">&para;</a></h2>
-<p><code>"debug": true</code> adds each page's <code>bm25_rank</code>, <code>knn_rank</code>, <code>fused_score</code>, <code>vector_similarity</code> and per-stage <code>timings</code> to the response. The CLI prints the same with <code>--debug</code>.</p>
+<p><code>"debug": true</code> adds each page's <code>bm25_rank</code>, <code>knn_rank</code>, <code>fused_score</code>, <code>vector_similarity</code> and per-stage <code>timings</code> (including <code>intent_ms</code>) to the response. The CLI prints the same with <code>--debug</code>.</p>
 
 
 
