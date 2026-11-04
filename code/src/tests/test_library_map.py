@@ -320,7 +320,40 @@ def _labelled_service():
         "Sleep and memory" if any("sleep" in t.lower() for t in g) else "Interface design"
         for g in groups
     ])
-    return MapService(), _service_solr(make_heads()), labeler
+    service, solr = MapService(run_later=lambda job: job()), _service_solr(make_heads())
+    service.get("u", solr, labeler)  # names the topics
+    return service, solr, labeler
+
+
+def test_map_never_waits_for_topic_names():
+    jobs = []
+    service = MapService(run_later=jobs.append)
+    solr = _service_solr(make_heads())
+    labeler = MagicMock(side_effect=lambda groups, **kw: [f"Name {i}" for i in range(len(groups))])
+    first = service.get("u", solr, labeler)
+    labeler.assert_not_called()  # the map came back with keyword labels
+    assert len(jobs) == 1 and first.pending_labels
+    jobs.pop()()  # the background job names the topics...
+    assert service.peek("u") is None  # ...and drops the cached map
+    second = service.get("u", solr, labeler)
+    assert [t["label"] for t in second.response["topics"]] == [f"Name {i}" for i in range(len(first.pending_labels))]
+    assert second.response["version"] == first.response["version"]
+    assert second.topic_ids == first.topic_ids
+    assert not second.pending_labels and not jobs
+
+
+def test_a_failed_naming_waits_before_trying_again():
+    jobs = []
+    service = MapService(run_later=jobs.append)
+    solr = _service_solr(make_heads())
+    labeler = MagicMock(side_effect=RuntimeError("timeout"))
+    service.get("u", solr, labeler)
+    jobs.pop()()
+    assert service.peek("u") is not None  # the keyword-labelled map stays cached
+    service.invalidate("u")
+    service.get("u", solr, labeler)
+    assert jobs == []  # no new call during the retry wait
+    assert labeler.call_count == 1
 
 
 def test_collection_search_votes_by_where_the_search_results_are():

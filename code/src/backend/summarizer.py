@@ -4,6 +4,9 @@ from backend.config import GEMINI_API_KEY, GEMINI_MODEL
 
 logger = logging.getLogger(__name__)
 
+# A summary the user is waiting for; past this it fails with a message.
+SUMMARY_TIMEOUT_SECONDS = 20
+
 _genai = None
 _model_instance = None
 
@@ -102,7 +105,7 @@ def summarize(query: str, content: str, detail_level: str = None) -> str | None:
     prompt = _build_prompt(query, content, detail_level)
     
     try:
-        response = model.generate_content(prompt)
+        response = model.generate_content(prompt, request_options={"timeout": SUMMARY_TIMEOUT_SECONDS})
         summary = response.text.strip()
         logger.info(f"Generated {detail_level} summary ({len(summary)} chars)")
         return summary
@@ -123,6 +126,8 @@ def is_gemini_available() -> bool:
 
 
 MAX_LABEL_WORDS = 3
+# Topic names are fetched in the background (backend/library_map.py), so they can wait longer.
+LABEL_TIMEOUT_SECONDS = 30
 MAX_TITLES_PER_TOPIC = 10
 
 
@@ -180,7 +185,7 @@ def label_topics(groups: list[list[str]], hints: list[str] | None = None,
         "{\"1\": \"Machine learning\"}.\n\n<titles>\n" + "\n".join(lines) + "\n</titles>"
     )
     try:
-        response = model.generate_content(prompt, request_options={"timeout": 8})
+        response = model.generate_content(prompt, request_options={"timeout": LABEL_TIMEOUT_SECONDS})
         text = re.sub(r"^```(?:json)?|```$", "", response.text.strip(), flags=re.MULTILINE).strip()
         import json
         data = json.loads(text)

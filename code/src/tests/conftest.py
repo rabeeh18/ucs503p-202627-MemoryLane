@@ -5,6 +5,8 @@ import os
 os.environ["COGNITO_REGION"] = "ap-south-1"
 os.environ["COGNITO_USER_POOL_ID"] = "ap-south-1_TESTPOOL"
 os.environ["COGNITO_APP_CLIENT_ID"] = "test-client-id"
+# No real Gemini calls from tests: tests that need it patch it in.
+os.environ["GEMINI_API_KEY"] = ""
 
 
 import pytest  # noqa: E402

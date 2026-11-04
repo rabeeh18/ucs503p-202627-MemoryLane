@@ -14,6 +14,7 @@ import re
 import threading
 import time
 from collections import Counter, OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Callable, Sequence
 
@@ -39,6 +40,9 @@ SPLIT_MIN_PAGES = 30
 SILHOUETTE_SAMPLE = 600
 INTRA_NEIGHBOURS = 2
 HEAD_FIELDS = "page_id,url,title,domain,timestamp,description,page_embedding"
+# Topic names wait this long after a failed Gemini call before trying again.
+LABEL_RETRY_SECONDS = 600
+LABEL_CACHE_SIZE = 500
 # Rank constant for topic votes in collection search (as in search's RRF).
 SEARCH_VOTE_K = 60
 _LABEL_WORD = re.compile(r"\w+")
@@ -555,10 +559,29 @@ def acceptable_label(label: str | None, taken: set[str]) -> bool:
     return not any(w in GENERIC_WORDS for w in words)
 
 
+@dataclass
+class PendingLabel:
+    """A topic still showing its keyword label, to be named later."""
+    cache_key: str
+    titles: list[str]
+    hint: str
+
+
+def remember_label(label_cache: "OrderedDict[str, str] | None", cache_key: str, label: str) -> None:
+    if label_cache is not None:
+        label_cache[cache_key] = label
+        while len(label_cache) > LABEL_CACHE_SIZE:
+            label_cache.popitem(last=False)
+
+
 def label_topics(groups: list[list[dict]], labeler: Labeler | None,
-                 label_cache: "OrderedDict[str, str] | None" = None) -> list[str]:
+                 label_cache: "OrderedDict[str, str] | None" = None,
+                 pending: list[PendingLabel] | None = None) -> list[str]:
     """Final label per topic: cached, else from the labeller (Gemini), else the
-    keyword fallback. Logs at WARNING whenever the fallback is used and why."""
+    keyword fallback. Logs at WARNING whenever the fallback is used and why.
+    With `pending` (a list) the labeller isn't called: topics without a cached
+    label get their keyword label and are appended to `pending` to be named
+    later, so a map never waits for Gemini."""
     k = len(groups)
     fallback = ctfidf_labels(groups)
     cache_keys = [hashlib.sha1("|".join(sorted(p["page_id"] for p in g)).encode()).hexdigest() for g in groups]
@@ -566,7 +589,10 @@ def label_topics(groups: list[list[dict]], labeler: Labeler | None,
     missing = [t for t in range(k) if not labels[t]]
     if missing:
         fresh: list = []
-        if labeler is None:
+        if pending is not None:
+            pending.extend(PendingLabel(cache_keys[t], [p.get("title") or "" for p in groups[t][:10]], fallback[t])
+                           for t in missing)
+        elif labeler is None:
             logger.warning(f"Topic labels: Gemini is not configured or unavailable; "
                            f"using keyword labels for {len(missing)} topic(s)")
         else:
@@ -585,10 +611,7 @@ def label_topics(groups: list[list[dict]], labeler: Labeler | None,
             if acceptable_label(label, taken):
                 labels[t] = label
                 taken.add(label.lower())
-                if label_cache is not None:
-                    label_cache[cache_keys[t]] = label
-                    while len(label_cache) > 500:
-                        label_cache.popitem(last=False)
+                remember_label(label_cache, cache_keys[t], label)
             elif label:
                 logger.warning(f"Topic labels: rejected Gemini label {label!r} (generic, too long or "
                                f"duplicate); using {fallback[t]!r}")
@@ -614,6 +637,7 @@ class LibraryMap:
     topic_of: np.ndarray | None = None
     centroids: np.ndarray | None = None
     topic_ids: list[str] = field(default_factory=list)
+    pending_labels: list[PendingLabel] = field(default_factory=list)
 
     def topic_index(self, topic_id: str) -> int | None:
         try:
@@ -629,8 +653,11 @@ class LibraryMap:
 
 
 def build_map(heads: list[dict], key: str, version: int, labeler: Labeler | None = None,
-              label_cache: "OrderedDict[str, str] | None" = None) -> LibraryMap:
-    """Map for one user's page heads (chunk 0 docs with `page_embedding`)."""
+              label_cache: "OrderedDict[str, str] | None" = None, defer_labels: bool = False) -> LibraryMap:
+    """Map for one user's page heads (chunk 0 docs with `page_embedding`).
+    `defer_labels` uses cached or keyword labels and lists the rest in
+    `pending_labels` instead of calling the labeller."""
+    pending: list[PendingLabel] | None = [] if defer_labels else None
     pages = [h for h in heads if h.get("page_embedding")]
     without_vectors = len(heads) - len(pages)
     counts = {"pages": len(pages), "topics": 0, "unclustered": 0, "without_vectors": without_vectors}
@@ -641,7 +668,7 @@ def build_map(heads: list[dict], key: str, version: int, labeler: Labeler | None
     topic_of, centroids = cluster(vectors)
     k = len(centroids)
     groups = [[pages[i] for i in np.where(topic_of == t)[0]] for t in range(k)]
-    model_labels = label_topics(groups, labeler, label_cache)
+    model_labels = label_topics(groups, labeler, label_cache, pending)
     points, centres, radii = layout(vectors, topic_of, centroids, model_labels)
     edges = build_edges(vectors, topic_of, centroids)
     topic_links = build_topic_links(centroids)
@@ -678,7 +705,8 @@ def build_map(heads: list[dict], key: str, version: int, labeler: Labeler | None
     response = {"status": "ok", "version": key, "topics": topics, "pages": out_pages,
                 "edges": out_edges, "topic_links": out_links, "counts": counts}
     return LibraryMap(key, version, time.time(), response, [p["page_id"] for p in pages],
-                      vectors, topic_of, centroids, topic_ids)
+                      vectors.astype(np.float32), topic_of, centroids.astype(np.float32), topic_ids,
+                      pending or [])
 
 
 # ---- collection search ------------------------------------------------------------
@@ -719,13 +747,18 @@ class MapService:
     or delete so the next request rebuilds. A TTL also covers changes made by
     other processes (re-index and backfill scripts)."""
 
-    def __init__(self, max_users: int = None, ttl_seconds: float = None):
+    def __init__(self, max_users: int = None, ttl_seconds: float = None,
+                 run_later: Callable[[Callable[[], None]], object] | None = None):
         self.max_users = max_users or MAP_CACHE_USERS
         self.ttl = ttl_seconds if ttl_seconds is not None else MAP_CACHE_TTL_SECONDS
         self._maps: OrderedDict[str, LibraryMap] = OrderedDict()
         self._versions: dict[str, int] = {}
         self._labels: OrderedDict[str, str] = OrderedDict()
         self._lock = threading.Lock()
+        # Topic names are fetched one batch at a time, off the request thread.
+        self._run_later = run_later or ThreadPoolExecutor(max_workers=1, thread_name_prefix="map-labels").submit
+        self._labelling: set[str] = set()
+        self._label_retry_at = 0.0
 
     def version(self, user_id: str) -> int:
         return self._versions.get(user_id, 0)
@@ -755,15 +788,64 @@ class MapService:
         heads = list(solr.scan_page_heads(user_id, HEAD_FIELDS, MAP_MAX_PAGES))
         key = content_key(user_id, heads)
         started = time.perf_counter()
-        built = build_map(heads, key, version, labeler, self._labels)
-        logger.info(f"Built library map: {len(heads)} pages in {(time.perf_counter() - started) * 1000:.0f} ms")
+        with self._lock:
+            labels = self._labels.copy()
+        built = build_map(heads, key, version, labeler, labels, defer_labels=True)
+        logger.info(f"Built library map: {len(heads)} pages in {(time.perf_counter() - started) * 1000:.0f} ms"
+                    + (f", {len(built.pending_labels)} topic name(s) to fetch" if built.pending_labels else ""))
         with self._lock:
             if self.version(user_id) == version:  # not invalidated while building
                 self._maps[user_id] = built
                 self._maps.move_to_end(user_id)
                 while len(self._maps) > self.max_users:
                     self._maps.popitem(last=False)
+        if built.pending_labels and labeler is not None:
+            self._label_later(user_id, built, labeler)
         return built
+
+    def _label_later(self, user_id: str, built: LibraryMap, labeler: Labeler) -> None:
+        """Ask the labeller for the map's pending topic names in the background.
+        Accepted names go into the label cache and the cached map is dropped, so
+        the next load rebuilds it (same version and ids) with the names. After a
+        failure, no call is made for LABEL_RETRY_SECONDS."""
+        with self._lock:
+            if user_id in self._labelling or time.time() < self._label_retry_at:
+                return
+            self._labelling.add(user_id)
+        pending = built.pending_labels
+        named = {p.cache_key for p in pending}
+        taken = [t["label"] for t, ck in zip(built.response["topics"], self._topic_cache_keys(built))
+                 if ck not in named]
+
+        def run():
+            try:
+                fresh = labeler([p.titles for p in pending], hints=[p.hint for p in pending], taken=taken) or []
+            except Exception as e:  # names must never break the map
+                logger.warning(f"Topic labels: Gemini call failed ({type(e).__name__}: {e})")
+                fresh = []
+            with self._lock:
+                self._labelling.discard(user_id)
+                if not any(fresh):
+                    self._label_retry_at = time.time() + LABEL_RETRY_SECONDS
+                    logger.warning(f"Topic labels: keeping keyword labels; retrying in {LABEL_RETRY_SECONDS} s")
+                    return
+                used = {label.lower() for label in taken}
+                for p, label in zip(pending, fresh):
+                    if acceptable_label(label, used):
+                        used.add(label.lower())
+                        remember_label(self._labels, p.cache_key, label)
+                    elif label:
+                        logger.warning(f"Topic labels: rejected Gemini label {label!r}; keeping {p.hint!r}")
+                entry = self._maps.get(user_id)
+                if entry is not None and entry.key == built.key:
+                    del self._maps[user_id]
+
+        self._run_later(run)
+
+    @staticmethod
+    def _topic_cache_keys(built: LibraryMap) -> list[str]:
+        return [hashlib.sha1("|".join(sorted(built.topic_page_ids(t["id"]) or [])).encode()).hexdigest()
+                for t in built.response["topics"]]
 
     def topic_page_ids(self, user_id: str, topic_id: str, solr, labeler: Labeler | None = None) -> list[str]:
         """Page ids of a topic in the current map (rebuilt if needed); StaleMap if
