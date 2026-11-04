@@ -16,6 +16,7 @@ from backend.youtube_utils import is_youtube_url, process_youtube_video
 logger = logging.getLogger(__name__)
 
 NOT_ENOUGH_TEXT = "Not enough readable text on this page"
+TOO_MANY_PAGES = "You've reached the limit of {limit:,} saved pages. Delete some to save new ones."
 
 
 class IngestError(Exception):
@@ -101,7 +102,7 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
                 canonical_url: str | None = None, is_manual: bool = False, *,
                 solr: SolrClient | None = None, timestamp: str | None = None,
                 fetch_youtube: bool = True, force: bool = False,
-                description: str | None = None) -> IngestResult:
+                description: str | None = None, max_pages: int | None = None) -> IngestResult:
     """Clean, chunk, embed and store one page for one user.
 
     Used by the API, the re-index script and the evaluation scripts. `solr`
@@ -109,7 +110,8 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
     save time, and `fetch_youtube=False` uses `text` as-is for YouTube URLs.
     `force=True` rewrites the page even when its content is unchanged (used by
     backfills), and `description` keeps an existing description instead of
-    deriving one. Raises IngestError for pages that can't be stored.
+    deriving one. `max_pages` refuses a new page (403) once the user has that
+    many. Raises IngestError for pages that can't be stored.
     """
     if not is_valid_user_id(user_id):
         raise ValueError("ingest_page needs a valid user_id")
@@ -133,7 +135,7 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
     normalized_url = normalize_url(resolve_canonical_url(url, canonical_url))
     page_id = generate_page_id(user_id, normalized_url)
     domain = urlparse(normalized_url).netloc
-    logger.info(f"Normalized URL: {normalized_url}, page_id: {page_id}")
+    logger.info(f"Saving page {page_id}")
 
     # 3. YouTube transcript, otherwise cleaned page text
     if youtube_content is not None:
@@ -150,7 +152,7 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
             and existing.get("embedding_model") == EMBEDDING_MODEL \
             and "description" in existing:
         # (Pages stored before `description` existed are re-ingested once to gain it.)
-        logger.info(f"Unchanged page: {normalized_url}")
+        logger.info(f"Unchanged page {page_id}")
         return IngestResult(
             "unchanged", "Memory already stored", page_id,
             existing.get("url") or normalized_url,
@@ -159,6 +161,8 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
             str(existing.get("timestamp") or ""),
             int(existing.get("total_chunks") or 0),
         )
+    if max_pages is not None and existing is None and solr.count_pages(user_id) >= max_pages:
+        raise IngestError(403, TOO_MANY_PAGES.format(limit=max_pages))
 
     # 5. Chunk, embed title + chunk, build docs
     chunks = chunk_text(cleaned)
@@ -193,7 +197,7 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
 
     # 6. Overwrite in place, then drop stale chunks
     solr.upsert_page_chunks(page_id, docs, user_id)
-    logger.info(f"Indexed {len(docs)} chunks for {normalized_url}")
+    logger.info(f"Indexed {len(docs)} chunks for page {page_id}")
     return IngestResult(
         "saved", "Memory stored successfully", page_id, normalized_url,
         title, domain, saved_at, len(chunks),

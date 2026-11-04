@@ -40,6 +40,8 @@ CHUNK_OVERLAP_WORDS = int(os.getenv('CHUNK_OVERLAP_WORDS', '30'))
 
 # Ingestion
 MIN_CONTENT_WORDS = 50
+# Saved pages per account; saving more is refused (updates to saved pages still work).
+MAX_PAGES_PER_USER = int(os.getenv('MAX_PAGES_PER_USER', '5000'))
 # Cognito (access tokens are verified against this pool and app client)
 COGNITO_REGION = os.getenv('COGNITO_REGION', '')
 COGNITO_USER_POOL_ID = os.getenv('COGNITO_USER_POOL_ID', '')

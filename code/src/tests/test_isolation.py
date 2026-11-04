@@ -25,6 +25,9 @@ class FakeSolr:
     def _mine(self, user_id):
         return [d for d in self.docs.values() if d["user_id"] == user_id]
 
+    def count_pages(self, user_id):
+        return len({d["page_id"] for d in self._mine(user_id)})
+
     def ping(self):
         return True
 

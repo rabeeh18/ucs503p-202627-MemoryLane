@@ -17,6 +17,7 @@ PAGE_ID = "0123456789abcdef0123456789abcdef"
 def solr():
     mock = MagicMock()
     mock.get_page_head.return_value = None
+    mock.count_pages.return_value = 0
     with patch("backend.main.get_solr_client", return_value=mock), \
          patch("backend.ingest.get_solr_client", return_value=mock):
         yield mock

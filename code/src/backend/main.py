@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from backend.auth import check_config, current_user_id
-from backend.config import CORS_ORIGINS, MIN_VECTOR_SIMILARITY
+from backend.config import CORS_ORIGINS, MAX_PAGES_PER_USER, MIN_VECTOR_SIMILARITY
 from backend.models import (
     MemoryInput, SearchInput, MemoryResponse, PageInfo, MemoryStatusResponse,
     MemoriesResponse, SearchResponse, SearchResultItem, DebugSearchResultItem,
@@ -125,7 +125,6 @@ def health_check():
 @limiter.limit("60/minute")
 def save_memory(request: Request, memory: MemoryInput, user_id: str = Depends(current_user_id)):
     """Save a webpage to the caller's memory."""
-    logger.info(f"Memory received: {memory.url}")
     try:
         result = ingest_page(
             user_id,
@@ -135,6 +134,7 @@ def save_memory(request: Request, memory: MemoryInput, user_id: str = Depends(cu
             html=memory.html,
             canonical_url=memory.canonical_url,
             is_manual=memory.is_manual,
+            max_pages=MAX_PAGES_PER_USER,
         )
     except IngestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail)

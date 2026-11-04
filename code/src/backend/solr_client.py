@@ -263,6 +263,10 @@ class SolrClient:
         })
         return [normalize_solr_doc(doc) for doc in data.get("response", {}).get("docs", [])]
 
+    def count_pages(self, user_id: str) -> int:
+        """How many pages the user has saved."""
+        return self.list_pages(user_id, limit=0)[0]
+
     def list_pages(self, user_id: str, limit: int = 20, offset: int = 0) -> tuple[int, list[dict]]:
         """The user's pages (one doc per page, chunk 0), newest first: (total, docs)."""
         data = self._select({

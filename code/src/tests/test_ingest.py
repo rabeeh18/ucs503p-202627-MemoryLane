@@ -124,6 +124,23 @@ def test_canonical_url_resolution():
     assert result.url == "https://example.com/blog/post-2"
 
 
+def test_new_pages_are_refused_at_the_page_limit():
+    solr = _solr()
+    solr.count_pages.return_value = 3
+    with pytest.raises(IngestError) as exc:
+        ingest_page("u", "https://example.com/new", "T", TEXT, solr=solr, max_pages=3)
+    assert exc.value.status_code == 403
+    assert "limit of 3 saved pages" in exc.value.detail
+    solr.upsert_page_chunks.assert_not_called()
+
+
+def test_saved_pages_can_still_be_updated_at_the_limit():
+    solr = _solr({"content_hash": "old", "embedding_model": ingest.EMBEDDING_MODEL})
+    solr.count_pages.return_value = 3
+    assert ingest_page("u", "https://example.com/a", "T", TEXT, solr=solr, max_pages=3).status == "saved"
+    solr.count_pages.assert_not_called()
+
+
 REDDIT_POST = "https://www.reddit.com/r/python/comments/abc123/some_post_title/"
 
 

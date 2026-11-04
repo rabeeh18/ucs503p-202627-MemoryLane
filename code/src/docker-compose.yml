@@ -1,8 +1,17 @@
 # MemoryLane on one host: Solr + FastAPI + Caddy (HTTPS, static frontend, /api proxy).
 # Run from code/src with a filled-in .env (see .env.example and deploy/README.md).
+
+# Container logs are capped (3 files of 10 MB per service) so they can't fill the disk.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   solr:
     image: solr:9.7
+    logging: *logging
     environment:
       SOLR_HEAP: ${SOLR_HEAP:-1g}
     volumes:
@@ -22,6 +31,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
+    logging: *logging
     env_file: .env
     environment:
       SOLR_URL: http://solr:8983/solr/memorylane_v2
@@ -42,6 +52,7 @@ services:
         VITE_COGNITO_CLIENT_ID: ${VITE_COGNITO_CLIENT_ID}
         VITE_REDIRECT_URI: ${VITE_REDIRECT_URI}
         VITE_LOGOUT_URI: ${VITE_LOGOUT_URI}
+    logging: *logging
     environment:
       DOMAIN: ${DOMAIN}
       COGNITO_DOMAIN: ${VITE_COGNITO_DOMAIN}
