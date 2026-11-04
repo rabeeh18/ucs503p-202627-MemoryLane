@@ -124,6 +124,37 @@ def test_canonical_url_resolution():
     assert result.url == "https://example.com/blog/post-2"
 
 
+REDDIT_POST = "https://www.reddit.com/r/python/comments/abc123/some_post_title/"
+
+
+@pytest.mark.parametrize("url,canonical,expected", [
+    # Single-page apps keep the first page's canonical: never use a parent of the page
+    (REDDIT_POST, "https://www.reddit.com/", REDDIT_POST),
+    (REDDIT_POST, "https://www.reddit.com/r/python/", REDDIT_POST),
+    ("https://example.com/?p=42", "https://example.com/", "https://example.com/?p=42"),
+    # Other sites are not trusted
+    ("https://dev.to/a/post", "https://someblog.example/post", "https://dev.to/a/post"),
+    # Legitimate canonicals still apply
+    (REDDIT_POST, "https://www.reddit.com/r/python/comments/abc123/some_post_title/",
+     "https://www.reddit.com/r/python/comments/abc123/some_post_title/"),
+    ("https://old.reddit.com/r/python/comments/abc123/x/", "https://www.reddit.com/r/python/comments/abc123/x/",
+     "https://www.reddit.com/r/python/comments/abc123/x/"),
+    ("https://m.example.com/news/story", "https://example.com/news/story", "https://example.com/news/story"),
+    ("https://example.com/amp/story", "https://example.com/story", "https://example.com/story"),
+    ("https://example.com/", "https://example.com/", "https://example.com/"),
+])
+def test_canonical_url_is_only_trusted_on_the_same_site_and_not_a_parent(url, canonical, expected):
+    assert ingest.resolve_canonical_url(url, canonical) == expected
+
+
+def test_different_reddit_posts_get_different_pages_despite_a_stale_canonical():
+    a = ingest_page("u", REDDIT_POST, "A", TEXT, canonical_url="https://www.reddit.com/", solr=_solr())
+    b = ingest_page("u", "https://www.reddit.com/r/python/comments/def456/other/", "B", TEXT,
+                    canonical_url="https://www.reddit.com/", solr=_solr())
+    assert a.page_id != b.page_id
+    assert a.url == "https://reddit.com/r/python/comments/abc123/some_post_title"
+
+
 def test_youtube_transcript_skips_cleaning_and_word_minimum():
     solr = _solr()
     content = "Title: YT\nChannel: C\nDuration: 60 seconds\nSource: YouTube\n\nhello world"

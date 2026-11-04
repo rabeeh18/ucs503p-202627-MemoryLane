@@ -63,13 +63,34 @@ def page_vector(embeddings: list[list[float]]) -> list[float]:
     return [x / norm for x in mean]
 
 
+def _same_site(a: str, b: str) -> bool:
+    """Hosts are equal ignoring `www.`, or one is a subdomain of the other
+    (m.example.com and example.com, old.reddit.com and www.reddit.com)."""
+    a, b = a.lower().removeprefix("www."), b.lower().removeprefix("www.")
+    return a == b or a.endswith("." + b) or b.endswith("." + a)
+
+
+def _is_ancestor(canonical, page) -> bool:
+    """The canonical path is a parent of the page's path, or the site root of a
+    page that has a path or query. Single-page apps (Reddit, for one) keep the
+    canonical of the first page loaded while the address changes."""
+    canon = [s for s in canonical.path.split("/") if s]
+    path = [s for s in page.path.split("/") if s]
+    if not canon:
+        return bool(path or page.query)
+    return len(canon) < len(path) and path[:len(canon)] == canon
+
+
 def resolve_canonical_url(url: str, canonical_url: str | None) -> str:
-    """Use the page's canonical URL (resolved against url) when it is a valid http(s) URL."""
+    """Use the page's canonical URL (resolved against url) when it is a valid
+    http(s) URL on the same site that isn't a parent of the page itself;
+    otherwise the page's own URL."""
     if canonical_url and canonical_url.strip():
         try:
             resolved = urljoin(url, canonical_url.strip())
-            parsed = urlparse(resolved)
-            if parsed.scheme in ("http", "https") and parsed.netloc:
+            parsed, page = urlparse(resolved), urlparse(url)
+            if (parsed.scheme in ("http", "https") and parsed.hostname and page.hostname
+                    and _same_site(parsed.hostname, page.hostname) and not _is_ancestor(parsed, page)):
                 return resolved
         except Exception:
             pass
