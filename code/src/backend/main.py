@@ -30,6 +30,20 @@ from backend.url_utils import normalize_url, generate_page_id
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
+class DropQueryStrings(logging.Filter):
+    """Uvicorn's access log without query strings: they hold the URLs people
+    save (/memory/status?url=...) and what they search for (/map/search?q=...)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        args = record.args
+        if isinstance(args, tuple) and len(args) >= 3 and isinstance(args[2], str) and "?" in args[2]:
+            record.args = (*args[:2], args[2].split("?", 1)[0], *args[3:])
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(DropQueryStrings())
+
 _PAGE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 
 

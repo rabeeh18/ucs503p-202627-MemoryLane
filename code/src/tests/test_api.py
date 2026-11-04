@@ -60,6 +60,16 @@ def test_health_contract(client):
     assert data["gemini"] is False
 
 
+def test_access_log_drops_query_strings():
+    import logging
+    from backend.main import DropQueryStrings
+    record = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "%s %s HTTP/%s" %d',
+                               ("1.2.3.4:5", "GET", "/memory/status?url=https://secret.example/x", "1.1", 200), None)
+    assert DropQueryStrings().filter(record)
+    assert record.getMessage() == '1.2.3.4:5 - "GET /memory/status HTTP/1.1" 200'
+    assert any(isinstance(f, DropQueryStrings) for f in logging.getLogger("uvicorn.access").filters)
+
+
 def test_health_is_public(client):
     app.dependency_overrides.clear()
     with patch("backend.main.get_solr_client"):
