@@ -1303,6 +1303,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#find-a-topic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Find a topic
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#performance" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1789,11 +1800,14 @@
 <h3 id="outliers">Outliers<a class="headerlink" href="#outliers" title="Permanent link">&para;</a></h3>
 <p>A page whose cosine similarity to its topic centre is below <code>MAP_OUTLIER_SIMILARITY</code> (0.35) is left unclustered. So is a whole "topic" whose pages don't hang together (mean pairwise similarity below 0.35²). Unclustered pages are drawn between the topics they are closest to.</p>
 <h2 id="topic-names">Topic names<a class="headerlink" href="#topic-names" title="Permanent link">&para;</a></h2>
+<p>The map never waits for Gemini:</p>
 <ol>
-<li><strong>Gemini</strong>, in one call for the whole map: for each topic it sees up to 10 page titles, a keyword hint, and the names already taken. It is asked for distinct, specific names of 1–3 words. Generic names ("Articles", "Resources", ...) and duplicates are rejected.</li>
-<li><strong>Fallback</strong>: c-TF-IDF over the unigrams and bigrams of each topic's titles and descriptions, with generic words and title filler removed, made into distinct Title Case names.</li>
+<li>A topic whose pages already have a name (cached by topic membership) keeps it.</li>
+<li>Any other topic first shows a <strong>keyword name</strong>: c-TF-IDF over the unigrams and bigrams of its titles and descriptions, with generic words and title filler removed, made into distinct Title Case names.</li>
+<li>Those topics are then named by <strong>Gemini in the background</strong>, in one call on a single worker thread (30 s limit). For each topic it sees up to 10 page titles, a keyword hint, and the names already taken, and is asked for distinct, specific names of 1–3 words. Generic names ("Articles", "Resources", ...) and duplicates are rejected.</li>
+<li>Accepted names are cached and the cached map is dropped, so the next load rebuilds it with them (same version and topic ids).</li>
 </ol>
-<p>Every fallback is logged at WARNING. Names are cached by topic membership, so an unchanged topic keeps its name and costs no Gemini call.</p>
+<p>After a failed Gemini call no new call is made for 10 minutes, and every fallback is logged at WARNING.</p>
 <h2 id="layout">Layout<a class="headerlink" href="#layout" title="Permanent link">&para;</a></h2>
 <p>All coordinates are in a 0–1 box, drawn into a 1400 × 900 world:</p>
 <ul>
@@ -1808,7 +1822,15 @@
 <li><strong>Between topics</strong>: topics whose centres have cosine similarity above <code>MAP_CROSS_TOPIC_SIMILARITY</code> (0.65) get a dashed oval-to-oval link, at most 2 per topic, strongest first.</li>
 </ul>
 <h2 id="caching-and-freshness">Caching and freshness<a class="headerlink" href="#caching-and-freshness" title="Permanent link">&para;</a></h2>
-<p><code>MapService</code> keeps an LRU of up to 50 users' maps for 10 minutes. Saving or deleting a page invalidates that user's map, and each map has a <code>version</code>. <code>GET /map/search</code> and topic-filtered search use the cached map; if the version a client holds is gone, topic search returns <code>409</code>.</p>
+<p><code>MapService</code> keeps an LRU of up to 50 users' maps for 10 minutes, with vectors as float32. Saving or deleting a page invalidates that user's map.</p>
+<p>A map's <code>version</code>, and so its topic ids, is a hash of the pages it was built from (their ids and save times, and the embedding model). Rebuilding the same pages, after the cache expires or a restart, gives the same ids, so ids a client holds stay valid. Topic-filtered search rebuilds the map if needed and returns <code>409</code> only when the topic is gone because the pages changed. The Map page reloads the map when Find a topic answers for a newer version.</p>
+<h2 id="find-a-topic">Find a topic<a class="headerlink" href="#find-a-topic" title="Permanent link">&para;</a></h2>
+<p><code>GET /map/search</code> ranks the topics for a query:</p>
+<ol>
+<li>Topics <strong>named like the query</strong> come first: an exact name scores 2, a name whose words all match the query's (by prefix) scores 1.</li>
+<li>The query then runs through the normal <a href="../retrieval/">hybrid search</a> (top 20, no snippets). Each result votes for its topic with <span class="arithmatex">\(1 / (60 + \text{rank})\)</span>, and a topic adds its share of the votes (0–1).</li>
+</ol>
+<p>So a topic wins by holding the query's best search results, not by having one page that happens to sit close to the query. The response's <code>pages</code> are those results, which the map highlights.</p>
 <h2 id="performance">Performance<a class="headerlink" href="#performance" title="Permanent link">&para;</a></h2>
 <p>Building a 2,000-page map takes about 0.2 s on a laptop, most of it k-means. The web app keeps the canvas readable and cheap to draw by dimming dots in libraries over 150 pages until you zoom past 1.6×, and by drawing only the links that matter for the current hover or selection.</p>
 

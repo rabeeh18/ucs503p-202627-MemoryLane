@@ -1479,6 +1479,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#continuous-integration" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Continuous integration
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#retrieval-quality" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1706,7 +1717,7 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>code/src
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>pytest<span class="w"> </span>tests/<span class="w"> </span>-v
 </span></code></pre></div>
-<p>The tests need no running Solr, Cognito or Gemini. Solr is replaced by an in-memory fake or a mock, <code>test_auth.py</code> signs its own tokens with a throwaway RSA key, other API tests override the signed-in user, and embeddings are stubbed.</p>
+<p>Install the test tools with <code>pip install -r requirements-dev.txt</code>. The tests need no running Solr, Cognito or Gemini (the test setup clears <code>GEMINI_API_KEY</code>, so they never call it). Solr is replaced by an in-memory fake or a mock, <code>test_auth.py</code> signs its own tokens with a throwaway RSA key, other API tests override the signed-in user, and embeddings are stubbed.</p>
 <table>
 <thead>
 <tr>
@@ -1783,6 +1794,8 @@
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>npm<span class="w"> </span>run<span class="w"> </span>check<span class="w">     </span><span class="c1"># svelte-check (types and Svelte diagnostics)</span>
 </span></code></pre></div>
 <p>Unit tests cover the pure modules in <code>src/lib/</code>: map geometry and state (<code>mapView.test.js</code>), delete-with-undo (<code>deletes.test.js</code>) and domain letters (<code>domain.test.js</code>).</p>
+<h2 id="continuous-integration">Continuous integration<a class="headerlink" href="#continuous-integration" title="Permanent link">&para;</a></h2>
+<p><code>.github/workflows/ci.yml</code> runs the backend tests and the frontend tests and checks on every push and pull request. <code>.github/workflows/mkdocs.yml</code> publishes this documentation to GitHub Pages on every push to <code>master</code>.</p>
 <h2 id="retrieval-quality">Retrieval quality<a class="headerlink" href="#retrieval-quality" title="Permanent link">&para;</a></h2>
 <p>Retrieval quality is measured separately, with the <a href="../../evaluation/methodology/">SciFact evaluation</a>, because it needs a real Solr core and the embedding model.</p>
 <h2 id="manual-check">Manual check<a class="headerlink" href="#manual-check" title="Permanent link">&para;</a></h2>

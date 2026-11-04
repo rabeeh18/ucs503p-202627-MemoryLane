@@ -1705,11 +1705,11 @@
 <p>All of this happens in one function, <code>ingest_page</code> (<code>backend/ingest.py</code>). It is shared by the API, the re-index and backfill scripts and the evaluation.</p>
 <ol>
 <li>Take the user id from the verified token (never from the request).</li>
-<li>Prefer the canonical URL, then <a href="../processing/#url-normalisation">normalise</a> it.</li>
+<li>Prefer the canonical URL if it's on the same site and isn't a parent of the page (single-page apps such as Reddit keep a stale one), then <a href="../processing/#url-normalisation">normalise</a> it.</li>
 <li>Compute <code>page_id = sha256(user_id | normalised URL)[:32]</code>.</li>
 <li><strong>YouTube</strong>: fetch the transcript and metadata instead of using the page (see <a href="../../user-guide/youtube/">YouTube Videos</a>).</li>
 <li><strong>Other pages</strong>: extract the main text from the HTML with trafilatura. If that fails, use the extension's text.</li>
-<li>Reject the page with <code>422</code> if it has fewer than 50 words.</li>
+<li>Reject the page with <code>422</code> if it has fewer than 50 words, and a new page with <code>403</code> once the account has reached its page limit (5,000 by default).</li>
 <li>If the page is already stored with the same content hash and embedding model, return <code>unchanged</code> and do nothing.</li>
 <li>Chunk, embed, compute the page vector and description.</li>
 <li>Upsert the chunks as <code>{page_id}::{n}</code>, then delete any higher-numbered chunks left from an older, longer version.</li>

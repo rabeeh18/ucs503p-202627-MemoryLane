@@ -1769,7 +1769,8 @@
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--build
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>backend
 </span></code></pre></div>
-<p>Rebuilding the backend clears its in-memory map and label caches. Maps are rebuilt on the next request.</p>
+<p>Rebuilding the backend clears its in-memory map and label caches. Maps are rebuilt on the next request, with keyword topic names until Gemini's arrive in the background. Topic ids stay the same.</p>
+<p>Container logs are capped at 3 files of 10 MB per service. They contain page ids, not the URLs people save.</p>
 <h3 id="schema-changes">Schema changes<a class="headerlink" href="#schema-changes" title="Permanent link">&para;</a></h3>
 <p>Solr's automatic field creation is turned off, so a new field has to exist <strong>before</strong> the backend that writes it is deployed:</p>
 <table>

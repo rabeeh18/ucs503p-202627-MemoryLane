@@ -1719,7 +1719,7 @@
 </ul>
 <h2 id="what-is-stored">What is stored<a class="headerlink" href="#what-is-stored" title="Permanent link">&para;</a></h2>
 <p>For each page you save: its URL, title, cleaned text, a short description, the time you saved it, and the embeddings used for search and for the map.</p>
-<p>The data lives in Solr on the MemoryLane server (AWS, Mumbai region). Solr is bound to the server's localhost and is not reachable from the internet; only Caddy (HTTPS) is public.</p>
+<p>The data lives in Solr on the MemoryLane server (AWS, Mumbai region). The server's logs record page ids, not the URLs you save. Solr is bound to the server's localhost and is not reachable from the internet; only Caddy (HTTPS) is public.</p>
 <h2 id="automatic-capture">Automatic capture<a class="headerlink" href="#automatic-capture" title="Permanent link">&para;</a></h2>
 <p>Automatic capture is <strong>off by default</strong>. It only runs when you're signed in and have turned it on in the extension. Even then, the extension skips:</p>
 <ul>
@@ -1738,7 +1738,7 @@
 <p>Gemini is optional. When the server has a Gemini key:</p>
 <ul>
 <li><strong>Summaries:</strong> the text of one page is sent when you press <strong>Summarise</strong> on that result.</li>
-<li><strong>Map topic names:</strong> when your map is built, the titles of a sample of pages in each topic (and a few keywords) are sent once so the topics get readable names. Names are cached, so this only happens again when a topic's pages change.</li>
+<li><strong>Map topic names:</strong> when a topic has no name yet, up to 10 of its page titles (and a few keywords) are sent once, in the background, so it gets a readable name. Names are cached, so this only happens again when a topic's pages change.</li>
 </ul>
 <p>Without a key, summaries are turned off and the map names topics from their keywords instead. Nothing else leaves the server.</p>
 <h2 id="export-or-delete">Export or delete<a class="headerlink" href="#export-or-delete" title="Permanent link">&para;</a></h2>
