@@ -42,9 +42,9 @@ Save a page, or update it if it's already saved. Rate limit: 60/minute.
 }
 ```
 
-`status` is `saved`, `unchanged` (same text as before) or `skipped` (e.g. a YouTube video that can't be saved). A page with fewer than 50 words gets `422`. A new page once the account has `MAX_PAGES_PER_USER` pages (5,000 by default) gets `403`; saved pages still update.
+`status` is `saved`, `unchanged` (same text as before) or `skipped` (e.g. a YouTube video that can't be saved). An address that isn't `http` or `https` (such as `javascript:` or `file:`) gets `400`. A page with fewer than 50 words gets `422`. Titles over 500 characters are shortened. A new page once the account has `MAX_PAGES_PER_USER` pages (5,000 by default) gets `403`; saved pages still update.
 
-The canonical URL is used only when it's on the same site and isn't a parent of the page. Single-page apps such as Reddit keep the first page's canonical while the address changes.
+The canonical URL is used only when it's on the same site and isn't a parent of the page. Single-page apps such as Reddit keep the first page's canonical while the address changes, so the extension also drops a canonical that doesn't describe the current page (see [Capturing Web Content](../how-it-works/ingestion.md)).
 
 ---
 

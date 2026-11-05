@@ -189,6 +189,7 @@
             placeholder="Find a topic…"
             autocomplete="off"
             spellcheck="false"
+            maxlength="500"
             bind:value={findQuery}
             on:input={onFindInput}
             on:keydown={onFindKeydown}

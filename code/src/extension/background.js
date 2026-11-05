@@ -26,11 +26,26 @@ async function getSettings() {
 
 function errorMessage(err) {
     if (err instanceof ApiError) {
-        if (err.status === 422) return "Not enough readable text on this page";
         if (err.status === 429) return "Saving too fast. Try again in a moment.";
         if (err.status === 0) return err.message;
+        // The server's own explanation: not enough text, page limit reached, not a web page.
+        const explained = err.message && err.message !== "Request failed";
+        if ([400, 403, 422].includes(err.status) && explained) return err.message;
+        if (err.status === 422) return "This page couldn't be saved. Its address or content may be too long.";
     }
     return "Couldn't save this page. Try again.";
+}
+
+const MAX_TITLE_CHARS = 2000;
+
+/** The tab's canonical URL (see canonical.js), or null. */
+async function tabCanonical(tabId) {
+    try {
+        const [injection] = await chrome.scripting.executeScript({ target: { tabId }, files: ["canonical.js"] });
+        return (injection && injection.result) || null;
+    } catch (_err) {
+        return null; // pages extensions can't script
+    }
 }
 
 function isOwnSite(url) {
@@ -41,7 +56,7 @@ async function extractTabContent(tabId) {
     try {
         const [injection] = await chrome.scripting.executeScript({
             target: { tabId },
-            files: ["content.js"],
+            files: ["canonical.js", "content.js"],
         });
         const result = injection && injection.result;
         if (result) {
@@ -86,7 +101,7 @@ async function saveTab(tab, { manual }) {
             method: "POST",
             body: {
                 url: tab.url,
-                title: tab.title || tab.url,
+                title: (tab.title || tab.url).slice(0, MAX_TITLE_CHARS),
                 content: text,
                 html,
                 canonical_url: canonicalUrl,
@@ -133,7 +148,11 @@ async function popupState() {
         return state;
     }
     try {
-        state.status = await apiFetch(`/memory/status?url=${encodeURIComponent(tab.url)}`);
+        // Pages are saved under their canonical URL, so check with it too.
+        const params = new URLSearchParams({ url: tab.url });
+        const canonical = await tabCanonical(tab.id);
+        if (canonical) params.set("canonical_url", canonical);
+        state.status = await apiFetch(`/memory/status?${params}`);
     } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
             state.signedIn = false;
@@ -224,6 +243,8 @@ const handlers = {
             return { ok: true };
         } catch (err) {
             if (err instanceof ApiError && err.status === 401) return { ok: false, reason: "signed-out" };
+            // Already deleted (e.g. from the website): that's what was asked for.
+            if (err instanceof ApiError && err.status === 404) return { ok: true };
             return { ok: false, error: "Couldn't remove the page. Try again." };
         }
     },

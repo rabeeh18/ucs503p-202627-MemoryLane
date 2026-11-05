@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MemoryLane",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Save pages as you browse and find them later by meaning.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1+Dnd2SCjm8guR8brySusn0tcVEah9hd92Bw+hxa4NjP1wLZr48rhZovmikPAL+T3nXXXfe4GNsML4MHB1BpIW3p0fOefoC/BQHzFFfnuPSra3oRGjoRhyh+pP9YTmUOq0pK14KNAgpoIwlKaTJaBS4+c3yBKHDOZR91YEpxyyMpCJH1h5ZZBp7knafISYuiqRljqRfd4KM9QBakYDfUN1pYM5ng1GGs4XrJQ/91ZcyRBZVvPaDP/IwTaMrMCoRSnIwo+lkhdVO6dZ6s+vCNgV/STLCrNRq0YyVyXOprmcHth+OyCxwPVSuWwKjanGMq5DQU5WJjEDt9schD2K65oQIDAQAB",
   "permissions": [

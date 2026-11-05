@@ -6,7 +6,8 @@
   import Kbd from '../components/Kbd.svelte';
   import { fetchSummary, search } from '../api.js';
   import { navigate } from '../lib/router.js';
-  import { results, resultsError, resultsLoading, searchQuery } from '../stores';
+  import { openPage } from '../lib/url.js';
+  import { libraryVersion, results, resultsError, resultsLoading, searchQuery } from '../stores';
   import { hiddenPageIds, pageDeletes } from '../pageDeletes.js';
   import { loadMap, topicById } from '../mapStore.js';
 
@@ -101,7 +102,7 @@
     }
   }
 
-  $: run(query, topic);
+  $: $libraryVersion, run(query, topic);
   $: if (topic) topicGone = false;
   onDestroy(() => controller?.abort());
 
@@ -182,7 +183,7 @@
       const result = visible[selected];
       if (result && !(event.target instanceof HTMLButtonElement)) {
         event.preventDefault();
-        window.open(result.url, '_blank', 'noopener');
+        openPage(result.url);
       }
     } else if (event.key === 's' && !typing) {
       const result = visible[selected];

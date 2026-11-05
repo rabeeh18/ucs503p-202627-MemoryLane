@@ -3,7 +3,8 @@ from pydantic import BaseModel, Field
 
 class MemoryInput(BaseModel):
     url: str = Field(max_length=2048)
-    title: str = Field(max_length=500)
+    # A page without a title sends its URL instead; ingest shortens it to 500.
+    title: str = Field(max_length=2048)
     content: str = Field(max_length=500_000)
     html: Optional[str] = Field(default=None, max_length=3_000_000)
     canonical_url: Optional[str] = Field(default=None, max_length=2048)

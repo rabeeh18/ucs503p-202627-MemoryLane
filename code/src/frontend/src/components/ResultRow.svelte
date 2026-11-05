@@ -3,6 +3,7 @@
   import LetterTile from './LetterTile.svelte';
   import { highlight } from '../lib/highlight.js';
   import { relativeTime } from '../lib/time.js';
+  import { safeUrl } from '../lib/url.js';
 
   /** @type {{ id: string, url: string, title: string, domain: string, timestamp: string, snippet: string | null }} */
   export let result;
@@ -76,7 +77,7 @@
       <span class="mono when">{relativeTime(result.timestamp)}</span>
     </div>
     <h2 class="title">
-      <a bind:this={titleLink} href={result.url} target="_blank" rel="noopener noreferrer">
+      <a bind:this={titleLink} href={safeUrl(result.url)} target="_blank" rel="noopener noreferrer">
         {result.title || result.url}
       </a>
     </h2>

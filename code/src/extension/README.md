@@ -26,7 +26,8 @@ The matching private key is **not** in the repo (it's in `code/src/.secrets/`, w
 | `background.js` | Service worker (ES module): sign-in, save, undo, auto-capture, excluded sites, `Alt+Shift+M` → website |
 | `auth.js` | Cognito PKCE via `chrome.identity.launchWebAuthFlow`; tokens in `chrome.storage.local`; refresh when under 60 s remain |
 | `api.js` | Bearer-token fetch; 401 → refresh once → retry → signed out |
-| `content.js` | Injected on demand; returns `{html, text, canonicalUrl}` |
+| `canonical.js` | Injected on demand; the page's canonical URL, if it describes the current page (single-page apps keep stale ones) |
+| `content.js` | Injected on demand after `canonical.js`; returns `{html, text, canonicalUrl}`, text capped to the API's 500,000 characters |
 | `page_filter.js` | Auto-capture eligibility, saveable pages, host normalisation and exclusions |
 | `site_marker.js` | Content script on `https://memorylane.site/*` only: sets `data-memorylane-extension="installed"` on `<html>` so the site hides "Get the extension" |
 | `domain.js` | Tile letter from the main domain name (same code as `frontend/src/lib/domain.js`, tested there) |

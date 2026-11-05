@@ -263,3 +263,25 @@ def test_clean_title_drops_unread_count():
     assert clean_title("(12+) Inbox") == "Inbox"
     assert clean_title("Chapter (3) of the guide") == "Chapter (3) of the guide"
     assert clean_title("(1)") == "(1)"
+
+
+@pytest.mark.parametrize("url", [
+    "javascript:alert(1)", "file:///etc/passwd", "chrome://settings", "data:text/html,hi",
+    "ftp://example.com/a", "not a url", "https://", "https:///path", "//example.com/x",
+    "https://exa mple.com/x",
+])
+def test_only_web_addresses_can_be_saved(url):
+    with pytest.raises(IngestError) as e:
+        ingest_page("u", url, "T", TEXT, solr=_solr())
+    assert e.value.status_code == 400
+
+
+def test_web_addresses_are_accepted():
+    assert ingest_page("u", " HTTPS://Example.com/Path ", "T", TEXT, solr=_solr()).status == "saved"
+    assert ingest_page("u", "http://localhost:5173/", "T", TEXT, solr=_solr()).status == "saved"
+
+
+def test_long_titles_are_shortened():
+    long_url = "https://example.com/search?q=" + "x" * 1500
+    result = ingest_page("u", long_url, long_url, TEXT, solr=_solr())
+    assert len(result.title) == 500 and result.title.endswith("…")

@@ -15,9 +15,9 @@ export class ApiError extends Error {
   }
 }
 
-async function send(path, { method = 'GET', body, signal, token, keepalive = false }) {
+async function send(path, { method = 'GET', body, signal, token, keepalive = false, timeoutMs = TIMEOUT_MS }) {
   const timeout = new AbortController();
-  const timer = setTimeout(() => timeout.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => timeout.abort(), timeoutMs);
   const onAbort = () => timeout.abort();
   signal?.addEventListener('abort', onAbort);
   try {
@@ -47,7 +47,7 @@ async function send(path, { method = 'GET', body, signal, token, keepalive = fal
 
 /**
  * @param {string} path
- * @param {{ method?: string, body?: unknown, signal?: AbortSignal, raw?: boolean, keepalive?: boolean }} [opts]
+ * @param {{ method?: string, body?: unknown, signal?: AbortSignal, raw?: boolean, keepalive?: boolean, timeoutMs?: number }} [opts]
  */
 async function request(path, opts = {}) {
   let token = await getAccessToken();
@@ -78,8 +78,11 @@ async function request(path, opts = {}) {
 }
 
 /** @returns {Promise<{ query: string, results: Array<{ rank: number, id: string, url: string, title: string, domain: string, timestamp: string, snippet: string | null }> }>} */
+/** The API's longest query; a longer one (a hand-edited ?q= link) is cut, not refused. */
+const MAX_QUERY_CHARS = 500;
+
 export function search(query, signal, { topic = null } = {}) {
-  const body = { query, num_results: 10, summarize: false };
+  const body = { query: query.slice(0, MAX_QUERY_CHARS), num_results: 10, summarize: false };
   if (topic) body.topic = topic;
   return request('/search', { method: 'POST', body, signal });
 }
@@ -91,7 +94,7 @@ export function getMap(signal) {
 
 /** Topics and pages of the map close to `q` in meaning. */
 export function mapSearch(q, signal) {
-  return request(`/map/search?q=${encodeURIComponent(q)}`, { signal });
+  return request(`/map/search?q=${encodeURIComponent(q.slice(0, MAX_QUERY_CHARS))}`, { signal });
 }
 
 /** Up to `k` of the user's pages most similar to one page. */
@@ -111,7 +114,7 @@ export function fetchSummary({ query, id }) {
 
 /** Download every saved page as a JSON file. */
 export async function exportData() {
-  const response = await request('/me/export', { raw: true });
+  const response = await request('/me/export', { raw: true, timeoutMs: 120000 });
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

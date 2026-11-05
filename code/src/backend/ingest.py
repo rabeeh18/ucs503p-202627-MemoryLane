@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 NOT_ENOUGH_TEXT = "Not enough readable text on this page"
 TOO_MANY_PAGES = "You've reached the limit of {limit:,} saved pages. Delete some to save new ones."
+NOT_A_WEB_PAGE = "Only web pages (http or https addresses) can be saved"
+MAX_TITLE_CHARS = 500
 
 
 class IngestError(Exception):
@@ -88,9 +90,22 @@ _UNREAD_COUNT = re.compile(r"^\s*\(\d+\+?\)\s+")
 
 
 def clean_title(title: str) -> str:
-    """The page title without an unread count in front."""
-    cleaned = _UNREAD_COUNT.sub("", title or "").strip()
-    return cleaned or (title or "").strip()
+    """The page title without an unread count in front, at most MAX_TITLE_CHARS."""
+    cleaned = _UNREAD_COUNT.sub("", title or "").strip() or (title or "").strip()
+    if len(cleaned) > MAX_TITLE_CHARS:
+        cleaned = cleaned[:MAX_TITLE_CHARS - 1].rstrip() + "…"
+    return cleaned
+
+
+def is_web_url(url: str) -> bool:
+    """An http(s) address with a host. Anything else (javascript:, file:, chrome:,
+    data:, ...) would be unsafe or useless as a link in the library."""
+    try:
+        parsed = urlparse((url or "").strip())
+        return parsed.scheme.lower() in ("http", "https") and bool(parsed.hostname) \
+            and not any(c.isspace() for c in parsed.netloc)
+    except ValueError:
+        return False
 
 
 def resolve_canonical_url(url: str, canonical_url: str | None) -> str:
@@ -128,6 +143,9 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
         raise ValueError("ingest_page needs a valid user_id")
     if not url or not url.strip():
         raise IngestError(400, "URL is required")
+    url = url.strip()
+    if not is_web_url(url):
+        raise IngestError(400, NOT_A_WEB_PAGE)
     solr = solr or get_solr_client()
     domain = urlparse(url).netloc
 

@@ -11,6 +11,7 @@
   // selected topic and the selected page; related topics get one dashed link
   // between their ovals; big libraries start dim and brighten as you zoom in.
   import { createEventDispatcher, onDestroy } from 'svelte';
+  import { openPage } from '../../lib/url.js';
   import {
     WORLD, clampView, contentBounds, detailLevel, dotRadius, dotState, easeInOut, fitBounds, fitScale,
     lerpView, neighboursOf, ovalLink, panBy, panIntoView, toScreen, toWorld, viewForTopic, visibleEdges, zoomAt,
@@ -207,7 +208,7 @@
   function onDoubleClick(event) {
     const pageId = event.target?.closest?.('[data-page]')?.dataset.page;
     const page = pageId && pagesById.get(pageId);
-    if (page) window.open(page.url, '_blank', 'noopener');
+    if (page) openPage(page.url);
   }
 
   function selectPage(pageId) {

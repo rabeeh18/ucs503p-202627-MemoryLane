@@ -1,9 +1,12 @@
 // The app's single delete queue (see lib/deletes.js).
-import { deletePage } from './api.js';
+import { ApiError, deletePage } from './api.js';
 import { createDeleteQueue } from './lib/deletes.js';
 
 export const pageDeletes = createDeleteQueue({
-  remove: (pageId, opts) => deletePage(pageId, opts),
+  remove: (pageId, opts) => deletePage(pageId, opts).catch((err) => {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  }),
 });
 
 /** Ids of pages hidden because they were deleted (or are about to be). */

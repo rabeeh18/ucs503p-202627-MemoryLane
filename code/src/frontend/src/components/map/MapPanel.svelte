@@ -7,6 +7,7 @@
   import { fetchSummary, getRelated } from '../../api.js';
   import { link } from '../../lib/router.js';
   import { relativeTime } from '../../lib/time.js';
+  import { safeUrl } from '../../lib/url.js';
 
   /** { mode, pageId, topicId } */
   export let panel;
@@ -109,7 +110,7 @@
         <h2 class="title">{page.title}</h2>
         <p class="meta">{page.domain}{page.domain && saved(page.saved_at) ? ' · ' : ''}{saved(page.saved_at)}</p>
         <div class="actions">
-          <a class="btn btn-primary" href={page.url} target="_blank" rel="noopener noreferrer">Open page</a>
+          <a class="btn btn-primary" href={safeUrl(page.url)} target="_blank" rel="noopener noreferrer">Open page</a>
           <button type="button" class="btn btn-outline" aria-expanded={summary.open} on:click={toggleSummary}>
             {summary.open ? 'Hide summary' : 'Summarise'}
           </button>

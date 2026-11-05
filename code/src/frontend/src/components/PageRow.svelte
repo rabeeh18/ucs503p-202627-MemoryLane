@@ -3,13 +3,14 @@
   import TrashIcon from './TrashIcon.svelte';
   import { relativeTime } from '../lib/time.js';
   import { pageDeletes } from '../pageDeletes.js';
+  import { safeUrl } from '../lib/url.js';
 
   /** @type {{ id: string, url: string, title: string, domain: string, timestamp: string }} */
   export let page;
 </script>
 
 <li class="row">
-  <a class="link" href={page.url} target="_blank" rel="noopener noreferrer">
+  <a class="link" href={safeUrl(page.url)} target="_blank" rel="noopener noreferrer">
     <LetterTile domain={page.domain || page.url} />
     <span class="text">
       <span class="title-line">

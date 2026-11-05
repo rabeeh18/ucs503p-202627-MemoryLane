@@ -246,3 +246,31 @@ def test_new_scoped_calls_reject_malformed_user_ids(bad):
             call()
     solr.client.get.assert_not_called()
     solr.client.post.assert_not_called()
+
+
+def test_escape_query_makes_syntax_plain_text():
+    from backend.solr_client import escape_query
+    assert escape_query('"unbalanced (paren') == r'\"unbalanced \(paren'
+    assert escape_query("a:b *?") == r"a\:b \*\?"
+    assert escape_query("AND OR NOT cats") == "and or not cats"
+    assert escape_query("c++ && rust || go") == r"c\+\+ \&& rust \|| go"
+
+
+def test_bm25_retries_as_plain_text_when_solr_rejects_the_syntax():
+    import httpx
+    from backend.solr_client import SolrClient
+    client = SolrClient("http://solr/core")
+    bad = httpx.Response(400, request=httpx.Request("GET", "http://solr/core/select"))
+    good = {"response": {"docs": [{"id": "p::0", "page_id": "p"}]}}
+    calls = []
+
+    def select(params, post=False):
+        calls.append(params["q"])
+        if len(calls) == 1:
+            raise httpx.HTTPStatusError("bad syntax", request=bad.request, response=bad)
+        return good
+
+    client._select = select
+    docs = client.bm25_search('"what (', "user-a")
+    assert [d["page_id"] for d in docs] == ["p"]
+    assert calls == ['"what (', r'\"what \(']

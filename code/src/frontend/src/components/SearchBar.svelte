@@ -158,6 +158,7 @@
         autocomplete="off"
         spellcheck="false"
         enterkeyhint="search"
+        maxlength="500"
       />
       <span class="hint-key"><Kbd>{kbdHint}</Kbd></span>
     </div>

@@ -43,6 +43,15 @@ def sanitize_query(query: str) -> str:
     return cleaned[:MAX_QUERY_CHARS]
 
 
+_QUERY_SYNTAX = re.compile(r'([+\-!(){}\[\]^"~*?:\\/]|&&|\|\|)')
+_OPERATORS = re.compile(r"\b(AND|OR|NOT|TO)\b")
+
+
+def escape_query(query: str) -> str:
+    """The query as plain words: query syntax escaped, operators lowercased."""
+    return _OPERATORS.sub(lambda m: m.group(1).lower(), _QUERY_SYNTAX.sub(r"\\\1", query or ""))
+
+
 _SOLR_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _USER_ID_RE = re.compile(r"^[A-Za-z0-9-]{1,64}$")
 
@@ -166,8 +175,9 @@ class SolrClient:
         (and, if given, only within `page_ids` and matching every one of `filters`).
         Returns list of chunk docs (CHUNK_FIELDS) with score.
         """
-        filters = [user_filter(user_id)] + ([page_ids_filter(page_ids)] if page_ids is not None else [])             + list(filters or [])
-        data = self._select({
+        filters = [user_filter(user_id)] + ([page_ids_filter(page_ids)] if page_ids is not None else []) \
+            + list(filters or [])
+        params = {
             "q": sanitize_query(query),
             "defType": "edismax",
             "qf": "title^2 text",
@@ -176,7 +186,14 @@ class SolrClient:
             "fq": filters,
             "fl": CHUNK_FIELDS + ",score",
             "rows": rows,
-        }, post=page_ids is not None)
+        }
+        try:
+            data = self._select(params, post=page_ids is not None)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code != 400:
+                raise
+            # Query syntax Solr couldn't parse: search for the same words as plain text.
+            data = self._select({**params, "q": escape_query(params["q"])}, post=page_ids is not None)
         docs = data.get("response", {}).get("docs", [])
         return [normalize_solr_doc(doc) for doc in docs]
 
