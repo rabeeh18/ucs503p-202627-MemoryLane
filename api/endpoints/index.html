@@ -1818,8 +1818,8 @@
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="p">}</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">}</span>
 </span></code></pre></div>
-<p><code>status</code> is <code>saved</code>, <code>unchanged</code> (same text as before) or <code>skipped</code> (e.g. a YouTube video that can't be saved). A page with fewer than 50 words gets <code>422</code>. A new page once the account has <code>MAX_PAGES_PER_USER</code> pages (5,000 by default) gets <code>403</code>; saved pages still update.</p>
-<p>The canonical URL is used only when it's on the same site and isn't a parent of the page. Single-page apps such as Reddit keep the first page's canonical while the address changes.</p>
+<p><code>status</code> is <code>saved</code>, <code>unchanged</code> (same text as before) or <code>skipped</code> (e.g. a YouTube video that can't be saved). An address that isn't <code>http</code> or <code>https</code> (such as <code>javascript:</code> or <code>file:</code>) gets <code>400</code>. A page with fewer than 50 words gets <code>422</code>. Titles over 500 characters are shortened. A new page once the account has <code>MAX_PAGES_PER_USER</code> pages (5,000 by default) gets <code>403</code>; saved pages still update.</p>
+<p>The canonical URL is used only when it's on the same site and isn't a parent of the page. Single-page apps such as Reddit keep the first page's canonical while the address changes, so the extension also drops a canonical that doesn't describe the current page (see <a href="../../how-it-works/ingestion/">Capturing Web Content</a>).</p>
 <hr />
 <h2 id="get-memorystatusurlcanonical_url"><code>GET /memory/status?url=...&amp;canonical_url=...</code><a class="headerlink" href="#get-memorystatusurlcanonical_url" title="Permanent link">&para;</a></h2>
 <p>Whether you've saved this URL, normalised the same way as a save. Rate limit: 120/minute.</p>

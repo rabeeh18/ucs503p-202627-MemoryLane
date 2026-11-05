@@ -1697,14 +1697,14 @@
 <ul>
 <li>The page's full <strong>HTML</strong></li>
 <li>Its visible <strong>text</strong> (the fallback if cleaning finds nothing)</li>
-<li>The <strong>canonical URL</strong>, if the page declares one</li>
+<li>The <strong>canonical URL</strong>, if the page declares one. After an in-page navigation (single-page apps such as Reddit, YouTube or GitHub change the address without reloading) it's sent only if it describes the current page: same host and path, and each of its parameters matching the address. So <code>watch?v=X</code> is kept on <code>watch?v=X&amp;t=90s</code>, but post A's canonical is dropped while viewing post B. The same rule decides the popup's "Saved" status.</li>
 </ul>
 <p>The service worker posts these, with the URL, title and whether the save was manual, to <code>POST /api/memory</code>, using the signed-in user's access token. If the token has expired, the extension refreshes it once and retries.</p>
 <p>Auto-capture also checks the page against the <a href="../../user-guide/automatic-capture/#what-automatic-capture-skips">capture rules</a> and your excluded sites before sending anything, and doesn't send a URL again while a save of it is in progress, or within a minute of auto-capturing it.</p>
 <h2 id="what-the-backend-does">What the backend does<a class="headerlink" href="#what-the-backend-does" title="Permanent link">&para;</a></h2>
 <p>All of this happens in one function, <code>ingest_page</code> (<code>backend/ingest.py</code>). It is shared by the API, the re-index and backfill scripts and the evaluation.</p>
 <ol>
-<li>Take the user id from the verified token (never from the request).</li>
+<li>Take the user id from the verified token (never from the request). Refuse addresses that aren't <code>http</code> or <code>https</code> with <code>400</code>.</li>
 <li>Prefer the canonical URL if it's on the same site and isn't a parent of the page (single-page apps such as Reddit keep a stale one), then <a href="../processing/#url-normalisation">normalise</a> it.</li>
 <li>Compute <code>page_id = sha256(user_id | normalised URL)[:32]</code>. Drop an unread count from the front of the title ("(3) Reddit" becomes "Reddit").</li>
 <li><strong>YouTube</strong>: fetch the transcript and metadata instead of using the page (see <a href="../../user-guide/youtube/">YouTube Videos</a>).</li>
