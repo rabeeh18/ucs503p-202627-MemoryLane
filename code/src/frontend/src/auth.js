@@ -76,7 +76,12 @@ export function isConfigured() {
 }
 
 /** @param {{ provider?: string }} [opts] provider 'Google' skips the managed login page. */
-export async function signIn({ provider } = {}) {
+/**
+ * Open the hosted sign-in page. `provider` skips it and goes straight to that
+ * identity provider; `signUp` opens the "create account" view instead (it
+ * takes the same parameters and links back to sign-in).
+ */
+export async function signIn({ provider, signUp = false } = {}) {
   const verifier = randomString(64); // 86 characters
   const state = randomString(24);
   sessionStorage.setItem(PKCE_KEY, JSON.stringify({ verifier, state }));
@@ -91,7 +96,8 @@ export async function signIn({ provider } = {}) {
     state,
   });
   if (provider) params.set('identity_provider', provider);
-  window.location.assign(`${DOMAIN}/oauth2/authorize?${params}`);
+  const page = signUp && !provider ? 'signup' : 'oauth2/authorize';
+  window.location.assign(`${DOMAIN}/${page}?${params}`);
 }
 
 async function tokenRequest(body) {

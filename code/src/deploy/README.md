@@ -148,7 +148,7 @@ curl -s https://memorylane.site/api/health
 curl -sI https://www.memorylane.site | grep -i location     # -> https://memorylane.site/
 ```
 
-Open `https://memorylane.site` and sign in with **Continue with Google**. The library is empty for now.
+Open `https://memorylane.site` and click **Get started** and continue with Google. The library is empty for now.
 
 > Google sign-in and email sign-in create **separate** Cognito users with different `sub`s unless you link them. Pick the one you'll use and re-index under it.
 

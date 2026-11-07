@@ -4,7 +4,7 @@
 
 MemoryLane runs at **[memorylane.site](https://memorylane.site)**.
 
-1. **Sign in** with **Continue with Google** or with email. Each account has its own private, empty library.
+1. **Create an account** with **Get started** (Google or email), or use **Sign in** in the top corner if you already have one. Each account has its own private, empty library.
 2. **Get the extension** from **[memorylane.site/extension](https://memorylane.site/extension)**:
     1. Download `memorylane-extension.zip` and unzip it.
     2. Open `chrome://extensions` and turn on **Developer mode**.

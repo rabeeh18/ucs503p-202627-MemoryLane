@@ -18,10 +18,7 @@
   <p class="lede">Save pages as you browse. Search them later by meaning, not just exact words.</p>
 
   <div class="actions">
-    <button type="button" class="btn btn-primary" on:click={() => signIn({ provider: 'Google' })}>
-      Continue with Google
-    </button>
-    <button type="button" class="btn btn-outline" on:click={() => signIn({})}>Continue with email</button>
+    <button type="button" class="btn btn-primary" on:click={() => signIn({ signUp: true })}>Get started</button>
   </div>
   <p class="fine-print">
     Pages you save are stored on our servers and visible only to you. You can export or delete them any time.
