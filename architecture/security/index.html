@@ -1751,7 +1751,15 @@
 <li><code>token_use == "access"</code> (ID tokens are refused)</li>
 <li><code>client_id</code> (this app client)</li>
 </ul>
-<p>The user id is the token's <code>sub</code>. <strong>No endpoint accepts a user id from the client.</strong></p>
+<p>The user id is the library of the token's <code>sub</code>. <strong>No endpoint accepts a user id from the client.</strong></p>
+<p>Cognito gives a Google sign-in and an email + password sign-in different <code>sub</code>s, even for the same address. <code>backend/accounts.py</code> links them:</p>
+<ul>
+<li>The first time a <code>sub</code> is seen, the backend calls Cognito's <code>/oauth2/userInfo</code> with that user's own access token, so the email can't be faked by the browser.</li>
+<li>The email links only if it's verified: <code>email_verified</code> is <code>"true"</code> (the string Cognito sends; <code>"false"</code> doesn't count), or the sign-in came through Google. The first verified sign-in for an address gives the library its id; later ones for the same address use it.</li>
+<li>An unverified sign-in keeps its own library and claims nothing. It's checked again after 5 minutes, so verifying later still links.</li>
+<li>If Cognito can't be reached for a <code>sub</code> seen for the first time, the request fails with <code>503</code>, so pages never land in a library they don't belong to. Known sign-ins are answered from the database without calling Cognito.</li>
+<li>The links are stored in SQLite (<code>ACCOUNTS_DB</code>, the <code>accounts</code> volume in Docker). <strong>Delete all</strong> removes them.</li>
+</ul>
 <h2 id="data-isolation">Data isolation<a class="headerlink" href="#data-isolation" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>SolrClient</code> adds <code>{!term f=user_id}&lt;sub&gt;</code> to every query, scan, KNN search and delete, and raises an error if the id is missing or malformed. Isolation doesn't depend on each endpoint remembering to filter.</li>

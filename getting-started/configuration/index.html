@@ -1779,6 +1779,14 @@
 <td>The pool whose access tokens the API accepts</td>
 </tr>
 <tr>
+<td><code>COGNITO_DOMAIN</code></td>
+<td>Hosted sign-in domain the API asks for a sign-in's email, to link Google and email sign-ins for the same address. Defaults to <code>VITE_COGNITO_DOMAIN</code>; empty turns linking off</td>
+</tr>
+<tr>
+<td><code>ACCOUNTS_DB</code></td>
+<td>SQLite file holding those links. Default <code>data/accounts.db</code>; <code>/data/accounts.db</code> (the <code>accounts</code> volume) in Docker</td>
+</tr>
+<tr>
 <td><code>VITE_COGNITO_DOMAIN</code></td>
 <td>Hosted sign-in domain, e.g. <code>https://&lt;prefix&gt;.auth.&lt;region&gt;.amazoncognito.com</code></td>
 </tr>
