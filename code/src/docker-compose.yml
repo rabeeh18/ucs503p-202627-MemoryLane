@@ -37,6 +37,8 @@ services:
       SOLR_URL: http://solr:8983/solr/memorylane_v2
     volumes:
       - models:/models
+      # Which Google and email sign-ins share a library. Back it up with Solr's data.
+      - accounts:/data
     depends_on:
       solr:
         condition: service_healthy
@@ -74,5 +76,6 @@ volumes:
   solr_data:
     name: ${SOLR_VOLUME:-src_solr_data}
   models:
+  accounts:
   caddy_data:
   caddy_config:

@@ -7,7 +7,7 @@ MemoryLane runs on one machine with Docker Compose. The live site is an AWS EC2 
 | Service | What it does | Reachable from |
 | --- | --- | --- |
 | `solr` | Solr 9.7 with a 1 GB heap; data in a named volume | `127.0.0.1:8983` on the server only |
-| `backend` | FastAPI and the embedding model (cached in the `models` volume) | Caddy only; no published port |
+| `backend` | FastAPI and the embedding model (cached in the `models` volume); which sign-ins share a library in the `accounts` volume | Caddy only; no published port |
 | `caddy` | Gets HTTPS certificates, serves the built web app and the extension zip, proxies `/api/*` to the backend, redirects `www.` | Ports 80 and 443 |
 
 ```text

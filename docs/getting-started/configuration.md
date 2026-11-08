@@ -14,6 +14,8 @@ The API refuses to start without a Cognito pool. Create one with:
 | Variable | Purpose |
 | --- | --- |
 | `COGNITO_REGION`, `COGNITO_USER_POOL_ID`, `COGNITO_APP_CLIENT_ID` | The pool whose access tokens the API accepts |
+| `COGNITO_DOMAIN` | Hosted sign-in domain the API asks for a sign-in's email, to link Google and email sign-ins for the same address. Defaults to `VITE_COGNITO_DOMAIN`; empty turns linking off |
+| `ACCOUNTS_DB` | SQLite file holding those links. Default `data/accounts.db`; `/data/accounts.db` (the `accounts` volume) in Docker |
 | `VITE_COGNITO_DOMAIN` | Hosted sign-in domain, e.g. `https://<prefix>.auth.<region>.amazoncognito.com` |
 | `VITE_COGNITO_CLIENT_ID` | Same app client id, used by the web app |
 | `VITE_REDIRECT_URI`, `VITE_LOGOUT_URI` | Where Cognito returns after sign-in and sign-out |

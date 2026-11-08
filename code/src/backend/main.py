@@ -10,6 +10,7 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from backend import accounts
 from backend.auth import check_config, current_user_id
 from backend.config import CORS_ORIGINS, MAX_PAGES_PER_USER, MIN_VECTOR_SIMILARITY
 from backend.models import (
@@ -411,4 +412,5 @@ def delete_my_data(request: Request, user_id: str = Depends(current_user_id)):
     get_solr_client().delete_user(user_id)
     map_service.invalidate(user_id)
     forget_user_sites(user_id)
+    accounts.forget_library(user_id)
     return Response(status_code=204)

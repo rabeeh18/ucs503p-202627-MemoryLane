@@ -29,7 +29,7 @@ backend/
 ## Request flow
 
 1. **Rate limiting** (slowapi): per user once authenticated, otherwise per IP. Limits range from 5/minute (export, delete all) to 120/minute (status checks, related pages, map search).
-2. **Authentication**: the `current_user_id` dependency verifies the bearer token and returns its `sub`. Every endpoint except `/health` requires it.
+2. **Authentication**: the `current_user_id` dependency verifies the bearer token and returns the library of its `sub` (Google and email sign-ins with the same verified email share one; see [Security](security.md)). Every endpoint except `/health` requires it.
 3. **The endpoint** calls `ingest_page`, `hybrid_search`, `map_service` or the summariser with that user id.
 4. **Solr** calls go through `SolrClient`, which adds the `user_id` filter to every query and rejects malformed ids.
 

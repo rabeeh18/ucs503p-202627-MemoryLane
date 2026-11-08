@@ -128,3 +128,51 @@ def test_check_config_names_missing_values():
     with patch("backend.auth.COGNITO_APP_CLIENT_ID", ""):
         with pytest.raises(RuntimeError, match="COGNITO_APP_CLIENT_ID"):
             auth.check_config()
+
+
+# ---- one library per verified email ----------------------------------------------
+
+OTHER_SUB = "9f8e7d6c-5b4a-3210-fedc-ba9876543210"
+
+
+@pytest.fixture
+def linking(monkeypatch):
+    from backend import accounts
+    monkeypatch.setattr(accounts, "COGNITO_DOMAIN", "https://auth.example.com")
+    accounts.reset_for_tests()
+    yield accounts
+    accounts.reset_for_tests()
+
+
+def test_second_sign_in_with_same_verified_email_uses_the_first_library(client, linking):
+    people = {
+        SUB: {"sub": SUB, "email": "a@b.com", "email_verified": "true"},
+        OTHER_SUB: {"sub": OTHER_SUB, "email": "a@b.com", "email_verified": "true"},
+    }
+    tokens = {_token(): SUB, _token(sub=OTHER_SUB): OTHER_SUB}
+    with patch.object(linking, "fetch_userinfo", side_effect=lambda t: people[tokens[t]]):
+        for token in tokens:
+            assert _get(client, token).status_code == 200
+    calls = client.solr.list_pages.call_args_list
+    assert [c.args[0] for c in calls] == [SUB, SUB]
+
+
+def test_cognito_unreachable_on_first_sign_in_is_503_not_another_library(client, linking):
+    with patch.object(linking, "fetch_userinfo", side_effect=linking.LinkUnavailable("ConnectError")):
+        response = _get(client, _token())
+    assert response.status_code == 503
+    client.solr.list_pages.assert_not_called()
+
+
+def test_invalid_token_never_reaches_cognito(client, linking):
+    with patch.object(linking, "fetch_userinfo") as fetch:
+        _assert_401(_get(client, _token(key=_OTHER_KEY)))
+    fetch.assert_not_called()
+
+
+def test_delete_all_also_forgets_sign_in_links(client, linking):
+    with patch.object(linking, "fetch_userinfo",
+                      return_value={"sub": SUB, "email": "a@b.com", "email_verified": "true"}):
+        token = _token()
+        assert client.delete("/me/data", headers={"Authorization": f"Bearer {token}"}).status_code == 204
+    assert linking._db().execute("SELECT COUNT(*) FROM sign_ins").fetchone()[0] == 0

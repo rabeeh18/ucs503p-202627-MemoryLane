@@ -17,7 +17,7 @@ Each chunk is one Solr document. Chunk 0 also carries the page-level fields.
 | Field | Type | Purpose |
 | --- | --- | --- |
 | `id` | string | `{page_id}::{chunk_index}` |
-| `user_id` | string | Owner (Cognito `sub`); every query filters on it |
+| `user_id` | string | Owner: the Cognito `sub` of the first sign-in for that email; every query filters on it |
 | `page_id` | string | Groups a page's chunks |
 | `url` | string | Normalised URL |
 | `domain` | string | Site |

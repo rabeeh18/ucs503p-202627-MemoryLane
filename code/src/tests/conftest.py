@@ -5,6 +5,10 @@ import os
 os.environ["COGNITO_REGION"] = "ap-south-1"
 os.environ["COGNITO_USER_POOL_ID"] = "ap-south-1_TESTPOOL"
 os.environ["COGNITO_APP_CLIENT_ID"] = "test-client-id"
+# Sign-in linking is off unless a test turns it on; its database never touches data/.
+os.environ["COGNITO_DOMAIN"] = ""
+os.environ["VITE_COGNITO_DOMAIN"] = ""
+os.environ["ACCOUNTS_DB"] = ":memory:"
 # No real Gemini calls from tests: tests that need it patch it in.
 os.environ["GEMINI_API_KEY"] = ""
 

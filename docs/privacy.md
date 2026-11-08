@@ -6,6 +6,8 @@ MemoryLane holds personal browsing information, so privacy is part of the design
 
 - You sign in with Google or with email through Amazon Cognito. MemoryLane never sees your password.
 - The backend takes your user id from the verified access token (its `sub` claim). No endpoint accepts a user id from the browser.
+- **Google and email sign-ins for the same address share one library.** The first time a sign-in is used, the backend asks Cognito for its email, using your own access token. If the email is verified (or the sign-in is through Google), it's linked to the library that address already has. An unverified email is never linked, so signing up with someone else's address doesn't reach their pages.
+- To do this, the server keeps your email address and your sign-in ids in a small database next to Solr. **Delete all** removes them along with your pages.
 - Every read, write, search, summary, map and delete in Solr is filtered by that user id. A page id is derived from your user id and the URL, so two people saving the same page get separate copies.
 - Asking for another person's page returns `404`, the same as a page that doesn't exist.
 

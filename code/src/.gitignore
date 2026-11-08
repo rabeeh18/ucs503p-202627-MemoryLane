@@ -17,3 +17,5 @@ node_modules/
 # Private keys (extension signing key)
 .secrets/
 *.pem
+# Local sign-in links (backend/accounts.py)
+/data/

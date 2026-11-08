@@ -1,7 +1,9 @@
 """Cognito access-token verification.
 
 Every endpoint except /health depends on current_user_id(). The user id is the
-verified token's `sub` and is the only source of a user id anywhere in the API.
+library of the verified token's `sub` (its own `sub`, or the library another
+sign-in with the same verified email already uses; see accounts.py) and is the
+only source of a user id anywhere in the API.
 There is no bypass flag; tests use app.dependency_overrides.
 """
 import logging
@@ -11,6 +13,7 @@ import jwt
 from fastapi import Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from backend import accounts
 from backend.config import COGNITO_APP_CLIENT_ID, COGNITO_REGION, COGNITO_USER_POOL_ID
 from backend.solr_client import is_valid_user_id
 
@@ -98,5 +101,11 @@ def current_user_id(
         # Never log the token itself.
         logger.info(f"Rejected access token ({e})")
         raise _unauthorized("Invalid or expired token")
+    try:
+        # Google and email + password sign-ins with the same verified email share a library.
+        user_id = accounts.library_for(user_id, credentials.credentials)
+    except accounts.LinkUnavailable as e:
+        logger.warning(f"Couldn't look up the sign-in's email ({e})")
+        raise HTTPException(status_code=503, detail="Couldn't check your sign-in. Try again in a moment.")
     request.state.user_id = user_id
     return user_id

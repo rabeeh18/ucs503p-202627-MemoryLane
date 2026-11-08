@@ -50,6 +50,12 @@ MAX_PAGES_PER_USER = int(os.getenv('MAX_PAGES_PER_USER', '5000'))
 COGNITO_REGION = os.getenv('COGNITO_REGION', '')
 COGNITO_USER_POOL_ID = os.getenv('COGNITO_USER_POOL_ID', '')
 COGNITO_APP_CLIENT_ID = os.getenv('COGNITO_APP_CLIENT_ID', '')
+# Hosted sign-in domain, used to look up a sign-in's verified email so Google and
+# email + password sign-ins for the same address share one library (backend/accounts.py).
+# Falls back to the web app's setting; empty turns linking off.
+COGNITO_DOMAIN = (os.getenv('COGNITO_DOMAIN') or os.getenv('VITE_COGNITO_DOMAIN') or '').rstrip('/')
+# Which sign-ins share a library (SQLite). The Docker image keeps it on a volume.
+ACCOUNTS_DB = os.getenv('ACCOUNTS_DB', os.path.join('data', 'accounts.db'))
 
 # Embeddings
 EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'BAAI/bge-small-en-v1.5')

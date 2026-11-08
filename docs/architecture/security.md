@@ -18,7 +18,15 @@ MemoryLane is multi-user, so the main security property is **isolation**: nobody
 - `token_use == "access"` (ID tokens are refused)
 - `client_id` (this app client)
 
-The user id is the token's `sub`. **No endpoint accepts a user id from the client.**
+The user id is the library of the token's `sub`. **No endpoint accepts a user id from the client.**
+
+Cognito gives a Google sign-in and an email + password sign-in different `sub`s, even for the same address. `backend/accounts.py` links them:
+
+- The first time a `sub` is seen, the backend calls Cognito's `/oauth2/userInfo` with that user's own access token, so the email can't be faked by the browser.
+- The email links only if it's verified: `email_verified` is `"true"` (the string Cognito sends; `"false"` doesn't count), or the sign-in came through Google. The first verified sign-in for an address gives the library its id; later ones for the same address use it.
+- An unverified sign-in keeps its own library and claims nothing. It's checked again after 5 minutes, so verifying later still links.
+- If Cognito can't be reached for a `sub` seen for the first time, the request fails with `503`, so pages never land in a library they don't belong to. Known sign-ins are answered from the database without calling Cognito.
+- The links are stored in SQLite (`ACCOUNTS_DB`, the `accounts` volume in Docker). **Delete all** removes them.
 
 ## Data isolation
 

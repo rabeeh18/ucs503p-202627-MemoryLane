@@ -5,7 +5,7 @@ Everything runs from `code/src` with Docker Compose:
 | Service | What it does | Reachable from |
 |---|---|---|
 | `solr` | Solr 9.7, data in the `src_solr_data` volume | `127.0.0.1:8983` on the instance only |
-| `backend` | FastAPI + embedding model (`/models` volume) | Caddy only (no published port) |
+| `backend` | FastAPI + embedding model (`/models` volume); sign-in links (`/data` volume, `accounts`) | Caddy only (no published port) |
 | `caddy` | HTTPS for `memorylane.site`, serves the built frontend, proxies `/api/*` to the backend, redirects `www.` | ports 80 and 443 |
 
 Instance: c7i-flex.large (4 GB RAM), Elastic IP `13.201.221.52`. Solr gets a 1 GB heap; the reranker stays off.
