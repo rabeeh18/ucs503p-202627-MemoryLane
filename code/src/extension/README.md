@@ -34,6 +34,7 @@ The matching private key is **not** in the repo (it's in `code/src/.secrets/`, w
 | `scroll_pill.js` | Floating scroll indicator for the popup and options page |
 | `popup.*` | Popup UI (380px) |
 | `options.*` | Excluded sites page |
+| `icons/` | Toolbar and extensions-page icons (16, 32, 48, 128 px), the same "M" mark as the website's favicon |
 | `tokens.css`, `fonts/` | Shared design tokens and bundled IBM Plex fonts (SIL OFL, see `fonts/LICENSE-OFL.txt`) |
 
 Auto-capture is off by default. It runs only when signed in, switched on, the page passes `page_filter.js`, and the site isn't excluded. Signing out stops it.
