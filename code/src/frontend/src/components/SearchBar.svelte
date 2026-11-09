@@ -146,7 +146,7 @@
 
 <form class="search" role="search" on:submit|preventDefault={handleSubmit}>
   <div class="row">
-    <div class="field">
+    <div class="field" class:with-mic={voiceSupported}>
       <label for="search-input" class="visually-hidden">Search your saved pages</label>
       <input
         bind:this={input}
@@ -179,7 +179,15 @@
           </svg>
         </button>
       {/if}
-      <button type="submit" class="btn btn-primary">Search</button>
+      <button type="submit" class="btn btn-primary submit" aria-label="Search">
+        <!-- Phones show the icon inside the search box; larger screens show the word. -->
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="M16 16l4.5 4.5" />
+        </svg>
+        <span class="label">Search</span>
+      </button>
     </div>
   </div>
 
@@ -266,22 +274,66 @@
     color: var(--text-2);
   }
 
+  .search-icon {
+    display: none;
+  }
+
+  /* Phones: one search box, with the mic and search buttons as icons inside its
+     right edge, instead of a second row with a full-width button. */
   @media (max-width: 640px) {
     .row {
-      flex-wrap: wrap;
+      position: relative;
+      gap: 0;
     }
 
-    .field {
-      flex-basis: 100%;
+    input {
+      padding-right: 56px;
+    }
+
+    .field.with-mic input {
+      padding-right: 96px;
+    }
+
+    .hint-key {
+      display: none;
     }
 
     .buttons {
-      flex: 1;
-      justify-content: flex-end;
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      bottom: 4px;
+      gap: 0;
+      align-items: center;
     }
 
-    .buttons .btn {
-      flex: 1;
+    .mic,
+    .submit {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-2);
+    }
+
+    .mic:hover,
+    .submit:hover {
+      background: var(--surface-active);
+      color: var(--text);
+    }
+
+    .submit {
+      color: var(--text);
+    }
+
+    .search-icon {
+      display: block;
+    }
+
+    .label {
+      display: none;
     }
   }
 </style>
