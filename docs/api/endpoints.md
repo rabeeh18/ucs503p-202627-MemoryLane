@@ -31,6 +31,21 @@ Save a page, or update it if it's already saved. Rate limit: 60/minute.
 
 `html` and `canonical_url` are optional. When `html` is present, the main text is extracted from it; `content` is the fallback.
 
+For a YouTube video, the extension also sends `youtube`, which it fetched from YouTube in the browser (YouTube blocks the server). All its fields are optional:
+
+```json
+"youtube": {
+  "transcript": "so today we ride through...",   // ≤ 500,000 characters
+  "language": "en",
+  "title": "Riding Through Japan",               // ≤ 500
+  "channel": "Ajay Pandey",                      // ≤ 200
+  "description": "A weekend ride...",            // ≤ 10,000
+  "duration_seconds": 1402
+}
+```
+
+The video is then saved from these (a video without a transcript, from its description). Without `youtube`, the server fetches the transcript itself, which fails on cloud servers.
+
 ```json
 {
   "status": "saved",

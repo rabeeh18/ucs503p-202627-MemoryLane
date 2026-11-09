@@ -22,7 +22,7 @@ Install the test tools with `pip install -r requirements-dev.txt`. The tests nee
 | `test_rerank.py` | Optional cross-encoder reranking |
 | `test_snippets.py` | Snippet sentence choice, length and fallbacks |
 | `test_solr_client.py` | Every Solr query carries the user filter; commit behaviour; escaping |
-| `test_youtube.py` | Video ids, transcripts, the two-hour auto-capture limit |
+| `test_youtube.py` | Video ids, transcripts sent by the extension or fetched by the server, the description fallback, the two-hour auto-capture limit |
 | `test_library_map.py` | Number of topics, splits, outliers, labels, layout, links |
 | `test_map_api.py` | `/map`, `/map/search`, related pages, topic search and `409` |
 | `test_reindex.py`, `test_backfill.py` | The re-index and page-vector backfill scripts |

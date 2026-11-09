@@ -379,3 +379,33 @@ def test_startup_fails_without_cognito_config():
         with pytest.raises(RuntimeError, match="COGNITO_USER_POOL_ID"):
             with TestClient(app):
                 pass
+
+
+def test_save_passes_the_extensions_youtube_details_to_ingest(client):
+    from backend.ingest import IngestResult
+    result = IngestResult("saved", "ok", PAGE_ID, "https://youtube.com/watch?v=dQw4w9WgXcQ", "T", "youtube.com", "t", 3)
+    body = {"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "title": "x", "content": "x",
+            "youtube": {"transcript": "words", "title": "T", "duration_seconds": 60}}
+    with patch("backend.main.ingest_page", return_value=result) as ingest:
+        assert client.post("/memory", json=body).status_code == 200
+    youtube = ingest.call_args.kwargs["youtube"]
+    assert youtube["transcript"] == "words" and youtube["duration_seconds"] == 60 and youtube["channel"] is None
+
+
+def test_save_without_youtube_details_passes_none(client):
+    from backend.ingest import IngestResult
+    result = IngestResult("saved", "ok", PAGE_ID, "https://e.com/", "T", "e.com", "t", 1)
+    with patch("backend.main.ingest_page", return_value=result) as ingest:
+        client.post("/memory", json={"url": "https://e.com/", "title": "t", "content": LONG_TEXT})
+    assert ingest.call_args.kwargs["youtube"] is None
+
+
+@pytest.mark.parametrize("youtube", [
+    {"transcript": "x" * 500_001},
+    {"description": "x" * 10_001},
+    {"duration_seconds": -1},
+    {"title": "x" * 501},
+])
+def test_youtube_details_are_size_limited(client, youtube):
+    body = {"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "title": "x", "content": "x", "youtube": youtube}
+    assert client.post("/memory", json=body).status_code == 422

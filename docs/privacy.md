@@ -33,6 +33,10 @@ Automatic capture is **off by default**. It only runs when you're signed in and 
 
 The filtering happens in the extension, before anything is sent.
 
+## YouTube videos
+
+When you save a YouTube video, the extension asks YouTube, from inside the YouTube tab you're on, for that video's captions, title, description and length, and sends them to MemoryLane with the page. It contacts only youtube.com, sends no cookies, and does this only for the video you are saving.
+
 ## What is sent to Google Gemini
 
 Gemini is optional. When the server has a Gemini key:

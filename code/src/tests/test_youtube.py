@@ -101,4 +101,72 @@ def test_missing_transcript_is_skipped():
     api.return_value.list.side_effect = Exception("No transcript")
     with patch.object(youtube_utils, "YouTubeTranscriptApi", api):
         _, _, skip = process_youtube_video(WATCH_URL, True)
-    assert skip == "Skipped: Could not fetch transcript"
+    assert skip == youtube_utils.NO_TRANSCRIPT
+
+
+# ---- details fetched by the extension (YouTube blocks the server) --------------------
+
+PROVIDED = {
+    "transcript": "so today we ride through the countryside",
+    "language": "en",
+    "title": "Riding Through Japan",
+    "channel": "Ajay",
+    "description": "A weekend motorcycle ride through the hills and rice fields of rural Japan, "
+                   "with a stop at a mountain shrine and a small roadside cafe.",
+    "duration_seconds": 1402,
+}
+
+
+def _no_network():
+    api = MagicMock()
+    api.return_value.list.side_effect = AssertionError("server must not fetch the transcript")
+    get = MagicMock(side_effect=AssertionError("server must not fetch metadata"))
+    return patch.object(youtube_utils, "YouTubeTranscriptApi", api), patch.object(youtube_utils.httpx, "get", get)
+
+
+def test_provided_transcript_is_used_without_fetching():
+    no_api, no_get = _no_network()
+    with no_api, no_get:
+        content, title, skip = process_youtube_video(WATCH_URL, False, provided=PROVIDED)
+    assert skip is None and title == "Riding Through Japan"
+    assert "Channel: Ajay" in content and "Duration: 1402 seconds" in content
+    assert "Description:\nA weekend motorcycle ride" in content
+    assert content.endswith("Transcript:\nso today we ride through the countryside")
+
+
+def test_video_without_captions_is_saved_from_its_description():
+    no_api, no_get = _no_network()
+    with no_api, no_get:
+        content, _, skip = process_youtube_video(WATCH_URL, True, provided={**PROVIDED, "transcript": None})
+    assert skip is None
+    assert "rice fields of rural Japan" in content and "Transcript:" not in content
+
+
+def test_short_description_without_captions_is_skipped():
+    no_api, no_get = _no_network()
+    with no_api, no_get:
+        _, _, skip = process_youtube_video(
+            WATCH_URL, True, provided={**PROVIDED, "transcript": None, "description": "subscribe!"})
+    assert skip == youtube_utils.NO_TRANSCRIPT
+
+
+def test_provided_duration_drives_the_auto_capture_rules():
+    no_api, no_get = _no_network()
+    with no_api, no_get:
+        _, _, skip = process_youtube_video(WATCH_URL, False, provided={**PROVIDED, "duration_seconds": 7201})
+        assert skip == "Skipped: YouTube video is over 2 hours long"
+        _, _, skip = process_youtube_video(WATCH_URL, False, provided={**PROVIDED, "duration_seconds": None})
+        assert "duration" in skip
+        _, _, skip = process_youtube_video(WATCH_URL, True, provided={**PROVIDED, "duration_seconds": 7201})
+        assert skip is None
+
+
+def test_metadata_is_fetched_when_the_extension_sent_only_a_transcript():
+    with patch.object(youtube_utils.httpx, "get", side_effect=_fake_get(90)):
+        content, title, skip = process_youtube_video(WATCH_URL, False, provided={"transcript": "hello there"})
+    assert skip is None and title == "YT Video" and "Duration: 90 seconds" in content
+
+
+def test_shorts_are_skipped_even_with_provided_details():
+    _, _, skip = process_youtube_video(f"https://www.youtube.com/shorts/{VIDEO_ID}", True, provided=PROVIDED)
+    assert "Shorts" in skip

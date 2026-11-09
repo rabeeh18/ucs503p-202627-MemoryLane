@@ -9,7 +9,7 @@ Request (url, title, content, html?, canonical_url?, is_manual)
       ↓
 Canonical URL preferred → normalise → page_id = sha256(user_id|url)[:32]
       ↓
-YouTube? ── yes ─▶ transcript + metadata (built from the video id)
+YouTube? ── yes ─▶ transcript + description + details (from the extension; the server fetches them only if it sent none)
       │ no
       ▼
 trafilatura on html (fallback: content) → tidy

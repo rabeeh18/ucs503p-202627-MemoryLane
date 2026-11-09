@@ -21,7 +21,7 @@ All of this happens in one function, `ingest_page` (`backend/ingest.py`). It is 
 1. Take the user id from the verified token (never from the request). Refuse addresses that aren't `http` or `https` with `400`.
 2. Prefer the canonical URL if it's on the same site and isn't a parent of the page (single-page apps such as Reddit keep a stale one), then [normalise](processing.md#url-normalisation) it.
 3. Compute `page_id = sha256(user_id | normalised URL)[:32]`. Drop an unread count from the front of the title ("(3) Reddit" becomes "Reddit").
-4. **YouTube**: fetch the transcript and metadata instead of using the page (see [YouTube Videos](../user-guide/youtube.md)).
+4. **YouTube**: use the transcript, description and details the extension fetched in your browser instead of the page (YouTube blocks the server; see [YouTube Videos](../user-guide/youtube.md)). A video without captions is saved from its description.
 5. **Other pages**: extract the main text from the HTML with trafilatura. If that fails, use the extension's text.
 6. Reject the page with `422` if it has fewer than 50 words, and a new page with `403` once the account has reached its page limit (5,000 by default).
 7. If the page is already stored with the same content hash and embedding model, return `unchanged` and do nothing.

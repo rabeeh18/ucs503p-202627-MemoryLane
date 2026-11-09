@@ -1,6 +1,17 @@
 from typing import Literal, Optional, List, Union, Dict
 from pydantic import BaseModel, Field
 
+class YouTubeInput(BaseModel):
+    """A YouTube video's details, fetched by the extension in the user's browser
+    (YouTube blocks transcript requests from the server)."""
+    transcript: Optional[str] = Field(default=None, max_length=500_000)
+    language: Optional[str] = Field(default=None, max_length=20)
+    title: Optional[str] = Field(default=None, max_length=500)
+    channel: Optional[str] = Field(default=None, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=10_000)
+    duration_seconds: Optional[int] = Field(default=None, ge=0, le=1_000_000)
+
+
 class MemoryInput(BaseModel):
     url: str = Field(max_length=2048)
     # A page without a title sends its URL instead; ingest shortens it to 500.
@@ -9,6 +20,7 @@ class MemoryInput(BaseModel):
     html: Optional[str] = Field(default=None, max_length=3_000_000)
     canonical_url: Optional[str] = Field(default=None, max_length=2048)
     is_manual: bool = False
+    youtube: Optional[YouTubeInput] = None
 
 class SearchInput(BaseModel):
     query: str = Field(max_length=500)

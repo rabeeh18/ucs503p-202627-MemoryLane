@@ -143,9 +143,9 @@ Every endpoint except `/health` needs `Authorization: Bearer <Cognito access tok
 
 ## 8. Indexing (`POST /memory`)
 
-Body: `{ "url", "title", "content", "html"?, "canonical_url"?, "is_manual" }`.
+Body: `{ "url", "title", "content", "html"?, "canonical_url"?, "is_manual", "youtube"? }`. `youtube` is `{transcript, language, title, channel, description, duration_seconds}` for a video, fetched by the extension.
 
-Pipeline (`backend/ingest.py`): canonical URL (only on the same site and not a parent of the page, since single-page apps such as Reddit keep a stale one) + normalized URL → `page_id = sha256(user_id|url)[:32]` → YouTube transcript, or `trafilatura` cleaning of `html` (falling back to `content`) → reject with 422 below 50 words → skip as `unchanged` if the content hash and embedding model match → sentence chunking → embed `title + chunk` → upsert `{page_id}::{n}` and delete stale higher-numbered chunks. Re-saving a changed page updates it with no duplicate chunks.
+Pipeline (`backend/ingest.py`): canonical URL (only on the same site and not a parent of the page, since single-page apps such as Reddit keep a stale one) + normalized URL → `page_id = sha256(user_id|url)[:32]` → YouTube transcript and description (sent by the extension in `youtube`, since YouTube blocks cloud servers; fetched by the server only when absent), or `trafilatura` cleaning of `html` (falling back to `content`) → reject with 422 below 50 words → skip as `unchanged` if the content hash and embedding model match → sentence chunking → embed `title + chunk` → upsert `{page_id}::{n}` and delete stale higher-numbered chunks. Re-saving a changed page updates it with no duplicate chunks.
 
 ## 9. Search (`POST /search`)
 

@@ -102,8 +102,35 @@ def get_youtube_metadata(video_id: str) -> tuple[str | None, str | None, int | N
     return title, channel, duration
 
 
-def process_youtube_video(url: str, is_manual: bool) -> tuple[str | None, str | None, str | None]:
-    """Returns (content, title, skip_message). If skip_message is set, don't save."""
+# A video with no transcript is saved from its description when it has at least
+# this many words; the description goes into the content up to this many characters.
+MIN_DESCRIPTION_WORDS = 15
+MAX_DESCRIPTION_CHARS = 2000
+NO_TRANSCRIPT = "Skipped: This video has no captions or description to save"
+
+
+def _clean(value, limit: int) -> str | None:
+    """A provided string, whitespace-trimmed and capped, or None."""
+    if not isinstance(value, str):
+        return None
+    value = value.replace("\x00", "").strip()
+    return value[:limit] or None
+
+
+def _duration(value) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
+
+def process_youtube_video(url: str, is_manual: bool, provided: dict | None = None
+                          ) -> tuple[str | None, str | None, str | None]:
+    """Returns (content, title, skip_message). If skip_message is set, don't save.
+
+    `provided` is what the extension fetched in the user's browser: transcript,
+    title, channel, description, duration_seconds. YouTube blocks transcript
+    requests from cloud servers, so the server only fetches what's missing when
+    the client sent nothing at all (older extensions; development machines).
+    A video without a transcript is saved from its description if it has one.
+    """
     if is_youtube_short(url):
         return None, None, "Skipped: YouTube Shorts are intentionally skipped"
 
@@ -111,11 +138,22 @@ def process_youtube_video(url: str, is_manual: bool) -> tuple[str | None, str | 
     if not video_id:
         return None, None, "Skipped: Invalid YouTube URL"
 
-    transcript = get_youtube_transcript(video_id)
-    if not transcript:
-        return None, None, "Skipped: Could not fetch transcript"
+    if provided is not None:
+        transcript = _clean(provided.get("transcript"), 500_000)
+        title = _clean(provided.get("title"), 500)
+        channel = _clean(provided.get("channel"), 200)
+        description = _clean(provided.get("description"), MAX_DESCRIPTION_CHARS)
+        duration = _duration(provided.get("duration_seconds"))
+        if title is None and channel is None and duration is None:
+            title, channel, duration = get_youtube_metadata(video_id)
+    else:
+        transcript = get_youtube_transcript(video_id)
+        description = None
+        title, channel, duration = get_youtube_metadata(video_id) if transcript else (None, None, None)
 
-    title, channel, duration = get_youtube_metadata(video_id)
+    has_description = description is not None and len(description.split()) >= MIN_DESCRIPTION_WORDS
+    if not transcript and not has_description:
+        return None, None, NO_TRANSCRIPT
 
     if not is_manual:
         if duration is None:
@@ -127,6 +165,10 @@ def process_youtube_video(url: str, is_manual: bool) -> tuple[str | None, str | 
     dur_str = f"{duration} seconds" if duration is not None else "Unknown"
     content = (
         f"Title: {title}\nChannel: {channel or 'Unknown'}\nDuration: {dur_str}\n"
-        f"Source: YouTube\n\n{transcript}"
+        f"Source: YouTube\n\n"
     )
-    return content, title, None
+    if has_description:
+        content += f"Description:\n{description}\n\n"
+    if transcript:
+        content += f"Transcript:\n{transcript}" if has_description else transcript
+    return content.strip(), title, None

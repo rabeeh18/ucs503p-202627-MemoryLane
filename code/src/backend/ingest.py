@@ -128,7 +128,8 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
                 canonical_url: str | None = None, is_manual: bool = False, *,
                 solr: SolrClient | None = None, timestamp: str | None = None,
                 fetch_youtube: bool = True, force: bool = False,
-                description: str | None = None, max_pages: int | None = None) -> IngestResult:
+                description: str | None = None, max_pages: int | None = None,
+                youtube: dict | None = None) -> IngestResult:
     """Clean, chunk, embed and store one page for one user.
 
     Used by the API, the re-index script and the evaluation scripts. `solr`
@@ -137,7 +138,9 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
     `force=True` rewrites the page even when its content is unchanged (used by
     backfills), and `description` keeps an existing description instead of
     deriving one. `max_pages` refuses a new page (403) once the user has that
-    many. Raises IngestError for pages that can't be stored.
+    many. `youtube` is a video's transcript and details as the extension fetched
+    them (see youtube_utils.process_youtube_video). Raises IngestError for pages
+    that can't be stored.
     """
     if not is_valid_user_id(user_id):
         raise ValueError("ingest_page needs a valid user_id")
@@ -151,7 +154,7 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
 
     youtube_content = None
     if fetch_youtube and is_youtube_url(url):
-        youtube_content, yt_title, skip = process_youtube_video(url, is_manual)
+        youtube_content, yt_title, skip = process_youtube_video(url, is_manual, provided=youtube)
         if skip:
             return IngestResult("skipped", skip, "", url, title or domain, domain, "", 0)
         title = yt_title

@@ -28,6 +28,7 @@ The matching private key is **not** in the repo (it's in `code/src/.secrets/`, w
 | `api.js` | Bearer-token fetch; 401 → refresh once → retry → signed out |
 | `canonical.js` | Injected on demand; the page's canonical URL, if it describes the current page (single-page apps keep stale ones) |
 | `content.js` | Injected on demand after `canonical.js`; returns `{html, text, canonicalUrl}`, text capped to the API's 500,000 characters |
+| `youtube.js` | A YouTube video's captions, title, description and length, fetched inside the YouTube tab when a video is saved (YouTube blocks the server, and refuses the extension's own origin). Tested in `frontend/src/lib/extensionYoutube.test.js` |
 | `page_filter.js` | Auto-capture eligibility, saveable pages, host normalisation and exclusions |
 | `site_marker.js` | Content script on `https://memorylane.site/*` only: sets `data-memorylane-extension="installed"` on `<html>` so the site hides "Get the extension" |
 | `domain.js` | Tile letter from the main domain name (same code as `frontend/src/lib/domain.js`, tested there) |

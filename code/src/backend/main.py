@@ -151,6 +151,7 @@ def save_memory(request: Request, memory: MemoryInput, user_id: str = Depends(cu
             html=memory.html,
             canonical_url=memory.canonical_url,
             is_manual=memory.is_manual,
+            youtube=memory.youtube.model_dump() if memory.youtube else None,
             max_pages=MAX_PAGES_PER_USER,
         )
     except IngestError as e:

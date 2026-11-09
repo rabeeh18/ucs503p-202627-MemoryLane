@@ -4,6 +4,7 @@ import { COGNITO_DOMAIN, WEB_APP_URL } from "./config.js";
 import { getSession, signIn, signOut } from "./auth.js";
 import { ApiError, apiFetch } from "./api.js";
 import { isAutoCaptureEligible, isExcluded, isSaveableUrl, normalizeHost } from "./page_filter.js";
+import { fetchYouTubeVideo, youtubeVideoId } from "./youtube.js";
 
 const RECENT_CAPTURE_MS = 60 * 1000;
 const MIN_AUTO_TEXT_CHARS = 200;
@@ -52,6 +53,30 @@ function isOwnSite(url) {
     return OWN_HOSTS.some((host) => host && isExcluded(url, [host]));
 }
 
+/**
+ * A video's transcript and details for the API, or null if YouTube gave nothing usable.
+ * Runs inside the YouTube tab: YouTube's player API refuses the extension's own origin.
+ */
+async function youtubeDetails(tabId, videoId) {
+    let video;
+    try {
+        const [injection] = await chrome.scripting.executeScript({
+            target: { tabId },
+            func: fetchYouTubeVideo,
+            args: [videoId],
+        });
+        video = injection && injection.result;
+    } catch (err) {
+        console.info(`MemoryLane: couldn't read YouTube video ${videoId}: ${err?.message || err}`);
+        return null;
+    }
+    if (!video) return null;
+    if (video.error) console.info(`MemoryLane: YouTube ${videoId}: ${video.error}`);
+    const { transcript, language, title, channel, description, duration_seconds } = video;
+    if (!transcript && !description && !title) return null;
+    return { transcript, language, title, channel, description, duration_seconds };
+}
+
 async function extractTabContent(tabId) {
     try {
         const [injection] = await chrome.scripting.executeScript({
@@ -93,21 +118,26 @@ async function saveTab(tab, { manual }) {
 
     inFlightUrls.add(key);
     try {
-        const { html, text, canonicalUrl } = await extractTabContent(tab.id);
-        if (!manual && text.length < MIN_AUTO_TEXT_CHARS && !html) {
+        const videoId = youtubeVideoId(tab.url);
+        // YouTube blocks the server, so a video's transcript and details are fetched here.
+        const [{ html, text, canonicalUrl }, youtube] = await Promise.all([
+            extractTabContent(tab.id),
+            videoId ? youtubeDetails(tab.id, videoId) : null,
+        ]);
+        if (!manual && !youtube && text.length < MIN_AUTO_TEXT_CHARS && !html) {
             return { ok: false, reason: "low-content" };
         }
-        const data = await apiFetch("/memory", {
-            method: "POST",
-            body: {
-                url: tab.url,
-                title: (tab.title || tab.url).slice(0, MAX_TITLE_CHARS),
-                content: text,
-                html,
-                canonical_url: canonicalUrl,
-                is_manual: manual,
-            },
-        });
+        const body = {
+            url: tab.url,
+            title: (tab.title || tab.url).slice(0, MAX_TITLE_CHARS),
+            content: text,
+            // The server reads a video from `youtube`, not from the page, so skip the (large) HTML.
+            html: youtube ? null : html,
+            canonical_url: canonicalUrl,
+            is_manual: manual,
+        };
+        if (youtube) body.youtube = youtube;
+        const data = await apiFetch("/memory", { method: "POST", body });
         if (!manual) recentlyCaptured.set(key, Date.now());
         if (data.status === "skipped") {
             return { ok: false, reason: "skipped", error: data.message };
