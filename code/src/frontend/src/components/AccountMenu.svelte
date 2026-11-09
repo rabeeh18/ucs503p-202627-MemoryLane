@@ -5,6 +5,7 @@
   import { deleteAllData, exportData } from '../api.js';
   import { navigate } from '../lib/router.js';
   import { libraryVersion } from '../stores';
+  import { openReport } from '../report.js';
 
   let open = false;
   let button;
@@ -82,6 +83,11 @@
     navigate('/library');
   }
 
+  function goReport() {
+    closeMenu({ restoreFocus: false });
+    openReport();
+  }
+
   async function doExport() {
     closeMenu();
     status = 'Preparing your export…';
@@ -154,6 +160,7 @@
       <button type="button" role="menuitem" tabindex="-1" on:click={goExtension}>Get the extension</button>
       <button type="button" role="menuitem" tabindex="-1" on:click={doExport}>Export my data</button>
       <button type="button" role="menuitem" tabindex="-1" on:click={askDelete}>Delete all my data</button>
+      <button type="button" role="menuitem" tabindex="-1" on:click={goReport}>Report a problem</button>
       <button type="button" role="menuitem" tabindex="-1" on:click={signOut}>Sign out</button>
     </div>
   {/if}

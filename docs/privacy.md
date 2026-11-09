@@ -42,11 +42,23 @@ Gemini is optional. When the server has a Gemini key:
 
 Without a key, summaries are turned off and the map names topics from their keywords instead. Nothing else leaves the server.
 
+## Problem reports
+
+**Report a problem** (in the account menu on the website, and in the extension) sends your message to the maintainer by email. The form lists everything that goes with it before you send:
+
+- your account email, so you can get a reply;
+- whether it came from the website or the extension, and its version;
+- the page you were on, as a path only (`/search`, never the search terms);
+- your browser (its user-agent string);
+- the last error message the app showed, if any.
+
+Your saved pages and searches are not included. Reports are kept in a small database on the server (so none are lost if email is briefly down); **Delete all my data** removes them, and **Export my data** includes them.
+
 ## Export or delete
 
 From the account menu (top right of the website):
 
 - **Export my data** downloads every page you saved as JSON.
-- **Delete all my data** removes all your pages from the index.
+- **Delete all my data** removes all your pages from the index, your sign-in links and your problem reports.
 
 Single pages can be deleted from the library, search results or the map, with a few seconds to undo.

@@ -1,4 +1,4 @@
-from typing import Optional, List, Union, Dict
+from typing import Literal, Optional, List, Union, Dict
 from pydantic import BaseModel, Field
 
 class MemoryInput(BaseModel):
@@ -106,3 +106,23 @@ class MapSearchResponse(BaseModel):
     version: Optional[str] = None
     topics: List[MapTopicMatch]
     pages: List[str]
+
+
+class ReportContext(BaseModel):
+    """What the report form shows the user before sending; nothing else is sent."""
+    app_version: Optional[str] = Field(default=None, max_length=40)
+    # A path only (the client drops the query string, so no search terms).
+    page: Optional[str] = Field(default=None, max_length=200)
+    user_agent: Optional[str] = Field(default=None, max_length=400)
+    last_error: Optional[str] = Field(default=None, max_length=500)
+
+
+class ReportInput(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    source: Literal["web", "extension"] = "web"
+    context: ReportContext = Field(default_factory=ReportContext)
+
+
+class ReportResponse(BaseModel):
+    status: str  # "received"
+    id: int

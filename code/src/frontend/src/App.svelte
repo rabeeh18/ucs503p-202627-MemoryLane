@@ -9,13 +9,26 @@
   import MapPage from './routes/MapPage.svelte';
   import ScrollPill from './components/ScrollPill.svelte';
   import Toasts from './components/Toasts.svelte';
+  import ReportDialog from './components/ReportDialog.svelte';
   import { session } from './auth.js';
-  import { route } from './lib/router.js';
+  import { navigate, route } from './lib/router.js';
+  import { openReport, reportDialog, reportFromQuery } from './report.js';
 
   $: path = $route.path.replace(/\/+$/, '') || '/';
   $: query = ($route.query.get('q') || '').trim();
   $: topic = ($route.query.get('topic') || '').trim();
   $: signedIn = Boolean($session);
+
+  // The extension's "Report a problem" link: /?report=extension&v=…&err=…
+  // Opens the dialog once signed in, then drops the parameters from the address.
+  $: if (signedIn && $route.query.has('report')) {
+    const setup = reportFromQuery($route.query);
+    const rest = new URLSearchParams($route.query);
+    ['report', 'v', 'err'].forEach((key) => rest.delete(key));
+    const qs = rest.toString();
+    navigate(`${$route.path}${qs ? `?${qs}` : ''}`, { replace: true });
+    if (setup) openReport(setup);
+  }
   /** Pages anyone can open, signed in or not. */
   $: isPublic = path === '/privacy' || path === '/extension';
 
@@ -59,4 +72,7 @@
 {/if}
 
 <Toasts />
+{#if signedIn && $reportDialog}
+  <ReportDialog setup={$reportDialog} />
+{/if}
 <ScrollPill />

@@ -2,6 +2,7 @@
 // the token once and retries, and a second 401 signs the user out locally,
 // which takes them back to the sign-in screen.
 import { expireSession, getAccessToken } from './auth.js';
+import { rememberError } from './report.js';
 
 const API_BASE = (import.meta.env.VITE_API_BASE || '/api').replace(/\/$/, '');
 const TIMEOUT_MS = 15000;
@@ -70,7 +71,9 @@ async function request(path, opts = {}) {
     } catch {
       /* not JSON */
     }
-    throw new ApiError(typeof detail === 'string' && detail ? detail : 'Request failed', response.status);
+    const error = new ApiError(typeof detail === 'string' && detail ? detail : 'Request failed', response.status);
+    rememberError(`${response.status} ${path.split('?')[0]}: ${error.message}`);
+    throw error;
   }
   if (opts.raw) return response;
   if (response.status === 204) return null;
@@ -137,4 +140,13 @@ export function deleteAllData() {
  */
 export function deletePage(id, { keepalive = false } = {}) {
   return request(`/memory/${encodeURIComponent(id)}`, { method: 'DELETE', keepalive });
+}
+
+/**
+ * Send a problem report (see report.js for what goes in `context`).
+ * @param {{ message: string, source: 'web' | 'extension', context: { app_version?: string, page?: string, user_agent?: string, last_error?: string } }} report
+ * @returns {Promise<{ status: string, id: number }>}
+ */
+export function sendReport(report) {
+  return request('/reports', { method: 'POST', body: report });
 }

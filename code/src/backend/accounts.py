@@ -167,6 +167,15 @@ def library_for(sub: str, access_token: str) -> str:
     return library
 
 
+def email_for(library: str) -> str | None:
+    """The verified email of a library, or None (linking off, or not verified)."""
+    if not enabled():
+        return None
+    with _lock:
+        row = _db().execute("SELECT email FROM libraries WHERE library = ?", (library,)).fetchone()
+    return row[0] if row else None
+
+
 def forget_library(library: str) -> None:
     """Drop the stored email and sign-in links for a library (on "Delete all")."""
     if not enabled():

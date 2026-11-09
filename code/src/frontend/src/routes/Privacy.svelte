@@ -17,6 +17,13 @@
   <h2>What's sent to Google Gemini</h2>
   <p>A page's text, and only when you press Summarise on that page.</p>
 
+  <h2>Problem reports</h2>
+  <p>
+    <strong>Report a problem</strong> emails your message to the maintainer, with your account email, the
+    app and its version, the page you were on (never your search terms), your browser and the last error
+    shown. The form lists all of it before you send. Your saved pages are not included.
+  </p>
+
   <h2>Export or delete</h2>
   <p>Use <strong>Export my data</strong> or <strong>Delete all my data</strong> in the account menu at the top right.</p>
 

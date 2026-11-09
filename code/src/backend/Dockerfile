@@ -19,12 +19,12 @@ COPY scripts/ scripts/
 COPY evaluation/ evaluation/
 
 # Run as an unprivileged user; /models is a volume so models download once, and
-# /data holds which sign-ins share a library (accounts.db).
+# /data holds which sign-ins share a library (accounts.db) and problem reports (reports.db).
 RUN useradd --create-home --uid 10001 app \
     && mkdir -p /models /data \
     && chown -R app:app /models /data /app
 USER app
-ENV ACCOUNTS_DB=/data/accounts.db
+ENV ACCOUNTS_DB=/data/accounts.db     REPORTS_DB=/data/reports.db
 VOLUME ["/models", "/data"]
 
 EXPOSE 8000

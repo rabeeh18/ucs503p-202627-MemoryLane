@@ -258,6 +258,28 @@ Some updates add a Solr field. The core has automatic field creation turned off,
 
   The backfill re-ingests each page that has no page vector from its stored text, so every chunk is rewritten (it never uses Solr atomic updates, which would drop the unstored chunk embeddings). It is resumable: run it again after an interruption and it skips pages that are done. It loads its own copy of the embedding model, so expect a few hundred MB of extra memory while it runs. The map in the API process refreshes within `MAP_CACHE_TTL_SECONDS` (10 minutes) or on the next save or delete.
 
+### Problem report emails (Amazon SES)
+
+"Report a problem" stores each report in `/data/reports.db` and emails it to you. Until SMTP is set up, reports are stored but not sent; they go out once it is.
+
+1. AWS console → **Amazon SES** (region `ap-south-1`) → **Identities** → **Create identity** → *Email address*: the address reports go to (for example your Gmail). Click the link in the email SES sends. In the SES sandbox you can only send to and from verified addresses, which is all this needs; no production-access request.
+2. Use the same verified address as the sender, or verify a second one (for example `reports@memorylane.site` after verifying the domain).
+3. **SMTP settings** → **Create SMTP credentials**. This makes an IAM user and shows an SMTP username and password once. Copy them.
+4. In `.env` on the instance:
+
+   ```bash
+   SMTP_HOST=email-smtp.ap-south-1.amazonaws.com
+   SMTP_PORT=587
+   SMTP_USER=<SMTP username>
+   SMTP_PASSWORD=<SMTP password>
+   REPORTS_FROM=MemoryLane <you@example.com>
+   REPORTS_TO=you@example.com
+   ```
+
+5. `docker compose up -d backend`, then send a report from the website's account menu. `docker compose logs backend | grep -i report` shows `Report #1 emailed`, or why it wasn't (it retries with backoff, up to 12 times).
+
+The first emails may land in spam; mark them "Not spam" once.
+
 **Never** run `docker compose down -v`: it deletes Solr's data, the downloaded models and Caddy's certificates.
 
 ## Troubleshooting

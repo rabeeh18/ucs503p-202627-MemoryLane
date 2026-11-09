@@ -79,7 +79,11 @@ so a page with two good passages beats a page with one, without long pages winni
 
 ## Relevance floor
 
-KNN always returns 50 neighbours, however unrelated. A page with **no** BM25 match is dropped unless its best chunk's cosine similarity is at least `MIN_VECTOR_SIMILARITY` (0.55). Solr reports KNN scores as \((1 + \cos)/2\), so the backend converts them first. Pages that match a query word are always kept, and so are pages a site or time in the query points at that matched the rest of it by keyword.
+KNN always returns 50 neighbours, however unrelated. A page with **no** BM25 match is dropped unless its best chunk's cosine similarity is at least `MIN_VECTOR_SIMILARITY` (0.55). Solr reports KNN scores as \((1 + \cos)/2\), so the backend converts them first. Pages a site or time in the query points at, and that matched the rest of it by keyword, are kept.
+
+Keyword matches are judged too, because BM25 accepts a page that shares any one word with the query. A page whose title and best chunk hold at least `KEYWORD_FULL_MATCH` (75%) of the query's words (as the snippet code counts them: 3+ letters, common words left out, prefix match) is kept whatever its similarity, so exact names, error codes and rare words are never lost. A page that shares only some of them needs `MIN_VECTOR_SIMILARITY`, like a page that shares none. For "greatest football player of all time", Nintendo ("the greatest games of all time", best chunk similarity 0.51) and Video game ("the player ... a later time", 0.46) match two of the four words and are about something else, so they're dropped; Lionel Messi holds all four (0.69). Measured with `bge-small-en-v1.5` on the real Wikipedia articles.
+
+When such a page's chunks weren't in the main KNN list, its similarity is looked up with one more KNN request restricted to those pages (at most 50 pages, 8 chunks each). If that request fails, they're dropped rather than shown unjudged.
 
 ## Snippets
 

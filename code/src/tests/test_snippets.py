@@ -215,3 +215,108 @@ def test_group_by_webpage_uses_best_similarity_of_any_chunk():
     [page] = retrieval.group_by_webpage(candidates, {"p::0": 0.5, "p::1": 0.1})
     assert page["vector_similarity"] == pytest.approx(0.7)
     assert page["bm25_match"] is False
+
+
+# ---- partial keyword matches -------------------------------------------------------
+
+def _kw_page(page_id, text, sim, bm25=True, title="Page"):
+    return {"page_id": page_id, "bm25_match": bm25, "vector_similarity": sim, "title": title, "text": text}
+
+
+GOAT = retrieval.query_terms("greatest football player of all time")  # greatest, football, player, time
+
+
+def test_partial_keyword_match_needs_similarity():
+    pages = [
+        _kw_page("messi", "one of the greatest football players of his time", 0.30),
+        _kw_page("nintendo-weak", "the greatest games of all time", 0.40),
+        _kw_page("nintendo-close", "the greatest games of all time", 0.62),
+        _kw_page("no-similarity", "the greatest games of all time", None),
+    ]
+    kept = [p["page_id"] for p in retrieval.apply_relevance_floor(pages, 0.55, terms=GOAT,
+                                                                  keyword_min_similarity=0.5)]
+    # Messi holds every word, so it stays even with low similarity.
+    assert kept == ["messi", "nintendo-close"]
+
+
+def test_single_word_and_name_queries_keep_every_keyword_match():
+    terms = retrieval.query_terms("ECONNRESET")
+    pages = [_kw_page("log", "got ECONNRESET from the proxy", 0.1)]
+    assert retrieval.apply_relevance_floor(pages, 0.55, terms=terms) == pages
+
+
+def test_title_counts_towards_keyword_coverage():
+    terms = retrieval.query_terms("rust lifetimes")
+    page = _kw_page("r", "borrow checker rules explained", 0.1, title="Rust lifetimes guide")
+    assert retrieval.keyword_coverage(page, terms) == 1.0
+    assert retrieval.apply_relevance_floor([page], 0.55, terms=terms) == [page]
+
+
+def test_coverage_of_a_query_with_only_stopwords_is_full():
+    assert retrieval.keyword_coverage(_kw_page("p", "anything", None), retrieval.query_terms("the and")) == 1.0
+
+
+def test_similarity_is_looked_up_for_partial_matches_only():
+    solr = MagicMock()
+    solr.knn_search.return_value = [
+        {"id": "n::3", "page_id": "n", "score": 0.70},  # cosine 0.40
+        {"id": "n::1", "page_id": "n", "score": 0.72},  # cosine 0.44, its best chunk
+    ]
+    pages = [
+        _kw_page("full", "greatest football player of all time", None),
+        _kw_page("n", "the greatest games of all time", None),
+        _kw_page("known", "greatest of all time", 0.7),
+        _kw_page("vector-only", "x", None, bm25=False),
+    ]
+    looked_up = retrieval.fill_keyword_similarity(solr, pages, GOAT, "user-a", lambda: (0.1,) * 384)
+    assert looked_up == 1
+    assert solr.knn_search.call_args.kwargs["page_ids"] == ["n"]
+    assert solr.knn_search.call_args.args[1] == "user-a"
+    assert pages[1]["vector_similarity"] == pytest.approx(0.44)
+    assert pages[0]["vector_similarity"] is None
+
+
+def test_no_lookup_when_nothing_needs_it():
+    solr = MagicMock()
+    pages = [_kw_page("full", "greatest football player of all time", None)]
+    assert retrieval.fill_keyword_similarity(solr, pages, GOAT, "user-a", lambda: ()) == 0
+    solr.knn_search.assert_not_called()
+
+
+def test_hybrid_search_drops_word_overlap_pages():
+    """The reported case: 'greatest football player of all time' also returned
+    Nintendo ('greatest ... of all time') and Video game ('player ... time')."""
+    messi = {"id": "m::0", "page_id": "m", "url": "https://e.com/m", "title": "Lionel Messi",
+             "domain": "e.com", "timestamp": "t",
+             "text": "Messi is considered one of the greatest football players of all time."}
+    nintendo = {"id": "n::0", "page_id": "n", "url": "https://e.com/n", "title": "Nintendo",
+                "domain": "e.com", "timestamp": "t",
+                "text": "Some Nintendo 64 games are among the greatest of all time."}
+    solr = MagicMock()
+    solr.bm25_search.return_value = [messi, nintendo]
+
+    def knn(vector, user, k, **kw):
+        if kw.get("page_ids") == ["n"]:
+            return [{**nintendo, "score": 0.70}]  # cosine 0.40
+        return [{**messi, "score": 0.90}]
+    solr.knn_search.side_effect = knn
+    retrieval._cached_query_embedding.cache_clear()
+    with patch("backend.retrieval.embed_query", return_value=[0.1] * 384), \
+         patch("backend.retrieval.QUERY_INTENT_ENABLED", False):
+        results = retrieval.hybrid_search("greatest football player of all time", "user-a",
+                                          top_k=5, candidate_pool=10, solr=solr, snippets=False)
+    assert [r["page_id"] for r in results] == ["m"]
+
+
+def test_similarity_lookup_failure_does_not_break_search():
+    page = {"id": "n::0", "page_id": "n", "url": "https://e.com/n", "title": "Nintendo",
+            "domain": "e.com", "timestamp": "t", "text": "the greatest of all time"}
+    solr = MagicMock()
+    solr.bm25_search.return_value = [page]
+    solr.knn_search.side_effect = [[], RuntimeError("solr down")]
+    retrieval._cached_query_embedding.cache_clear()
+    with patch("backend.retrieval.embed_query", return_value=[0.1] * 384), \
+         patch("backend.retrieval.QUERY_INTENT_ENABLED", False):
+        results = retrieval.hybrid_search("greatest football player of all time", "user-a",
+                                          top_k=5, candidate_pool=10, solr=solr, snippets=False)
+    assert results == []  # no similarity to judge it by, so the floor drops it

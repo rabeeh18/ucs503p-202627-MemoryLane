@@ -60,6 +60,8 @@ Copy `.env.example` to `.env`. Variables:
 | `BM25_WEIGHT` / `VECTOR_WEIGHT` | `1.0` / `1.0` | RRF weights |
 | `PAGE_SECOND_CHUNK_WEIGHT` | `0.3` | Weight of a page's second-best chunk |
 | `MIN_VECTOR_SIMILARITY` | `0.55` | Pages with no BM25 match need at least this cosine similarity |
+| `KEYWORD_FULL_MATCH` | `0.75` | BM25 matches holding under this share of the query's words also need `MIN_VECTOR_SIMILARITY` |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `REPORTS_FROM` / `REPORTS_TO` | empty / `587` | Problem reports by email (Amazon SES SMTP); empty `SMTP_HOST` stores reports without sending |
 | `QUERY_INTENT_ENABLED` | `true` | Rank pages from a site, time or URL named in the query higher |
 | `INTENT_WEIGHT` | `1.0` | Weight of those site/time lists in the fusion, relative to the main ones |
 | `MAP_MAX_PAGES` / `MAP_MIN_PAGES` | `2000` / `10` | Library map: most recent pages mapped; fewer than the minimum shows "save a few more" |
@@ -132,7 +134,8 @@ Every endpoint except `/health` needs `Authorization: Bearer <Cognito access tok
 | `POST /search` | `{query, num_results, summarize, debug}` → `{query, results}` |
 | `POST /summarize` | `{query, id}` → `{id, summary}`; 404 if not the caller's |
 | `GET /me/export` | JSON download of all the caller's pages |
-| `DELETE /me/data` | 204; deletes all the caller's chunks |
+| `DELETE /me/data` | 204; deletes all the caller's chunks and problem reports |
+| `POST /reports` | `{message, source, context}` → 202 `{status: "received", id}`; stored, then emailed in the background; 5/hour |
 | `GET /memory/{page_id}/related?k=5` | `{page_id, related: [{id, title, url, domain, saved_at, similarity}]}`; 404 if not the caller's |
 | `GET /map` | `{status, version, topics, pages, edges, counts}` or `{status: "too_few", count}` |
 | `GET /map/search?q=` | `{query, version, topics: [{id, label, score}], pages: [ids]}`: topics named like `q` first, then by where its search results are |
@@ -156,7 +159,7 @@ Uses the same hybrid pipeline as the CLI. Each result has a plain-text `snippet`
 2. Reciprocal Rank Fusion: `w_bm25 / (k + rank_bm25) + w_knn / (k + rank_knn)`; a chunk missing from one list gets nothing from it
 3. Optional cross-encoder rerank of the top `RERANK_TOP_N` chunks
 4. Group by `page_id`: best chunk + `PAGE_SECOND_CHUNK_WEIGHT` × second-best chunk
-5. Relevance floor: drop pages with no BM25 match whose best chunk has cosine similarity below `MIN_VECTOR_SIMILARITY` (Solr's KNN score is `(1 + cos) / 2`; debug output shows `vector_similarity`)
+5. Relevance floor: drop pages with no BM25 match whose best chunk has cosine similarity below `MIN_VECTOR_SIMILARITY` (Solr's KNN score is `(1 + cos) / 2`; debug output shows `vector_similarity`), and BM25 matches holding under `KEYWORD_FULL_MATCH` of the query's words whose similarity is below that same threshold (looked up with one KNN request over just those pages when unknown)
 6. Snippet (`backend/snippets.py`): 2–3 consecutive readable sentences (8+ words, 70%+ letters, no `|`, ending in punctuation) around the sentence matching the most query terms (the first on a tie); when no sentence matches a term, the first 3 readable sentences are compared with the query by embedding; 200–280 characters; else the page's stored `description`; else none
 7. Return the top-K pages with their snippets
 

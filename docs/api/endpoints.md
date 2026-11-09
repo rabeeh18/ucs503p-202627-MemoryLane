@@ -177,10 +177,32 @@ Find topics on your map. Topics named like `q` come first (score 2 for the exact
 
 ## `GET /me/export`
 
-Downloads `memorylane-export.json` with every page you saved (URL, title, timestamp and full text), newest first. Rate limit: 5/minute.
+Downloads `memorylane-export.json` with every page you saved (URL, title, timestamp and full text), newest first, and the problem reports you sent. Rate limit: 5/minute.
 
 ---
 
 ## `DELETE /me/data`
 
-Deletes all your pages. Returns `204`. Rate limit: 5/minute.
+Deletes all your pages and the problem reports you sent. Returns `204`. Rate limit: 5/minute.
+
+---
+
+## `POST /reports`
+
+Report a problem. The report is written to the server's database before the reply, then emailed to the maintainer in the background (retried with backoff if the mail server is down, also after a restart). Returns `202`. Rate limit: 5/hour.
+
+```json
+{
+  "message": "Search shows Nintendo for 'greatest football player'",
+  "source": "web",
+  "context": { "app_version": "1.0.0", "page": "/search", "user_agent": "Mozilla/5.0 ...", "last_error": "" }
+}
+```
+
+- `message`: 1–4,000 characters. `source`: `web` or `extension`.
+- `context.page` is a path only; a query string (search terms) or anything that isn't a path is dropped.
+- The reply-to address comes from the server's record of your sign-in, never from the request.
+
+```json
+{ "status": "received", "id": 42 }
+```

@@ -42,7 +42,8 @@ Changing the model means re-embedding every page.
 | `RRF_K` | `60` | Reciprocal Rank Fusion constant |
 | `BM25_WEIGHT`, `VECTOR_WEIGHT` | `1.0`, `1.0` | Weights of the two rankings |
 | `PAGE_SECOND_CHUNK_WEIGHT` | `0.3` | How much a page's second-best chunk adds |
-| `MIN_VECTOR_SIMILARITY` | `0.55` | Pages with no keyword match need at least this cosine similarity |
+| `MIN_VECTOR_SIMILARITY` | `0.55` | Pages need at least this cosine similarity, unless they hold most of the query's words |
+| `KEYWORD_FULL_MATCH` | `0.75` | Share of the query's words a keyword match must hold to be kept whatever its similarity |
 | `QUERY_INTENT_ENABLED` | `true` | Rank pages from a site, time or URL named in the query higher ([how](../architecture/retrieval.md#site-time-and-url-in-the-query)) |
 | `INTENT_WEIGHT` | `1.0` | Weight of those site and time rankings, relative to the main ones |
 | `RERANK_ENABLED`, `RERANK_MODEL`, `RERANK_TOP_N` | `false`, `cross-encoder/ms-marco-MiniLM-L-6-v2`, `20` | Optional cross-encoder reranker (more memory) |

@@ -17,6 +17,10 @@ VECTOR_WEIGHT = float(os.getenv('VECTOR_WEIGHT', '1.0'))
 PAGE_SECOND_CHUNK_WEIGHT = float(os.getenv('PAGE_SECOND_CHUNK_WEIGHT', '0.3'))
 # Pages with no BM25 match need at least this cosine similarity on some chunk.
 MIN_VECTOR_SIMILARITY = float(os.getenv('MIN_VECTOR_SIMILARITY', '0.55'))
+# Pages that matched only some of the query's words by keyword (BM25) need
+# MIN_VECTOR_SIMILARITY too. Pages holding at least KEYWORD_FULL_MATCH of the
+# query's words are kept whatever their similarity (exact names, codes, rare words).
+KEYWORD_FULL_MATCH = float(os.getenv('KEYWORD_FULL_MATCH', '0.75'))
 # Site words, time phrases and URLs in a query (backend/query_intent.py) also rank
 # the matching pages; their lists count this much relative to the main ones.
 QUERY_INTENT_ENABLED = os.getenv('QUERY_INTENT_ENABLED', 'true').strip().lower() in ('1', 'true', 'yes', 'on')
@@ -56,6 +60,16 @@ COGNITO_APP_CLIENT_ID = os.getenv('COGNITO_APP_CLIENT_ID', '')
 COGNITO_DOMAIN = (os.getenv('COGNITO_DOMAIN') or os.getenv('VITE_COGNITO_DOMAIN') or '').rstrip('/')
 # Which sign-ins share a library (SQLite). The Docker image keeps it on a volume.
 ACCOUNTS_DB = os.getenv('ACCOUNTS_DB', os.path.join('data', 'accounts.db'))
+
+# Problem reports (backend/reports.py): stored in SQLite, emailed over SMTP.
+# Without SMTP_HOST, REPORTS_FROM and REPORTS_TO, reports are stored but not sent.
+REPORTS_DB = os.getenv('REPORTS_DB', os.path.join('data', 'reports.db'))
+SMTP_HOST = os.getenv('SMTP_HOST', '').strip()
+SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
+SMTP_USER = os.getenv('SMTP_USER', '').strip()
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
+REPORTS_FROM = os.getenv('REPORTS_FROM', '').strip()
+REPORTS_TO = os.getenv('REPORTS_TO', '').strip()
 
 # Embeddings
 EMBEDDING_MODEL = os.getenv('EMBEDDING_MODEL', 'BAAI/bge-small-en-v1.5')

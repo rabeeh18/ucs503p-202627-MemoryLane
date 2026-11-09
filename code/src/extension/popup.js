@@ -11,6 +11,7 @@ const accountButton = document.getElementById("account-button");
 const accountMenu = document.getElementById("account-menu");
 const menuEmail = document.getElementById("menu-email");
 const signOutButton = document.getElementById("sign-out");
+const reportButton = document.getElementById("report");
 
 /** State from the service worker (see popupState in background.js). */
 let state = null;
@@ -77,6 +78,17 @@ function ago(timestamp) {
 function openTab(url) {
     chrome.tabs.create({ url });
     window.close();
+}
+
+/** The website's report form, told it's about the extension (version, and the error shown, if any). */
+function openReport(error = "") {
+    const params = new URLSearchParams({ report: "extension", v: chrome.runtime.getManifest().version });
+    if (error) params.set("err", error.slice(0, 300));
+    openTab(`${WEB_APP_URL}/?${params}`);
+}
+
+function reportLink(error) {
+    return h("button", { type: "button", class: "link-button", onclick: () => openReport(error) }, "Report this");
 }
 
 // ---- rendering -------------------------------------------------------------------
@@ -150,10 +162,10 @@ function mainView() {
         return [pageCard([dot(), "Saving…"]), primary("Saving…", null, true)];
     }
     if (view?.kind === "error") {
-        return [pageCard([dot(), view.message]), primary("Try again", view.retry)];
+        return [pageCard([dot(), view.message], reportLink(view.message)), primary("Try again", view.retry)];
     }
     if (state.statusError) {
-        return [pageCard([dot(), state.statusError]), primary("Try again", load)];
+        return [pageCard([dot(), state.statusError], reportLink(state.statusError)), primary("Try again", load)];
     }
     if (view?.kind === "saved") {
         const undo = h("button", { type: "button", class: "link-button", onclick: () => undoSave(view.page.id) }, "Undo");
@@ -300,7 +312,7 @@ async function setExcluded(excluded) {
 function setMenu(open, { focus = true } = {}) {
     accountMenu.hidden = !open;
     accountButton.setAttribute("aria-expanded", String(open));
-    if (open && focus) signOutButton.focus();
+    if (open && focus) reportButton.focus();
     if (!open && focus) accountButton.focus();
 }
 
@@ -315,6 +327,7 @@ accountMenu.addEventListener("keydown", (event) => {
 document.addEventListener("click", (event) => {
     if (!accountMenu.hidden && !account.contains(event.target)) setMenu(false, { focus: false });
 });
+reportButton.addEventListener("click", () => openReport());
 signOutButton.addEventListener("click", async () => {
     setMenu(false, { focus: false });
     await send({ type: "SIGN_OUT" });

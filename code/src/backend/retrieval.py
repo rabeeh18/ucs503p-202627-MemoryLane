@@ -8,12 +8,14 @@ from functools import lru_cache
 from backend.config import (
     BM25_WEIGHT, VECTOR_WEIGHT, DEFAULT_CANDIDATE_POOL, DEFAULT_TOP_K,
     RRF_K, PAGE_SECOND_CHUNK_WEIGHT, RERANK_ENABLED, RERANK_TOP_N, MIN_VECTOR_SIMILARITY,
-    QUERY_INTENT_ENABLED, INTENT_WEIGHT,
+    QUERY_INTENT_ENABLED, INTENT_WEIGHT, KEYWORD_FULL_MATCH,
 )
 from backend.embeddings import embed_passages, embed_query
 from backend import rerank
 from backend.query_intent import QueryIntent, parse_query
-from backend.snippets import SentenceEmbeddingCache, build_snippet, build_snippets  # noqa: F401
+from backend.snippets import (  # noqa: F401
+    SentenceEmbeddingCache, build_snippet, build_snippets, query_terms, term_score,
+)
 from backend.solr_client import (
     SolrClient, domains_filter, get_solr_client, page_ids_filter, saved_between_filter,
     unwrap_solr_value,
@@ -149,18 +151,91 @@ def group_by_webpage(candidates: list[dict], fused_scores: dict[str, float],
     return results
 
 
-def apply_relevance_floor(pages: list[dict], min_similarity: float = None) -> list[dict]:
-    """Drop pages that matched no BM25 term and whose best chunk is less similar
-    to the query than min_similarity (cosine). Pages the query points at by site,
-    time or URL, and that matched the rest of it by keyword (or there was no rest),
-    are kept."""
+def keyword_coverage(page: dict, terms: list[str]) -> float:
+    """Share of the query's terms (snippets.query_terms) found in the page's
+    title or best chunk, by prefix match. 1.0 for a query with no such terms."""
+    if not terms:
+        return 1.0
+    text = f"{page.get('title') or ''} {page.get('text') or ''}"
+    return term_score(text, terms) / len(terms)
+
+
+def _strong_keyword_match(page: dict, terms: list[str] | None) -> bool:
+    return terms is None or keyword_coverage(page, terms) >= KEYWORD_FULL_MATCH
+
+
+def apply_relevance_floor(pages: list[dict], min_similarity: float = None,
+                          terms: list[str] | None = None,
+                          keyword_min_similarity: float = None) -> list[dict]:
+    """Drop pages that aren't about the query.
+
+    - Pages the query points at by site, time or URL (and that matched the rest
+      of it by keyword, or there was no rest) are kept.
+    - Pages that matched no BM25 term need a chunk at least `min_similarity`
+      (cosine) to the query.
+    - Pages that matched BM25 are kept when they hold most of the query's
+      `terms` (KEYWORD_FULL_MATCH; so exact names and codes are never lost);
+      a page that shares only some words ("greatest" and "time" for "greatest
+      football player of all time") also needs `keyword_min_similarity`
+      (default: `min_similarity`).
+      Without `terms`, every BM25 match is kept.
+    """
     if min_similarity is None:
         min_similarity = MIN_VECTOR_SIMILARITY
-    return [
+    if keyword_min_similarity is None:
+        keyword_min_similarity = min_similarity
+
+    def similar(page, threshold):
+        return page.get("vector_similarity") is not None and page["vector_similarity"] >= threshold
+
+    kept = []
+    for page in pages:
+        if page.get("intent_match"):
+            kept.append(page)
+        elif page.get("bm25_match"):
+            if _strong_keyword_match(page, terms) or similar(page, keyword_min_similarity):
+                kept.append(page)
+        elif similar(page, min_similarity):
+            kept.append(page)
+    return kept
+
+
+# Pages whose similarity is looked up after fusion, and chunks fetched for them.
+SIMILARITY_CHECK_MAX_PAGES = 50
+SIMILARITY_CHECK_CHUNKS_PER_PAGE = 8
+SIMILARITY_CHECK_MAX_CHUNKS = 300
+
+
+def fill_keyword_similarity(solr: SolrClient, pages: list[dict], terms: list[str], user_id: str,
+                            query_vector, page_ids=None) -> int:
+    """Give partial keyword matches with no vector similarity one: a KNN over
+    just those pages' chunks (one Solr request). Their chunks weren't in the
+    main KNN list, so without this the floor couldn't judge them.
+    Returns how many pages were looked up."""
+    need = [
         page for page in pages
-        if page.get("bm25_match") or page.get("intent_match")
-        or (page.get("vector_similarity") is not None and page["vector_similarity"] >= min_similarity)
-    ]
+        if page.get("bm25_match") and not page.get("intent_match")
+        and page.get("vector_similarity") is None and not _strong_keyword_match(page, terms)
+    ][:SIMILARITY_CHECK_MAX_PAGES]
+    if not need:
+        return 0
+    ids = [page["page_id"] for page in need]
+    if page_ids is not None:
+        allowed = set(page_ids)
+        ids = [i for i in ids if i in allowed]
+        if not ids:
+            return 0
+    k = min(SIMILARITY_CHECK_CHUNKS_PER_PAGE * len(ids), SIMILARITY_CHECK_MAX_CHUNKS)
+    docs = solr.knn_search(list(query_vector()), user_id, k=k, page_ids=ids)
+    best: dict[str, float] = {}
+    for doc in docs:
+        page_id = unwrap_solr_value(doc.get("page_id", ""), "page_id")
+        similarity = knn_score_to_cosine(doc.get("score", 0.0))
+        best[page_id] = max(similarity, best.get(page_id, -1.0))
+    for page in need:
+        if page["page_id"] in best:
+            page["vector_similarity"] = best[page["page_id"]]
+    return len(ids)
 
 
 @lru_cache(maxsize=1024)
@@ -347,13 +422,26 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
         k=RRF_K,
     )
 
-    grouped = apply_relevance_floor(group_by_webpage(list(candidates_map.values()), fused))
+    terms = query_terms(query)
+    all_pages = group_by_webpage(list(candidates_map.values()), fused)
+    try:
+        fill_keyword_similarity(solr, all_pages, terms, user_id,
+                                lambda: _cached_query_embedding(query), page_ids)
+    except Exception as e:  # never let this break a search; the floor then drops them
+        logger.warning(f"Similarity check of keyword matches skipped: {e}")
+    grouped = apply_relevance_floor(all_pages, terms=terms)
     fuse_ms = (time.perf_counter() - fuse_start) * 1000
 
     rerank_ms = 0.0
     if RERANK_ENABLED and candidates_map:
         rerank_start = time.perf_counter()
-        grouped = apply_relevance_floor(_rerank(query, candidates_map, fused, grouped))
+        reranked = _rerank(query, candidates_map, fused, grouped)
+        # Reranking regroups pages from their chunks: keep the similarities looked up above.
+        looked_up = {p["page_id"]: p.get("vector_similarity") for p in all_pages}
+        for page in reranked:
+            if page.get("vector_similarity") is None:
+                page["vector_similarity"] = looked_up.get(page["page_id"])
+        grouped = apply_relevance_floor(reranked, terms=terms)
         rerank_ms = (time.perf_counter() - rerank_start) * 1000
 
     results = grouped[:top_k]

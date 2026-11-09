@@ -10,14 +10,14 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from backend import accounts
+from backend import accounts, reports
 from backend.auth import check_config, current_user_id
 from backend.config import CORS_ORIGINS, MAX_PAGES_PER_USER, MIN_VECTOR_SIMILARITY
 from backend.models import (
     MemoryInput, SearchInput, MemoryResponse, PageInfo, MemoryStatusResponse,
     MemoriesResponse, SearchResponse, SearchResultItem, DebugSearchResultItem,
     HealthResponse, SummarizeInput, SummarizeResponse, RelatedPage, RelatedResponse,
-    MapSearchResponse,
+    MapSearchResponse, ReportInput, ReportResponse,
 )
 from backend.library_map import StaleMap, map_service
 from backend.chunking import join_chunks
@@ -57,7 +57,9 @@ async def lifespan(app: FastAPI):
         logger.info("Embedding model loaded successfully")
     except Exception as e:
         logger.error(f"Failed to load embedding model: {e}")
+    reports.start_sender()
     yield
+    reports.stop_sender()
 
 
 app = FastAPI(
@@ -400,6 +402,7 @@ def export_my_data(request: Request, user_id: str = Depends(current_user_id)):
         content={
             "exported_at": datetime.now(timezone.utc).isoformat(),
             "pages": exported,
+            "reports": reports.user_reports(user_id),
         },
         headers={"Content-Disposition": 'attachment; filename="memorylane-export.json"'},
     )
@@ -412,5 +415,37 @@ def delete_my_data(request: Request, user_id: str = Depends(current_user_id)):
     get_solr_client().delete_user(user_id)
     map_service.invalidate(user_id)
     forget_user_sites(user_id)
+    reports.delete_user_reports(user_id)
     accounts.forget_library(user_id)
     return Response(status_code=204)
+
+
+_PAGE_PATH = re.compile(r"^/[A-Za-z0-9/_\-.]*$")
+
+
+@app.post("/reports", response_model=ReportResponse, status_code=202)
+@limiter.limit("5/hour")
+def report_problem(request: Request, body: ReportInput, user_id: str = Depends(current_user_id)):
+    """Store a problem report and queue it for email. 202 once it is on disk."""
+    message = reports.clean_text(body.message, 4000)
+    if not message:
+        raise HTTPException(status_code=400, detail="Describe the problem first")
+    ctx = body.context
+    page = reports.clean_text(ctx.page, 200).split("?", 1)[0].split("#", 1)[0]
+    context = {
+        "source": body.source,
+        "app_version": reports.clean_text(ctx.app_version, 40),
+        "page": page if _PAGE_PATH.match(page) else "",
+        "user_agent": reports.clean_text(ctx.user_agent, 400),
+        "last_error": reports.clean_text(ctx.last_error, 500),
+    }
+    try:
+        email = accounts.email_for(user_id)
+    except Exception:
+        email = None
+    try:
+        report_id = reports.save_report(user_id, message, context, email=email)
+    except Exception as e:
+        logger.error(f"Failed to store report: {type(e).__name__}")
+        raise HTTPException(status_code=500, detail="Couldn't send your report. Try again.")
+    return ReportResponse(status="received", id=report_id)
