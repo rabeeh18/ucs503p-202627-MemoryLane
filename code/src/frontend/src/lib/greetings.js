@@ -6,7 +6,7 @@ export const HEADLINES = [
   'What are you trying to remember?',
   'What was that thing you read?',
   'Where did you see it?',
-  "Describe it, and we'll find it.",
+  'Describe it, and MemoryLane will find it.',
   'Half-remember something?',
   "Something you read, but can't find?",
   'What did you come back for?',
