@@ -6,6 +6,8 @@
   /** Key hint shown inside the input ('/' on Home, 'Esc' on Results). */
   export let kbdHint = '/';
   export let autofocus = false;
+  /** Example query shown in the empty box. */
+  export let placeholder = 'that article about sleep and memory…';
 
   const dispatch = createEventDispatcher();
 
@@ -154,7 +156,7 @@
         type="text"
         bind:value={$searchQuery}
         on:keydown={handleKeydown}
-        placeholder="that article about sleep and memory…"
+        {placeholder}
         autocomplete="off"
         spellcheck="false"
         enterkeyhint="search"

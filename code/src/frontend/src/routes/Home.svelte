@@ -8,9 +8,12 @@
   import { link, navigate } from '../lib/router.js';
   import { libraryVersion, recentError, recentPages, searchQuery } from '../stores';
   import { hiddenPageIds } from '../pageDeletes.js';
+  import { nextGreeting } from '../lib/greetings.js';
 
   let searchBar;
   let controller;
+  // A different headline and example on each visit (see lib/greetings.js).
+  const { headline, placeholder } = nextGreeting();
 
   async function loadRecent() {
     controller?.abort();
@@ -58,8 +61,8 @@
 <Header />
 
 <main class="home">
-  <h1>What are you trying to remember?</h1>
-  <SearchBar bind:this={searchBar} kbdHint="/" autofocus on:submit={onSubmit} on:clear={() => searchQuery.set('')} />
+  <h1>{headline}</h1>
+  <SearchBar bind:this={searchBar} kbdHint="/" autofocus {placeholder} on:submit={onSubmit} on:clear={() => searchQuery.set('')} />
   <p class="helper">Describe it in your own words. No exact title needed.</p>
 
   <section class="recent" aria-labelledby="recent-heading">
