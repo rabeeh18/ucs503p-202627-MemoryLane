@@ -56,8 +56,10 @@ Everything runs with Docker Compose on a single AWS EC2 instance, served at [mem
 - **[Getting Started](getting-started/index.md)**: use the hosted site, or run your own copy.
 - **[Using MemoryLane](user-guide/automatic-capture.md)**: saving, searching and the library.
 - **[How It Works](how-it-works/overview.md)**: follow a page from saving to search.
-- **[Architecture](architecture/overview.md)**: components, retrieval and security.
+- **[Architecture](architecture/overview.md)**: components, data flow diagrams, retrieval and security.
+- **[Design Decisions](decisions/index.md)**: why MemoryLane is built the way it is, one decision per page.
 - **[API Reference](api/index.md)**: the backend endpoints.
 - **[Development](development/project-structure.md)**: repository layout, tests and deployment.
 - **[Evaluation](evaluation/methodology.md)**: the SciFact retrieval benchmark.
 - **[Privacy](privacy.md)**: what is stored, who can see it and what leaves the server.
+- **[Glossary](glossary.md)**: the search and security terms used throughout. Hover over a dotted-underlined term on any page to see its meaning.

@@ -69,7 +69,10 @@ markdown_extensions:
       pygments_lang_class: true
 
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      # Hover definitions for terms like BM25 and PKCE on every page.
+      auto_append:
+        - includes/abbreviations.md
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -125,6 +128,18 @@ nav:
       - Retrieval Architecture: architecture/retrieval.md
       - Security: architecture/security.md
 
+  - Design Decisions:
+      - Overview: decisions/index.md
+      - 0001 Solr for keyword and vector search: decisions/0001-solr.md
+      - 0002 Reciprocal Rank Fusion: decisions/0002-reciprocal-rank-fusion.md
+      - 0003 Relevance floor: decisions/0003-relevance-floor.md
+      - 0004 One EC2 instance: decisions/0004-one-ec2-instance.md
+      - 0005 Linking sign-ins by email: decisions/0005-link-sign-ins-by-email.md
+      - 0006 YouTube captions in the browser: decisions/0006-youtube-in-the-browser.md
+      - 0007 Storing reports before emailing: decisions/0007-store-reports-before-emailing.md
+      - 0008 Keeping summaries optional: decisions/0008-keep-summaries-optional.md
+      - 0009 Removing the library map: decisions/0009-remove-library-map.md
+
   - API Reference:
       - Overview: api/index.md
       - Endpoints: api/endpoints.md
@@ -139,3 +154,4 @@ nav:
       - Results: evaluation/results.md
 
   - Privacy: privacy.md
+  - Glossary: glossary.md
