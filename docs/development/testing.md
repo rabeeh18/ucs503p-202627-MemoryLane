@@ -41,7 +41,7 @@ Unit tests cover the pure modules in `src/lib/`: delete-with-undo (`deletes.test
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs the backend tests and the frontend tests and checks on every push and pull request. `.github/workflows/mkdocs.yml` publishes this documentation to GitHub Pages on every push to `master`.
+`.github/workflows/ci.yml` runs the backend tests and the frontend tests and checks on every push and pull request. `.github/workflows/mkdocs.yml` builds this documentation with `mkdocs build --strict` on every push that changes it, so broken links or config fail the check. It doesn't publish: the site is published by hand from the repository root with `mkdocs gh-deploy --strict`, which builds it and pushes it to the `gh-pages` branch.
 
 ## Retrieval quality
 
