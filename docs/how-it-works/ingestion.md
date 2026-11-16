@@ -27,7 +27,6 @@ All of this happens in one function, `ingest_page` (`backend/ingest.py`). It is 
 7. If the page is already stored with the same content hash and embedding model, return `unchanged` and do nothing.
 8. Chunk, embed, compute the page vector and description.
 9. Upsert the chunks as `{page_id}::{n}`, then delete any higher-numbered chunks left from an older, longer version.
-10. Clear the user's cached library map.
 
 The response is `{status: saved | unchanged | skipped, message, page}`.
 

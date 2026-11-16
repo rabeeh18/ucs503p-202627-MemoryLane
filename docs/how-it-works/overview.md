@@ -48,29 +48,15 @@ Relevance floor
 Snippets → results
 ```
 
-## Mapping the library
-
-```text
-User's page vectors (newest 2,000)
-          ↓
-PCA → k-means (k chosen by silhouette) → split oversized topics
-          ↓
-Outliers left unclustered
-          ↓
-Topic names (Gemini, or keywords)
-          ↓
-Layout + links → cached per user
-```
-
 ## Separation of responsibilities
 
 | Part | Responsibility |
 | --- | --- |
 | Extension | Collecting pages, auto-capture rules, excluded sites |
-| Web app | Search, library, map, summaries, account |
+| Web app | Search, library, summaries, account |
 | Cognito | Who the user is |
 | Caddy | HTTPS, static files, routing `/api` |
-| FastAPI | Token checks, ingest, retrieval, map, summaries |
+| FastAPI | Token checks, ingest, retrieval, summaries |
 | Sentence Transformers | Embeddings |
 | Solr | Storage, BM25 and KNN search |
-| Gemini | Optional summaries and topic names |
+| Gemini | Optional summaries |

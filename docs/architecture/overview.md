@@ -3,7 +3,7 @@
 ```text
 ┌──────────────────┐   ┌──────────────────┐        ┌──────────────────┐
 │ Chrome extension │   │  Svelte web app  │◀──────▶│  Amazon Cognito  │
-│ save, auto-save  │   │ search, map, lib │  PKCE  │ Google / email   │
+│ save, auto-save  │   │ search, library  │  PKCE  │ Google / email   │
 └────────┬─────────┘   └────────┬─────────┘        └──────────────────┘
          │  HTTPS + Bearer access token
          ▼                      ▼
@@ -14,7 +14,7 @@
 ┌─────────────────────────────────────────┐        ┌──────────────────┐
 │ FastAPI backend                         │───────▶│ Gemini           │
 │ token check → user_id                   │        │ (optional)       │
-│ ingest · retrieval · map · summaries    │        └──────────────────┘
+│ ingest · retrieval · summaries          │        └──────────────────┘
 │ Sentence Transformers (bge-small)       │
 └────────────────────┬────────────────────┘
                      ▼   always filtered by user_id
@@ -34,7 +34,7 @@ The collection layer. It saves the current page on request, runs optional auto-c
 
 ### Svelte web app
 
-The search interface: home with recent pages, results with snippets and summaries, the library, the library map, the extension page, privacy and the account menu. It is built into static files that Caddy serves.
+The search interface: home with recent pages, results with snippets and summaries, the library, the extension page, privacy and the account menu. It is built into static files that Caddy serves.
 
 ### Amazon Cognito
 
@@ -46,7 +46,7 @@ Gets and renews HTTPS certificates, serves the web app with a strict Content Sec
 
 ### FastAPI backend
 
-The application layer. It verifies every request's token, then saves pages, searches, builds library maps, finds related pages and asks Gemini for summaries, all scoped to the token's user. It loads the embedding model once at start-up.
+The application layer. It verifies every request's token, then saves pages, searches, finds related pages and asks Gemini for summaries, all scoped to the token's user. It loads the embedding model once at start-up.
 
 ### Apache Solr
 
@@ -54,7 +54,7 @@ Stores chunks, page vectors and metadata, and runs BM25 and KNN search. It is bo
 
 ### Gemini
 
-Optional. Summarises a single page on request, and names library-map topics. Without a key, both fall back gracefully.
+Optional. Summarises a single page on request. Without a key, summaries are turned off and everything else works.
 
 ## Design principles
 

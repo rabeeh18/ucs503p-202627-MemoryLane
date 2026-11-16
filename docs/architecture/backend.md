@@ -19,8 +19,7 @@ backend/
 ├── retrieval.py      Hybrid search: BM25 + KNN, RRF, grouping, relevance floor
 ├── rerank.py         Optional cross-encoder reranker
 ├── snippets.py       Query-focused snippets
-├── library_map.py    Topics, labels, layout, links, per-user map cache
-├── summarizer.py     Gemini summaries and topic names
+├── summarizer.py     Gemini summaries
 ├── solr_client.py    Every Solr call, always scoped by user_id
 ├── page_filter.py    Server copy of the URL eligibility rules
 └── cli.py            Command-line search
@@ -28,9 +27,9 @@ backend/
 
 ## Request flow
 
-1. **Rate limiting** (slowapi): per user once authenticated, otherwise per IP. Limits range from 5/minute (export, delete all) to 120/minute (status checks, related pages, map search).
+1. **Rate limiting** (slowapi): per user once authenticated, otherwise per IP. Limits range from 5/minute (export, delete all) to 120/minute (status checks, related pages).
 2. **Authentication**: the `current_user_id` dependency verifies the bearer token and returns the library of its `sub` (Google and email sign-ins with the same verified email share one; see [Security](security.md)). Every endpoint except `/health` requires it.
-3. **The endpoint** calls `ingest_page`, `hybrid_search`, `map_service` or the summariser with that user id.
+3. **The endpoint** calls `ingest_page`, `hybrid_search` or the summariser with that user id.
 4. **Solr** calls go through `SolrClient`, which adds the `user_id` filter to every query and rejects malformed ids.
 
 ## Start-up
@@ -43,8 +42,6 @@ The embedding model loads at start-up so the first save or search is fast. The A
 | --- | --- | --- |
 | Query embeddings | last 1,024 queries | process restart |
 | Sentence embeddings for snippets | LRU of 4,096 sentences | process restart |
-| Library map | per user, 50 users, 10-minute TTL | the user saves or deletes a page |
-| Topic labels | per topic membership | process restart |
 
 ## Scripts
 

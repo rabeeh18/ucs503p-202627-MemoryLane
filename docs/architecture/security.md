@@ -1,6 +1,6 @@
 # Security
 
-MemoryLane is multi-user, so the main security property is **isolation**: nobody can read, search, summarise, map or delete another person's pages.
+MemoryLane is multi-user, so the main security property is **isolation**: nobody can read, search, summarise or delete another person's pages.
 
 ## Authentication
 
@@ -34,7 +34,7 @@ Cognito gives a Google sign-in and an email + password sign-in different `sub`s,
 - KNN searches use the filter as a **pre-filter**, so other users' vectors are never candidates.
 - `page_id` includes the user id in its hash, so two users' copies of a page never collide.
 - A request for someone else's page gets `404`, the same as a missing page, so page ids can't be probed.
-- `tests/test_isolation.py` checks this with two users: search, summaries, deletes, status, library, export, delete-all, the map, map search, related pages and topic search, plus a check that every Solr request carries the user filter.
+- `tests/test_isolation.py` checks this with two users: search, summaries, deletes, status, library, export, delete-all and related pages, plus a check that every Solr request carries the user filter.
 
 ## Network
 

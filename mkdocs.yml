@@ -102,7 +102,6 @@ nav:
       - Saving Pages: user-guide/automatic-capture.md
       - Searching: user-guide/search.md
       - Library and Account: user-guide/library.md
-      - Library Map: user-guide/map.md
       - Summaries: user-guide/summarization.md
       - YouTube Videos: user-guide/youtube.md
       - Voice Search: user-guide/voice-search.md
@@ -119,7 +118,6 @@ nav:
       - Frontend and Extension: architecture/frontend.md
       - Processing Architecture: architecture/processing.md
       - Retrieval Architecture: architecture/retrieval.md
-      - Library Map: architecture/map.md
       - Security: architecture/security.md
 
   - API Reference:

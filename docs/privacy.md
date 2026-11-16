@@ -8,12 +8,12 @@ MemoryLane holds personal browsing information, so privacy is part of the design
 - The backend takes your user id from the verified access token (its `sub` claim). No endpoint accepts a user id from the browser.
 - **Google and email sign-ins for the same address share one library.** The first time a sign-in is used, the backend asks Cognito for its email, using your own access token. If the email is verified (or the sign-in is through Google), it's linked to the library that address already has. An unverified email is never linked, so signing up with someone else's address doesn't reach their pages.
 - To do this, the server keeps your email address and your sign-in ids in a small database next to Solr. **Delete all** removes them along with your pages.
-- Every read, write, search, summary, map and delete in Solr is filtered by that user id. A page id is derived from your user id and the URL, so two people saving the same page get separate copies.
+- Every read, write, search, summary and delete in Solr is filtered by that user id. A page id is derived from your user id and the URL, so two people saving the same page get separate copies.
 - Asking for another person's page returns `404`, the same as a page that doesn't exist.
 
 ## What is stored
 
-For each page you save: its URL, title, cleaned text, a short description, the time you saved it, and the embeddings used for search and for the map.
+For each page you save: its URL, title, cleaned text, a short description, the time you saved it, and the embeddings used for search and related pages.
 
 The data lives in Solr on the MemoryLane server (AWS, Mumbai region). The server's logs record page ids, not the URLs you save. Solr is bound to the server's localhost and is not reachable from the internet; only Caddy (HTTPS) is public.
 
@@ -42,9 +42,8 @@ When you save a YouTube video, the extension asks YouTube, from inside the YouTu
 Gemini is optional. When the server has a Gemini key:
 
 - **Summaries:** the text of one page is sent when you press **Summarise** on that result.
-- **Map topic names:** when a topic has no name yet, up to 10 of its page titles (and a few keywords) are sent once, in the background, so it gets a readable name. Names are cached, so this only happens again when a topic's pages change.
 
-Without a key, summaries are turned off and the map names topics from their keywords instead. Nothing else leaves the server.
+Without a key, summaries are turned off. Nothing else leaves the server.
 
 ## Problem reports
 
@@ -65,4 +64,4 @@ From the account menu (top right of the website):
 - **Export my data** downloads every page you saved as JSON.
 - **Delete all my data** removes all your pages from the index, your sign-in links and your problem reports.
 
-Single pages can be deleted from the library, search results or the map, with a few seconds to undo.
+Single pages can be deleted from the library or search results, with a few seconds to undo.

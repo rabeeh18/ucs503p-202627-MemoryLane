@@ -37,4 +37,4 @@ Example:
 
 > "Find that article about reinforcement learning I read last week"
 
-MemoryLane returns the page with a snippet of the matching sentences. From there you can see related pages and the topic the page belongs to on your library map.
+MemoryLane returns the page with a snippet of the matching sentences.

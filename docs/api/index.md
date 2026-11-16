@@ -22,10 +22,8 @@ Missing, expired or invalid tokens get `401`. The user is always the token's sub
 | `DELETE` | `/memory/{page_id}` | Delete a page |
 | `GET` | `/memory/{page_id}/related` | Pages closest in meaning to this one |
 | `GET` | `/memories` | Saved pages, newest first |
-| `POST` | `/search` | Hybrid search, optionally within a map topic |
+| `POST` | `/search` | Hybrid search |
 | `POST` | `/summarize` | Gemini summary of one page |
-| `GET` | `/map` | The library map |
-| `GET` | `/map/search` | Find topics and pages on the map |
 | `GET` | `/me/export` | Download all your pages as JSON |
 | `DELETE` | `/me/data` | Delete all your pages |
 
@@ -41,7 +39,6 @@ See [Endpoints](endpoints.md) for details.
 | `401` | No valid access token |
 | `403` | A new page past the account's page limit |
 | `404` | Page not found, or not yours |
-| `409` | Topic search on a map that has since changed |
 | `422` | Invalid input, or a page with fewer than 50 words |
 | `429` | Rate limit exceeded |
 | `502` / `503` | Gemini failed / is not configured (summaries only) |

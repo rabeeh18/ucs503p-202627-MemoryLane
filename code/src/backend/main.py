@@ -17,15 +17,14 @@ from backend.models import (
     MemoryInput, SearchInput, MemoryResponse, PageInfo, MemoryStatusResponse,
     MemoriesResponse, SearchResponse, SearchResultItem, DebugSearchResultItem,
     HealthResponse, SummarizeInput, SummarizeResponse, RelatedPage, RelatedResponse,
-    MapSearchResponse, ReportInput, ReportResponse,
+    ReportInput, ReportResponse,
 )
-from backend.library_map import StaleMap, map_service
 from backend.chunking import join_chunks
 from backend.embeddings import is_model_loaded, get_model
 from backend.ingest import IngestError, ingest_page, resolve_canonical_url
 from backend.solr_client import get_solr_client
 from backend.retrieval import forget_user_sites, hybrid_search, knn_score_to_cosine
-from backend.summarizer import summarize, detect_detail_level, is_gemini_available, label_topics
+from backend.summarizer import summarize, detect_detail_level, is_gemini_available
 from backend.url_utils import normalize_url, generate_page_id
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -34,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 class DropQueryStrings(logging.Filter):
     """Uvicorn's access log without query strings: they hold the URLs people
-    save (/memory/status?url=...) and what they search for (/map/search?q=...)."""
+    save (/memory/status?url=...)."""
 
     def filter(self, record: logging.LogRecord) -> bool:
         args = record.args
@@ -161,7 +160,6 @@ def save_memory(request: Request, memory: MemoryInput, user_id: str = Depends(cu
         raise HTTPException(status_code=500, detail="Failed to save page")
 
     if result.status == "saved":
-        map_service.invalidate(user_id)
         forget_user_sites(user_id)
 
     page = None
@@ -197,7 +195,6 @@ def delete_memory(request: Request, page_id: str, user_id: str = Depends(current
     """Delete one of the caller's pages."""
     page_id = _owned_page_id(page_id, user_id)
     get_solr_client().delete_page(page_id, user_id)
-    map_service.invalidate(user_id)
     forget_user_sites(user_id)
     return Response(status_code=204)
 
@@ -230,39 +227,6 @@ def related_pages(
             similarity=round(similarity, 4),
         ))
     return RelatedResponse(page_id=page_id, related=related)
-
-
-def _labeler():
-    return label_topics if is_gemini_available() else None
-
-
-# Search results that vote for topics in /map/search.
-MAP_SEARCH_RESULTS = 20
-
-
-@app.get("/map")
-@limiter.limit("30/minute")
-def library_map(request: Request, user_id: str = Depends(current_user_id)):
-    """Topics, layout and links for the caller's library (cached per user)."""
-    return map_service.get(user_id, get_solr_client(), _labeler()).response
-
-
-@app.get("/map/search", response_model=MapSearchResponse)
-@limiter.limit("120/minute")
-def library_map_search(
-    request: Request,
-    q: str = Query(min_length=1, max_length=500),
-    user_id: str = Depends(current_user_id),
-):
-    """Topics of the caller's map for `q`: topics named like it first, then the
-    topics holding its search results. `pages` are those results."""
-    if not q.strip():
-        raise HTTPException(status_code=400, detail="q is required")
-    query = q.strip()
-    solr = get_solr_client()
-    results = hybrid_search(query, user_id, top_k=MAP_SEARCH_RESULTS, solr=solr, snippets=False)
-    found = map_service.search(user_id, solr, query, [r["page_id"] for r in results], _labeler())
-    return MapSearchResponse(query=q, **found)
 
 
 @app.get("/memories", response_model=MemoriesResponse)
@@ -329,15 +293,8 @@ def search_memory(request: Request, search: SearchInput, user_id: str = Depends(
         raise HTTPException(status_code=400, detail="Query is required")
 
     try:
-        page_ids = None
-        if search.topic:
-            try:
-                page_ids = map_service.topic_page_ids(user_id, search.topic, get_solr_client(), _labeler())
-            except StaleMap:
-                raise HTTPException(status_code=409, detail="The library map has changed. Reload the map.")
         timings = {}
-        results = hybrid_search(search.query, user_id, top_k=search.num_results, timings=timings,
-                                page_ids=page_ids)
+        results = hybrid_search(search.query, user_id, top_k=search.num_results, timings=timings)
 
         response_results = []
         for result in results:
@@ -414,7 +371,6 @@ def export_my_data(request: Request, user_id: str = Depends(current_user_id)):
 def delete_my_data(request: Request, user_id: str = Depends(current_user_id)):
     """Delete every chunk the caller owns."""
     get_solr_client().delete_user(user_id)
-    map_service.invalidate(user_id)
     forget_user_sites(user_id)
     reports.delete_user_reports(user_id)
     accounts.forget_library(user_id)

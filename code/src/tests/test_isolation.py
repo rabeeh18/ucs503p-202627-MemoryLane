@@ -8,7 +8,6 @@ from fastapi.testclient import TestClient
 from backend import retrieval
 from backend.auth import current_user_id
 from backend.main import app, limiter
-from backend.library_map import MapService
 from backend.solr_client import SolrClient
 
 A, B = "user-a", "user-b"
@@ -71,9 +70,6 @@ class FakeSolr:
             scored.append(dict(d, score=(1 + cos) / 2))
         return sorted(scored, key=lambda d: -d["score"])[:k]
 
-    def scan_page_heads(self, user_id, fields, limit):
-        return iter(sorted(self._heads(user_id), key=lambda d: d["timestamp"], reverse=True)[:limit])
-
     def add_page(self, user_id, page_id, title, vector, text=None):
         self.docs[f"{page_id}::0"] = {
             "id": f"{page_id}::0", "user_id": user_id, "page_id": page_id, "chunk_id": 0, "total_chunks": 1,
@@ -107,7 +103,6 @@ def env():
     state = {"user": A}
     app.dependency_overrides[current_user_id] = lambda: state["user"]
     with patch("backend.main.get_solr_client", return_value=fake), \
-         patch("backend.main.map_service", MapService()), \
          patch("backend.ingest.get_solr_client", return_value=fake), \
          patch("backend.retrieval.get_solr_client", return_value=fake), \
          patch("backend.ingest.embed_passages", side_effect=lambda texts: [[0.1] * 384 for _ in texts]), \
@@ -217,7 +212,7 @@ def test_every_solr_request_from_the_client_carries_the_user_filter():
             ), sent
 
 
-# ---- library map and related pages ---------------------------------------------
+# ---- related pages -------------------------------------------------------------
 
 def _unit(i, j=None, mix=0.0):
     v = [0.0] * 384
@@ -240,28 +235,16 @@ def _seed_library(fake, user, prefix, offset=0):
     return ids
 
 
-def test_map_contains_only_own_pages(env):
-    fake, as_user = env
-    a_ids = _seed_library(fake, A, "a")
-    b_ids = _seed_library(fake, B, "b", offset=10)
-    data = as_user(A).get("/map").json()
-    assert data["status"] == "ok"
-    assert {p["id"] for p in data["pages"]} == set(a_ids)
-    assert not {e["a"] for e in data["edges"]} & set(b_ids)
-    data_b = as_user(B).get("/map").json()
-    assert {p["id"] for p in data_b["pages"]} == set(b_ids)
-
-
-def test_map_search_only_scores_own_pages(env):
+def test_search_only_scores_own_pages(env):
     fake, as_user = env
     _seed_library(fake, A, "a")
     b_ids = _seed_library(fake, B, "b", offset=10)
     # The query points straight at B's pages; A's search must still only see A's.
     retrieval._cached_query_embedding.cache_clear()
     with patch("backend.retrieval.embed_query", return_value=_unit(10)):
-        found = as_user(A).get("/map/search", params={"q": "b group 0"}).json()
+        found = as_user(A).post("/search", json={"query": "b group 0"}).json()["results"]
     retrieval._cached_query_embedding.cache_clear()
-    assert not set(found["pages"]) & set(b_ids)
+    assert not {r["id"] for r in found} & set(b_ids)
 
 
 def test_related_excludes_self_and_other_users(env):
@@ -282,13 +265,3 @@ def test_related_for_another_users_page_is_404(env):
     fake, as_user = env
     b_ids = _seed_library(fake, B, "b", offset=10)
     assert as_user(A).get(f"/memory/{b_ids[0]}/related").status_code == 404
-
-
-def test_topic_search_cannot_use_another_users_topic(env):
-    fake, as_user = env
-    _seed_library(fake, A, "a")
-    _seed_library(fake, B, "b", offset=10)
-    b_topic = as_user(B).get("/map").json()["topics"][0]["id"]
-    as_user(A).get("/map")
-    response = as_user(A).post("/search", json={"query": "group", "topic": b_topic})
-    assert response.status_code == 409

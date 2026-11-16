@@ -41,7 +41,6 @@ code/src/
 | How a page is saved | `backend/ingest.py` |
 | Ranking | `backend/retrieval.py`, `backend/config.py` |
 | Snippets | `backend/snippets.py` |
-| The library map | `backend/library_map.py`, `frontend/src/lib/mapView.js`, `frontend/src/components/map/` |
 | What's allowed per user | `backend/auth.py`, `backend/solr_client.py` |
 | The Solr schema | `scripts/setup_solr.sh` (and its PowerShell mirror) |
 | What auto-capture skips | `extension/page_filter.js` |

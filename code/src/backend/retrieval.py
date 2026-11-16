@@ -351,7 +351,7 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
 
     Only `user_id`'s chunks are searched. If `timings` is given, it is filled
     with per-stage durations in ms. `solr` targets a specific core. `page_ids`
-    limits both searches to those pages (e.g. one map topic). `snippets=False`
+    limits both searches to those pages. `snippets=False`
     skips snippets for callers that only need the ranking.
     Returns list of webpage-level results.
     """

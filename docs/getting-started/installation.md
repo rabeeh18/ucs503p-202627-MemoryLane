@@ -10,7 +10,7 @@ All application code is in `code/src` of the [repository](https://github.com/rab
 - **Docker** (recommended, for Solr, or for the whole stack)
 - **Chrome or Chromium** for the extension
 - An **Amazon Cognito** user pool (see [Configuration](configuration.md))
-- Optional: a **Google Gemini API key** for summaries and map topic names
+- Optional: a **Google Gemini API key** for summaries
 
 ## 1. Backend
 

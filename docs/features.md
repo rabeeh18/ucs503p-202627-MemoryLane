@@ -26,11 +26,11 @@ Example:
 
 ---
 
-## Library and library map
+## Library
 
-The library lists every saved page, newest first, and you can delete pages with undo. The map groups your pages into named topics. From the map you can open a page, see its related pages, or search within one topic.
+The library lists every saved page, newest first, and you can delete pages with undo.
 
-[More on the library](user-guide/library.md) · [More on the map](user-guide/map.md)
+[More on the library](user-guide/library.md)
 
 ---
 

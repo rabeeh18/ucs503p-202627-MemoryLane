@@ -7,5 +7,4 @@ The architecture pages describe how MemoryLane is put together and what each par
 - [Frontend and Extension](frontend.md)
 - [Processing Architecture](processing.md)
 - [Retrieval Architecture](retrieval.md)
-- [Library Map](map.md)
 - [Security](security.md)

@@ -80,8 +80,8 @@ describe('delayed delete with undo', () => {
   });
 
   it('notify shows a self-dismissing error toast', async () => {
-    queue.notify("Couldn't load your map.");
-    expect(get(queue.toasts)[0]).toMatchObject({ kind: 'error', message: "Couldn't load your map." });
+    queue.notify("Couldn't load your pages.");
+    expect(get(queue.toasts)[0]).toMatchObject({ kind: 'error', message: "Couldn't load your pages." });
     await vi.advanceTimersByTimeAsync(ERROR_TOAST_MS);
     expect(get(queue.toasts)).toEqual([]);
   });

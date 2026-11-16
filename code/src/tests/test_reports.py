@@ -73,7 +73,7 @@ def test_report_is_stored_before_the_reply(client):
 
 
 def test_page_query_strings_and_odd_paths_are_dropped(client):
-    for page, stored in [("/search?q=my secret query", "/search"), ("/map#topic", "/map"),
+    for page, stored in [("/search?q=my secret query", "/search"), ("/library#recent", "/library"),
                          ("https://evil.example/x", ""), ("/library", "/library")]:
         limiter.reset()
         client.post("/reports", json={"message": "x", "context": {"page": page}})

@@ -50,5 +50,5 @@ Embeddings are computed in batches of 32, and the last 1,024 query embeddings ar
 
 Two more values are computed per page:
 
-- **Page vector**: the normalised mean of the page's chunk vectors. It powers [related pages](../user-guide/map.md#pages) and the [library map](../architecture/map.md).
+- **Page vector**: the normalised mean of the page's chunk vectors. It powers related pages (`GET /memory/{page_id}/related`).
 - **Description**: the page's meta description, otherwise its first readable sentences (up to 300 characters). Snippets fall back to it when no sentence matches the query well.

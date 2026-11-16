@@ -3,8 +3,8 @@
   // scrollbar. Native wheel, touch and keyboard scrolling are untouched; the
   // pill only mirrors the page's scroll position and can be dragged.
   //
-  // By default it follows the window. Pass `target` (a scrolling element, such
-  // as the map's side panel) to follow that element instead.
+  // By default it follows the window. Pass `target` (a scrolling element) to
+  // follow that element instead.
   import { onDestroy, onMount } from 'svelte';
 
   /** @type {HTMLElement | null} */

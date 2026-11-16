@@ -29,7 +29,7 @@ Each chunk is one Solr document. Chunk 0 also carries the page-level fields.
 | `embedding_model` | string | Re-embeds when the model changes |
 | `description` | string, stored only | Snippet fallback |
 | `embedding` | vector, 384-d, not stored | Chunk vector for KNN |
-| `page_embedding` | vector, 384-d, stored (chunk 0) | Page vector for related pages and the map |
+| `page_embedding` | vector, 384-d, stored (chunk 0) | Page vector for related pages |
 
 `scripts/setup_solr.sh` is the single source of truth for this schema. Automatic field creation is turned off, so a document with an unknown field is rejected instead of silently adding a guessed field.
 

@@ -23,8 +23,6 @@ Chunk → embed "title + chunk" → page vector = normalised mean
 description = meta description or first readable sentences
       ↓
 Upsert {page_id}::0..n-1 → delete chunks ≥ n
-      ↓
-Invalidate the user's library map
 ```
 
 ## Idempotence

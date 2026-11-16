@@ -89,10 +89,6 @@ When such a page's chunks weren't in the main KNN list, its similarity is looked
 
 For each result, `backend/snippets.py` picks 2–3 consecutive readable sentences around the sentence that contains the most query terms (the first one on a tie). If no sentence contains a query term, the first 3 readable sentences are compared with the query by embedding, so the snippet still fits a search by meaning. Embedding runs on the server's CPU during the search, which is why it's limited to this case. A readable sentence has 8+ words, is at least 70% letters, has no table pipes and ends in punctuation. Snippets are 200–280 characters. If no sentence qualifies, the page's stored description is used.
 
-## Search within a topic
-
-`POST /search` with a `topic` restricts both retrievers to the page ids in that [library-map](map.md) topic. If the user's map has changed since the topic id was issued, the API returns `409`, and the web app finds the topic again by name.
-
 ## Debugging
 
 `"debug": true` adds each page's `bm25_rank`, `knn_rank`, `fused_score`, `vector_similarity` and per-stage `timings` (including `intent_ms`) to the response. The CLI prints the same with `--debug`.

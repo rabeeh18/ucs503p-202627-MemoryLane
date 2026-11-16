@@ -12,7 +12,7 @@ Install the test tools with `pip install -r requirements-dev.txt`. The tests nee
 | File | Covers |
 | --- | --- |
 | `test_auth.py` | Token verification: signature, expiry, issuer, `token_use`, `client_id` |
-| `test_isolation.py` | Two users can never see, search, summarise, map or delete each other's pages |
+| `test_isolation.py` | Two users can never see, search, summarise or delete each other's pages, or get them as related pages |
 | `test_api.py` | Endpoint contracts, status codes, Gemini-off behaviour |
 | `test_ingest.py` | Save, unchanged, update without duplicate chunks, 422 on short pages |
 | `test_cleaning.py` | trafilatura extraction, fallbacks, junk lines, descriptions |
@@ -23,8 +23,6 @@ Install the test tools with `pip install -r requirements-dev.txt`. The tests nee
 | `test_snippets.py` | Snippet sentence choice, length and fallbacks |
 | `test_solr_client.py` | Every Solr query carries the user filter; commit behaviour; escaping |
 | `test_youtube.py` | Video ids, transcripts sent by the extension or fetched by the server, the description fallback, the two-hour auto-capture limit |
-| `test_library_map.py` | Number of topics, splits, outliers, labels, layout, links |
-| `test_map_api.py` | `/map`, `/map/search`, related pages, topic search and `409` |
 | `test_reindex.py`, `test_backfill.py` | The re-index and page-vector backfill scripts |
 
 ## Web app (vitest)
@@ -35,7 +33,7 @@ npm test          # vitest
 npm run check     # svelte-check (types and Svelte diagnostics)
 ```
 
-Unit tests cover the pure modules in `src/lib/`: map geometry and state (`mapView.test.js`), delete-with-undo (`deletes.test.js`) and domain letters (`domain.test.js`).
+Unit tests cover the pure modules in `src/lib/`: delete-with-undo (`deletes.test.js`), domain letters (`domain.test.js`), home-page greetings (`greetings.test.js`), problem reports (`report.test.js`) and the extension's YouTube fetch (`extensionYoutube.test.js`).
 
 ## Continuous integration
 
@@ -52,5 +50,4 @@ Retrieval quality is measured separately, with the [SciFact evaluation](../evalu
 3. Save it again → `unchanged`, same chunk count
 4. Search with different wording from the page → it's found, with a sensible snippet
 5. **Summarise** → a summary (with a Gemini key)
-6. Open **Map** with 10+ pages → named topics; click a page → related pages
-7. Sign in as a second user → none of the first user's pages are visible
+6. Sign in as a second user → none of the first user's pages are visible

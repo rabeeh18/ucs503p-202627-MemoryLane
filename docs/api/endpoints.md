@@ -113,8 +113,7 @@ Hybrid search over your pages. Rate limit: 60/minute.
   "query": "documentation about ROS navigation",
   "num_results": 10,
   "summarize": false,
-  "debug": false,
-  "topic": null
+  "debug": false
 }
 ```
 
@@ -124,7 +123,6 @@ Hybrid search over your pages. Rate limit: 60/minute.
 | `num_results` | 1–20, default 10 |
 | `summarize` | Also summarise each result with Gemini (slow; the web app uses `/summarize` per result instead) |
 | `debug` | Add ranks, scores and timings |
-| `topic` | A topic id from `GET /map`: search only that topic's pages. `409` if the map has changed |
 
 ```json
 {
@@ -157,36 +155,6 @@ Summarise one of your pages with Gemini. Rate limit: 20/minute.
 ```
 
 `404` if the page isn't yours, `503` if Gemini isn't configured, `502` if it failed.
-
----
-
-## `GET /map`
-
-Your library map. Rate limit: 30/minute.
-
-```json
-{
-  "status": "ok",
-  "version": "9b1e4c",
-  "topics": [ { "id": "9b1e4c-3", "label": "Protein Folding", "count": 31, "x": 0.42, "y": 0.38, "rx": 0.09, "ry": 0.065 } ],
-  "pages": [ { "id": "3f9c...", "title": "...", "url": "...", "domain": "...", "saved_at": "...", "x": 0.44, "y": 0.36, "topic": "9b1e4c-3" } ],
-  "edges": [ { "a": "3f9c...", "b": "a1b2...", "kind": "intra" } ],
-  "topic_links": [ { "a": "9b1e4c-3", "b": "9b1e4c-7" } ],
-  "counts": { "pages": 278, "topics": 9, "unclustered": 12, "without_vectors": 0 }
-}
-```
-
-Coordinates are in a 0–1 box. A page with `topic: null` is unclustered. With fewer than 10 pages the response is `{ "status": "too_few", "count": 6, ... }`.
-
----
-
-## `GET /map/search?q=...`
-
-Find topics on your map. Topics named like `q` come first (score 2 for the exact name, 1 when every word matches); the rest are ranked by where the top 20 search results for `q` sit (0–1, their share of rank-weighted votes). `pages` are those results. Rate limit: 120/minute.
-
-```json
-{ "query": "proteins", "version": "9b1e4c", "topics": [ { "id": "9b1e4c-3", "label": "Protein Folding", "score": 0.74 } ], "pages": ["3f9c...", "..."] }
-```
 
 ---
 

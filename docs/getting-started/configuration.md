@@ -62,21 +62,11 @@ Changing the model means re-embedding every page.
 | --- | --- | --- |
 | `MAX_PAGES_PER_USER` | `5000` | Saved pages per account; new pages past it get `403`, saved pages still update |
 
-## Library map
-
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `MAP_MAX_PAGES` | `2000` | Most recent pages placed on the map |
-| `MAP_MIN_PAGES` | `10` | Below this, the map asks you to save a few more |
-| `MAP_OUTLIER_SIMILARITY` | `0.35` | Pages less similar than this to their topic's centre stay unclustered |
-| `MAP_CROSS_TOPIC_SIMILARITY` | `0.65` | Topics at least this similar get a dashed link |
-| `MAP_CACHE_USERS`, `MAP_CACHE_TTL_SECONDS` | `50`, `600` | In-memory map cache |
-
 ## Gemini
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `GEMINI_API_KEY` | empty | Leave empty to turn off summaries and Gemini topic names |
+| `GEMINI_API_KEY` | empty | Leave empty to turn off summaries |
 | `GEMINI_MODEL` | `gemini-3.6-flash` | Model id |
 
 ## Deployment

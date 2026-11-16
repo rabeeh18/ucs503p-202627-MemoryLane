@@ -1,6 +1,6 @@
 # Summaries
 
-Each search result, and each page selected on the map, has a **Summarise** button. It asks Google Gemini for a short summary of that one page.
+Each search result has a **Summarise** button. It asks Google Gemini for a short summary of that one page.
 
 ```text
 Summarise

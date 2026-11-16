@@ -22,7 +22,7 @@ export function createDeleteQueue({ remove, delay = DELETE_DELAY_MS, setTimer = 
   const hidden = writable(new Set());
   /** @type {import('svelte/store').Writable<Array<{ id: number, kind: 'undo' | 'error', message: string, pageId?: string }>>} */
   const toasts = writable([]);
-  /** Bumped after every delete the server confirmed (e.g. to refetch the map). */
+  /** Bumped after every delete the server confirmed (e.g. to refetch a list). */
   const committed = writable(0);
   /** pageId -> { timer, toastId } */
   const pending = new Map();

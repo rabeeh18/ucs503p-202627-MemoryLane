@@ -11,7 +11,7 @@ MemoryLane runs at **[memorylane.site](https://memorylane.site)**.
     3. Click **Load unpacked** and choose the unzipped folder.
     4. Pin MemoryLane to the toolbar, open it, and sign in.
 3. **Save pages** with **Remember this page** in the extension popup. You can also turn on automatic capture there.
-4. **Search** on the website by describing what you remember. Your library, the map and related pages fill up as you save more.
+4. **Search** on the website by describing what you remember. Your library fills up as you save more.
 
 Once the extension is installed, the website stops showing "Get the extension".
 

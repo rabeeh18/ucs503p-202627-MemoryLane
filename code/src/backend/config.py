@@ -26,16 +26,6 @@ KEYWORD_FULL_MATCH = float(os.getenv('KEYWORD_FULL_MATCH', '0.75'))
 QUERY_INTENT_ENABLED = os.getenv('QUERY_INTENT_ENABLED', 'true').strip().lower() in ('1', 'true', 'yes', 'on')
 INTENT_WEIGHT = float(os.getenv('INTENT_WEIGHT', '1.0'))
 
-# Library map
-MAP_MAX_PAGES = int(os.getenv('MAP_MAX_PAGES', '2000'))
-MAP_MIN_PAGES = int(os.getenv('MAP_MIN_PAGES', '10'))
-# A page less similar than this to its topic's centre is left unclustered.
-MAP_OUTLIER_SIMILARITY = float(os.getenv('MAP_OUTLIER_SIMILARITY', '0.35'))
-# Two topics this similar (centroid cosine) get a dashed link.
-MAP_CROSS_TOPIC_SIMILARITY = float(os.getenv('MAP_CROSS_TOPIC_SIMILARITY', '0.65'))
-MAP_CACHE_USERS = int(os.getenv('MAP_CACHE_USERS', '50'))
-MAP_CACHE_TTL_SECONDS = int(os.getenv('MAP_CACHE_TTL_SECONDS', '600'))
-
 # Reranker (cross-encoder, optional)
 RERANK_ENABLED = os.getenv('RERANK_ENABLED', 'false').strip().lower() in ('1', 'true', 'yes', 'on')
 RERANK_MODEL = os.getenv('RERANK_MODEL', 'cross-encoder/ms-marco-MiniLM-L-6-v2')

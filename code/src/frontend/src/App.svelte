@@ -6,7 +6,6 @@
   import Callback from './routes/Callback.svelte';
   import Privacy from './routes/Privacy.svelte';
   import Extension from './routes/Extension.svelte';
-  import MapPage from './routes/MapPage.svelte';
   import ScrollPill from './components/ScrollPill.svelte';
   import Toasts from './components/Toasts.svelte';
   import ReportDialog from './components/ReportDialog.svelte';
@@ -16,7 +15,6 @@
 
   $: path = $route.path.replace(/\/+$/, '') || '/';
   $: query = ($route.query.get('q') || '').trim();
-  $: topic = ($route.query.get('topic') || '').trim();
   $: signedIn = Boolean($session);
 
   // The extension's "Report a problem" link: /?report=extension&v=…&err=…
@@ -40,8 +38,6 @@
         ? 'Privacy · MemoryLane'
         : path === '/extension'
           ? 'Get the extension · MemoryLane'
-          : path === '/map'
-            ? 'Map · MemoryLane'
           : query
             ? `${query} · MemoryLane`
             : 'MemoryLane';
@@ -61,10 +57,8 @@
   <Landing />
 {:else if path === '/library'}
   <Library />
-{:else if path === '/map'}
-  <MapPage />
 {:else if path === '/search'}
-  <Results {query} {topic} />
+  <Results {query} />
 {:else if query}
   <Results {query} />
 {:else}

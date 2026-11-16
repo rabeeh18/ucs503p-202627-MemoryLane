@@ -77,7 +77,7 @@ def term_query(field: str, value: str) -> str:
 
 
 def page_ids_filter(page_ids) -> str:
-    """Filter to a set of page ids (e.g. the pages of one map topic)."""
+    """Filter to a set of page ids."""
     ids = [p for p in page_ids if p]
     if not ids:
         return "-*:*"  # matches nothing

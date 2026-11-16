@@ -51,10 +51,6 @@ Up to 10 pages are shown. Pages that only loosely match your query are left out 
 | `Shift` + `Del` | Delete the selected page (with undo) |
 | `Esc` | Clear the search |
 
-## Searching within a topic
-
-From the [library map](map.md), **Search only these pages** limits a search to one topic. The results page shows the topic as a chip; remove it to search everything again. If the topic changed because you saved or deleted pages in the meantime, MemoryLane finds the same topic by name, or searches all pages and tells you.
-
 ## How it works
 
 Every search runs a keyword search (BM25) and a meaning search (vector KNN) over your pages at the same time, then combines them. See [Retrieval Architecture](../architecture/retrieval.md).

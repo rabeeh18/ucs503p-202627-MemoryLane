@@ -66,7 +66,7 @@ def backfill(solr: SolrClient, user_id: str | None = None, dry_run: bool = False
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Backfill page vectors for the library map")
+    parser = argparse.ArgumentParser(description="Backfill page vectors for related pages")
     parser.add_argument("--user-id", help="Only this user's pages (Cognito sub); default: every user")
     parser.add_argument("--solr-url", default=SOLR_URL, help="Core URL (default: SOLR_URL)")
     parser.add_argument("--dry-run", action="store_true", help="Count pages only; write nothing")
