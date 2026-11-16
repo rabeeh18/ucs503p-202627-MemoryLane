@@ -69,6 +69,21 @@ Changing the model means re-embedding every page.
 | `GEMINI_API_KEY` | empty | Leave empty to turn off summaries |
 | `GEMINI_MODEL` | `gemini-3.6-flash` | Model id |
 
+## Problem reports
+
+**Report a problem** stores each report in SQLite, then emails it in the background. Without `SMTP_HOST`, `REPORTS_FROM` and `REPORTS_TO`, reports are stored but not sent.
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `SMTP_HOST` | empty | Mail server, e.g. `email-smtp.<region>.amazonaws.com` for Amazon SES |
+| `SMTP_PORT` | `587` | `587` uses STARTTLS; `465` uses TLS from the start |
+| `SMTP_USER`, `SMTP_PASSWORD` | empty | SMTP credentials (for SES, created in the SES console, not your AWS keys) |
+| `REPORTS_FROM` | empty | Sender address; must be verified in SES |
+| `REPORTS_TO` | empty | Where reports are sent; in the SES sandbox it must be verified too |
+| `REPORTS_DB` | `data/reports.db` | SQLite file; `/data/reports.db` (the `accounts` volume) in Docker |
+
+A report that can't be sent is retried with backoff (1 minute, doubling, at most 6 hours apart, 12 tries), including after a restart.
+
 ## Deployment
 
 | Variable | Purpose |

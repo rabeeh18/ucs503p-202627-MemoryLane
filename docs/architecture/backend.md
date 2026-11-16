@@ -8,6 +8,7 @@ The backend is a FastAPI application in `code/src/backend`.
 backend/
 ├── main.py           API endpoints, rate limits, CORS, error handling
 ├── auth.py           Cognito access-token verification → user_id
+├── accounts.py       Links Google and email sign-ins with the same verified email
 ├── models.py         Pydantic request and response models
 ├── config.py         Settings from .env
 ├── ingest.py         ingest_page: the one way a page gets saved
@@ -17,9 +18,11 @@ backend/
 ├── chunking.py       Sentence-aware overlapping chunks
 ├── embeddings.py     Sentence Transformers model, passage and query embeddings
 ├── retrieval.py      Hybrid search: BM25 + KNN, RRF, grouping, relevance floor
+├── query_intent.py   Site words, time phrases and URLs in a query
 ├── rerank.py         Optional cross-encoder reranker
 ├── snippets.py       Query-focused snippets
 ├── summarizer.py     Gemini summaries
+├── reports.py        Problem reports: SQLite store and background email sender
 ├── solr_client.py    Every Solr call, always scoped by user_id
 ├── page_filter.py    Server copy of the URL eligibility rules
 └── cli.py            Command-line search
@@ -34,7 +37,7 @@ backend/
 
 ## Start-up
 
-The embedding model loads at start-up so the first save or search is fast. The API refuses to start if the Cognito settings are missing.
+The embedding model loads at start-up so the first save or search is fast, and the problem-report sender starts its background thread. The API refuses to start if the Cognito settings are missing.
 
 ## Caches
 

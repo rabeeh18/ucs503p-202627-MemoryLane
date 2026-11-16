@@ -43,11 +43,13 @@ Gemini is optional. When the server has a Gemini key:
 
 - **Summaries:** the text of one page is sent when you press **Summarise** on that result.
 
-Without a key, summaries are turned off. Nothing else leaves the server.
+Without a key, summaries are turned off.
+
+Apart from Gemini summaries, the only thing that leaves the server is a problem report you choose to send, emailed through Amazon SES (below).
 
 ## Problem reports
 
-**Report a problem** (in the account menu on the website, and in the extension) sends your message to the maintainer by email. The form lists everything that goes with it before you send:
+**Report a problem** (in the account menu on the website, and in the extension) sends your message to the maintainer by email, through Amazon SES. The form lists everything that goes with it before you send:
 
 - your account email, so you can get a reply;
 - whether it came from the website or the extension, and its version;

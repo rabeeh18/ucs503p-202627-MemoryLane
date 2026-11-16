@@ -47,6 +47,7 @@ MemoryLane searches the text of the pages you saved and returns the pages that m
 | Sentence Transformers (`BAAI/bge-small-en-v1.5`) | 384-dimensional embeddings |
 | Apache Solr 9.7 | Stores chunks; BM25 and vector (KNN) search |
 | Gemini | Optional: result summaries |
+| Amazon SES | Emails problem reports to the maintainer |
 
 Everything runs with Docker Compose on a single AWS EC2 instance, served at [memorylane.site](https://memorylane.site).
 

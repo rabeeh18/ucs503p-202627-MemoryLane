@@ -60,3 +60,4 @@ Snippets → results
 | Sentence Transformers | Embeddings |
 | Solr | Storage, BM25 and KNN search |
 | Gemini | Optional summaries |
+| Amazon SES | Emails problem reports |

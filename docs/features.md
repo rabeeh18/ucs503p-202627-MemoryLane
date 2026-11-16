@@ -40,6 +40,12 @@ Each search result has a **Summarise** button that asks Gemini for a short summa
 
 ---
 
+## Problem reports
+
+**Report a problem**, on the website and in the extension, emails a message to the maintainer. The form shows everything that is sent with it.
+
+---
+
 ## Accounts and privacy
 
 You sign in with Google or with email (Amazon Cognito). Every page belongs to one account, and every search, summary and listing sees only your own pages. You can export or delete all your data from the account menu.

@@ -72,7 +72,7 @@ Copy `.env.example` to `.env`. Variables:
 | `COGNITO_REGION` / `COGNITO_USER_POOL_ID` / `COGNITO_APP_CLIENT_ID` | required | Cognito pool whose access tokens the API accepts; the API refuses to start without them |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
 | `GEMINI_API_KEY` | empty | Leave empty to disable summaries |
-| `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model id |
+| `GEMINI_MODEL` | `gemini-3.6-flash` | Gemini model id |
 | `API_HOST` / `API_PORT` | `0.0.0.0` / `8000` | Uvicorn bind |
 
 ## 6. Solr setup

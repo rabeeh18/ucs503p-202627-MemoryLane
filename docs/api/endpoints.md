@@ -189,3 +189,32 @@ Report a problem. The report is written to the server's database before the repl
 ```json
 { "status": "received", "id": 42 }
 ```
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant W as Web app or extension
+    participant A as FastAPI
+    participant DB as reports.db
+    participant T as Sender thread
+    participant M as Amazon SES (SMTP)
+
+    U->>W: Report a problem
+    W->>A: POST /api/reports {message, source, context}
+    A->>A: Clean the text, keep only the page's path,<br/>look up the sign-in's email
+    A->>DB: Insert report (unsent, next try now)
+    A->>T: Wake up
+    A-->>W: 202 {status: "received", id}
+    loop Every 60 s, or when woken
+        T->>DB: Unsent reports that are due
+        T->>M: Send email (STARTTLS on 587)
+        alt Sent
+            T->>DB: Mark sent
+        else Mail server error
+            T->>DB: attempts + 1, next try after 1 min, 2 min, 4 min … (at most 6 h, 12 tries)
+        end
+    end
+```
+
+Because the report is in the database before the reply, a restart or an email outage doesn't lose it.

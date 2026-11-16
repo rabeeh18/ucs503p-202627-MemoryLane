@@ -17,6 +17,18 @@ Use the bin icon on a row in the library, home page or search results (or `Shift
 - If you close the tab during those 6 seconds, the delete is sent straight away.
 - If the server can't delete it, the page comes back with an error message.
 
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*] --> Shown
+    Shown --> Hidden: Delete (bin or Shift+Del)
+    Hidden --> Shown: Undo within 6 s
+    Hidden --> Deleting: 6 s pass, or the tab closes
+    Deleting --> Deleted: Server confirms
+    Deleting --> Shown: Server error (toast)
+    Deleted --> [*]
+```
+
 ## Account menu
 
 The circle at the top right shows your initial and opens the account menu:
@@ -27,6 +39,7 @@ The circle at the top right shows your initial and opens the account menu:
 | **Get the extension** | Opens the extension page (hidden once the extension is installed) |
 | **Export my data** | Downloads every saved page as JSON |
 | **Delete all my data** | Deletes every page you saved, after a confirmation |
+| **Report a problem** | Sends a message to the maintainer; the form shows everything sent with it ([what's included](../privacy.md#problem-reports)) |
 | **Sign out** | Signs out of the website |
 
 Signing out of the website doesn't sign out the extension. Sign out of it from its own popup.

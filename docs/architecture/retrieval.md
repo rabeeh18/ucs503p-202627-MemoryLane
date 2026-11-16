@@ -27,6 +27,41 @@ Query
 
 The BM25 query and the query embedding run concurrently.
 
+### One search, step by step
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant W as Web app
+    participant A as FastAPI
+    participant E as Embedding model
+    participant S as Solr
+
+    U->>W: Type or speak a query
+    W->>A: POST /api/search {query}
+    A->>A: Verify token → user_id
+    par Keyword search
+        A->>S: BM25 (edismax, user filter) → top 50 chunks
+    and Meaning search
+        A->>E: Embed query (cached)
+        E-->>A: 384-d vector
+        A->>S: KNN topK=50 (user pre-filter)
+    and Site, time or URL in the query (only if found)
+        A->>S: BM25 + KNN within those domains / dates
+    end
+    S-->>A: Ranked chunk lists
+    A->>A: Reciprocal Rank Fusion
+    A->>A: Group chunks into pages (best + 0.3 × second)
+    opt Keyword matches without a similarity
+        A->>S: One KNN restricted to those pages
+    end
+    A->>A: Relevance floor
+    A->>A: Snippets (2–3 sentences per page)
+    A-->>W: Up to 10 pages
+    W-->>U: Results with snippets
+```
+
 ## Lexical retrieval
 
 Solr's **edismax** parser searches `title^2 text`, with a phrase boost `pf=text^2 title^3` so pages containing the query as a phrase rank higher. Both fields use `text_en` (possessives, stopwords, Porter stemming), so *learning* matches *learn*. Field queries in user input are disabled (`uf=-*`).

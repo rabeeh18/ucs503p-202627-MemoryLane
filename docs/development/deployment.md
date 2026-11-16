@@ -10,11 +10,33 @@ MemoryLane runs on one machine with Docker Compose. The live site is an AWS EC2 
 | `backend` | FastAPI and the embedding model (cached in the `models` volume); which sign-ins share a library in the `accounts` volume | Caddy only; no published port |
 | `caddy` | Gets HTTPS certificates, serves the built web app and the extension zip, proxies `/api/*` to the backend, redirects `www.` | Ports 80 and 443 |
 
-```text
-Browser / extension ──HTTPS──▶ Caddy ──/api──▶ FastAPI ──▶ Solr
-                                 │
-                                 └── web app (static) + /memorylane-extension.zip
+```mermaid
+flowchart LR
+    users["Browser + extension"]
+
+    subgraph ec2["AWS EC2 c7i-flex.large · Mumbai · Elastic IP"]
+        subgraph compose["Docker Compose"]
+            caddy["caddy<br/>ports 80, 443<br/><i>volume: caddy_data (certificates)</i>"]
+            backend["backend<br/>FastAPI + bge-small<br/><i>volumes: models, accounts</i>"]
+            solr["solr 9.7<br/>127.0.0.1:8983<br/><i>volume: solr_data</i>"]
+        end
+    end
+
+    subgraph outside["External services"]
+        cognito["Amazon Cognito"]
+        gemini["Google Gemini"]
+        ses["Amazon SES"]
+    end
+
+    users -->|"HTTPS"| caddy
+    caddy -->|"/api/*"| backend
+    backend --> solr
+    backend -->|"user info"| cognito
+    backend -->|"summaries"| gemini
+    backend -->|"SMTP 587"| ses
 ```
+
+Only ports 80 and 443 are open to the internet. The backend has no published port, and Solr listens on the server's localhost only. The `accounts` volume holds `accounts.db` and `reports.db`.
 
 The Caddy image builds the web app (`npm run build`) and zips the `extension/` folder, so `https://memorylane.site/memorylane-extension.zip` always matches the code being deployed.
 

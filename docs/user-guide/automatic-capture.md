@@ -19,18 +19,17 @@ Automatic capture saves eligible pages when they finish loading. It is **off by 
 
 It only runs while you're signed in. Signing out stops it.
 
-```text
-Page finishes loading
-        ↓
-Auto-capture on, and signed in?
-        ↓
-Eligible page? Not an excluded site? Not MemoryLane itself?
-        ↓
-Extract the page (HTML + text)
-        ↓
-POST /api/memory
-        ↓
-Cleaned, chunked, embedded and stored under your account
+```mermaid
+flowchart LR
+    load([Page finishes loading]) --> on{Auto-capture on<br/>and signed in?}
+    on -- no --> skip([Not saved])
+    on -- yes --> ok{Eligible page, not an<br/>excluded site, not MemoryLane?}
+    ok -- no --> skip
+    ok -- yes --> recent{Being saved, or auto-captured<br/>in the last minute?}
+    recent -- yes --> skip
+    recent -- no --> extract[Extract the page:<br/>HTML + text, or a video's captions]
+    extract --> post[POST /api/memory]
+    post --> stored([Cleaned, chunked, embedded and<br/>stored under your account])
 ```
 
 ### What automatic capture skips

@@ -70,7 +70,11 @@ markdown_extensions:
 
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.details
 
   - pymdownx.tabbed:
@@ -114,6 +118,7 @@ nav:
 
   - Architecture:
       - System Architecture: architecture/overview.md
+      - Data Flow Diagrams: architecture/data-flow.md
       - Backend: architecture/backend.md
       - Frontend and Extension: architecture/frontend.md
       - Processing Architecture: architecture/processing.md

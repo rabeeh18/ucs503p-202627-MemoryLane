@@ -26,6 +26,7 @@ Missing, expired or invalid tokens get `401`. The user is always the token's sub
 | `POST` | `/summarize` | Gemini summary of one page |
 | `GET` | `/me/export` | Download all your pages as JSON |
 | `DELETE` | `/me/data` | Delete all your pages |
+| `POST` | `/reports` | Report a problem (emailed to the maintainer) |
 
 Request and response models are in `backend/models.py`. FastAPI's interactive docs are at `/docs` when running locally.
 
@@ -42,3 +43,4 @@ See [Endpoints](endpoints.md) for details.
 | `422` | Invalid input, or a page with fewer than 50 words |
 | `429` | Rate limit exceeded |
 | `502` / `503` | Gemini failed / is not configured (summaries only) |
+| `503` | Cognito couldn't be reached to look up a sign-in seen for the first time |

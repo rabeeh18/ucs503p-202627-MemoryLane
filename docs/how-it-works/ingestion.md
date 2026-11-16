@@ -14,6 +14,49 @@ The service worker posts these, with the URL, title and whether the save was man
 
 Auto-capture also checks the page against the [capture rules](../user-guide/automatic-capture.md#what-automatic-capture-skips) and your excluded sites before sending anything, and doesn't send a URL again while a save of it is in progress, or within a minute of auto-capturing it.
 
+## A save, end to end
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant P as Extension popup
+    participant B as Service worker
+    participant T as The page's tab
+    participant Y as youtube.com
+    participant A as FastAPI
+    participant S as Solr
+
+    U->>P: Remember this page
+    P->>B: save(tab)
+    alt YouTube video
+        B->>T: Run fetchYouTubeVideo(videoId) inside the tab
+        T->>Y: Player API (title, channel, length, caption tracks)
+        T->>Y: Caption track (timed text)
+        T-->>B: transcript, description, details
+    else Any other page
+        B->>T: Inject content.js
+        T-->>B: HTML, visible text, canonical URL
+    end
+    B->>A: POST /api/memory (Bearer token)
+    Note over B,A: On 401: refresh the token once and retry
+    A->>A: Verify token → user_id
+    A->>A: Canonical URL → normalise → page_id
+    A->>A: Clean (trafilatura) or use the transcript
+    Note over A: Under 50 words: 422
+    A->>S: Stored page head (content_hash, embedding_model)
+    alt Same text and model
+        A-->>B: unchanged
+    else New or changed
+        A->>A: Chunk → embed "title + chunk" → page vector
+        A->>S: Upsert chunks {page_id}::0..n-1
+        A->>S: Delete chunks ≥ n
+        A-->>B: saved, with the page
+    end
+    B-->>P: Result
+    P-->>U: "Saved just now" + Undo
+```
+
 ## What the backend does
 
 All of this happens in one function, `ingest_page` (`backend/ingest.py`). It is shared by the API, the re-index and backfill scripts and the evaluation.

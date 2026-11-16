@@ -28,6 +28,47 @@ Cognito gives a Google sign-in and an email + password sign-in different `sub`s,
 - If Cognito can't be reached for a `sub` seen for the first time, the request fails with `503`, so pages never land in a library they don't belong to. Known sign-ins are answered from the database without calling Cognito.
 - The links are stored in SQLite (`ACCOUNTS_DB`, the `accounts` volume in Docker). **Delete all** removes them.
 
+### Sign-in and the first request
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant W as Web app
+    participant C as Amazon Cognito
+    participant A as FastAPI
+    participant DB as accounts.db
+
+    U->>W: Sign in
+    W->>W: Make code_verifier, code_challenge = SHA-256(verifier)
+    W->>C: /oauth2/authorize (code_challenge)
+    C->>U: Hosted sign-in (Google or email)
+    U->>C: Credentials
+    C->>W: Redirect to /auth/callback?code=…
+    W->>C: /oauth2/token (code + code_verifier)
+    C->>W: Access token + refresh token
+    Note over W: Access token in memory,<br/>refresh token in localStorage
+    W->>A: API request with Authorization: Bearer (access token)
+    A->>A: Verify RS256 signature (JWKS), exp, iss, token_use, client_id
+    A->>DB: Library for this sub?
+    alt Known sign-in
+        DB-->>A: library id
+    else First time this sub is seen
+        A->>C: /oauth2/userInfo (the user's own token)
+        C-->>A: email, email_verified
+        Note over A,C: If Cognito can't be reached: 503, nothing is stored
+        alt Verified email, or a Google sign-in
+            A->>DB: Link sub to the library for this email (create it if new)
+        else Unverified
+            A->>DB: Own library for this sub (checked again after 5 minutes)
+        end
+    end
+    A->>A: Handle the request, filtered by that library id
+    A-->>W: Response
+```
+
+The extension follows the same flow through `chrome.identity.launchWebAuthFlow`, and keeps its tokens in `chrome.storage.local`.
+
 ## Data isolation
 
 - `SolrClient` adds `{!term f=user_id}<sub>` to every query, scan, KNN search and delete, and raises an error if the id is missing or malformed. Isolation doesn't depend on each endpoint remembering to filter.

@@ -12,6 +12,7 @@ Install the test tools with `pip install -r requirements-dev.txt`. The tests nee
 | File | Covers |
 | --- | --- |
 | `test_auth.py` | Token verification: signature, expiry, issuer, `token_use`, `client_id` |
+| `test_accounts.py` | Linking Google and email sign-ins: verified emails only, Cognito outages, delete-all |
 | `test_isolation.py` | Two users can never see, search, summarise or delete each other's pages, or get them as related pages |
 | `test_api.py` | Endpoint contracts, status codes, Gemini-off behaviour |
 | `test_ingest.py` | Save, unchanged, update without duplicate chunks, 422 on short pages |
@@ -19,10 +20,13 @@ Install the test tools with `pip install -r requirements-dev.txt`. The tests nee
 | `test_chunking.py` | Chunk sizes, overlap, short tails, long sentences |
 | `test_url_normalization.py` | URL normalisation and page ids |
 | `test_retrieval.py` | RRF, page grouping, the relevance floor |
+| `test_query_intent.py` | Site words, time phrases and URLs in queries |
 | `test_rerank.py` | Optional cross-encoder reranking |
 | `test_snippets.py` | Snippet sentence choice, length and fallbacks |
 | `test_solr_client.py` | Every Solr query carries the user filter; commit behaviour; escaping |
 | `test_youtube.py` | Video ids, transcripts sent by the extension or fetched by the server, the description fallback, the two-hour auto-capture limit |
+| `test_reports.py` | Problem reports: storage, the email contents, retries and backoff, the rate limit |
+| `test_evaluation.py` | The generated-query evaluation: metrics, URL matching, per-user scoring, comparisons |
 | `test_reindex.py`, `test_backfill.py` | The re-index and page-vector backfill scripts |
 
 ## Web app (vitest)

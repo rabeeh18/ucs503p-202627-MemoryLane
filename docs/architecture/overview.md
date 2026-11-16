@@ -1,30 +1,45 @@
 # System Architecture
 
-```text
-┌──────────────────┐   ┌──────────────────┐        ┌──────────────────┐
-│ Chrome extension │   │  Svelte web app  │◀──────▶│  Amazon Cognito  │
-│ save, auto-save  │   │ search, library  │  PKCE  │ Google / email   │
-└────────┬─────────┘   └────────┬─────────┘        └──────────────────┘
-         │  HTTPS + Bearer access token
-         ▼                      ▼
-┌─────────────────────────────────────────┐
-│ Caddy: TLS, static web app, /api proxy  │
-└────────────────────┬────────────────────┘
-                     ▼
-┌─────────────────────────────────────────┐        ┌──────────────────┐
-│ FastAPI backend                         │───────▶│ Gemini           │
-│ token check → user_id                   │        │ (optional)       │
-│ ingest · retrieval · summaries          │        └──────────────────┘
-│ Sentence Transformers (bge-small)       │
-└────────────────────┬────────────────────┘
-                     ▼   always filtered by user_id
-┌─────────────────────────────────────────┐
-│ Apache Solr 9.7 · core memorylane_v2    │
-│ BM25 (text_en) + HNSW vectors           │
-└─────────────────────────────────────────┘
+The parts of MemoryLane and what they talk to, in the style of a C4 container diagram:
+
+```mermaid
+flowchart TB
+    user(["User"])
+
+    subgraph client["In the user's browser"]
+        direction LR
+        ext["Chrome extension<br/><i>Manifest V3</i><br/>save, auto-capture"]
+        web["Web app<br/><i>Svelte 4</i><br/>search, library, account"]
+    end
+
+    subgraph server["One EC2 instance · Docker Compose"]
+        caddy["Caddy<br/>HTTPS, static web app, /api proxy"]
+        api["FastAPI backend<br/>token check → user_id<br/>ingest · retrieval · summaries · reports<br/>Sentence Transformers (bge-small)"]
+        solr[("Apache Solr 9.7<br/>BM25 + HNSW vectors")]
+        sqlite[("SQLite<br/>accounts.db, reports.db")]
+        caddy --> api
+        api -->|"always filtered by user_id"| solr
+        api --> sqlite
+    end
+
+    subgraph outside["External services"]
+        direction LR
+        cognito["Amazon Cognito<br/>sign-in"]
+        youtube["YouTube"]
+        gemini["Google Gemini<br/>(optional)"]
+        ses["Amazon SES<br/>report emails"]
+    end
+
+    user --> client
+    client -->|"HTTPS + Bearer access token"| caddy
+    client -.->|"PKCE sign-in"| cognito
+    ext -.->|"captions, in the YouTube tab"| youtube
+    api -->|"user info"| cognito
+    api -->|"one page's text"| gemini
+    api -->|"SMTP"| ses
 ```
 
-All three server pieces run with Docker Compose on one EC2 instance. Only Caddy is reachable from the internet.
+All the server pieces run with Docker Compose on one EC2 instance. Only Caddy is reachable from the internet. The [data flow diagrams](data-flow.md) show what data moves along each of these lines.
 
 ## Components
 
@@ -55,6 +70,10 @@ Stores chunks, page vectors and metadata, and runs BM25 and KNN search. It is bo
 ### Gemini
 
 Optional. Summarises a single page on request. Without a key, summaries are turned off and everything else works.
+
+### Amazon SES
+
+Sends problem reports to the maintainer by email over SMTP. Reports are stored in SQLite first, so nothing is lost if email is down; without SMTP settings they are only stored.
 
 ## Design principles
 

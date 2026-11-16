@@ -47,7 +47,9 @@ Up to 10 pages are shown. Pages that only loosely match your query are left out 
 | Key | Action |
 | --- | --- |
 | `↑` `↓` | Move between results |
+| `/` | Jump to the search box |
 | `Enter` | Open the selected page |
+| `S` | Show or hide the summary of the selected page |
 | `Shift` + `Del` | Delete the selected page (with undo) |
 | `Esc` | Clear the search |
 
