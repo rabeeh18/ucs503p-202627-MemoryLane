@@ -16,7 +16,7 @@
         <link rel="prev" href="../search/">
       
       
-        <link rel="next" href="../map/">
+        <link rel="next" href="../summarization/">
       
       
         
@@ -768,34 +768,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../summarization/" class="md-nav__link">
         
   
@@ -1128,6 +1100,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../architecture/data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../architecture/backend/" class="md-nav__link">
         
   
@@ -1220,34 +1220,6 @@
     
   
     Retrieval Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../architecture/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1714,6 +1686,15 @@
 <li>If you close the tab during those 6 seconds, the delete is sent straight away.</li>
 <li>If the server can't delete it, the page comes back with an error message.</li>
 </ul>
+<pre class="mermaid"><code>stateDiagram-v2
+    direction LR
+    [*] --&gt; Shown
+    Shown --&gt; Hidden: Delete (bin or Shift+Del)
+    Hidden --&gt; Shown: Undo within 6 s
+    Hidden --&gt; Deleting: 6 s pass, or the tab closes
+    Deleting --&gt; Deleted: Server confirms
+    Deleting --&gt; Shown: Server error (toast)
+    Deleted --&gt; [*]</code></pre>
 <h2 id="account-menu">Account menu<a class="headerlink" href="#account-menu" title="Permanent link">&para;</a></h2>
 <p>The circle at the top right shows your initial and opens the account menu:</p>
 <table>
@@ -1739,6 +1720,10 @@
 <tr>
 <td><strong>Delete all my data</strong></td>
 <td>Deletes every page you saved, after a confirmation</td>
+</tr>
+<tr>
+<td><strong>Report a problem</strong></td>
+<td>Sends a message to the maintainer; the form shows everything sent with it (<a href="../../privacy/#problem-reports">what's included</a>)</td>
 </tr>
 <tr>
 <td><strong>Sign out</strong></td>
@@ -1801,13 +1786,13 @@
         
         
           
-          <a href="../map/" class="md-footer__link md-footer__link--next" aria-label="Next: Library Map">
+          <a href="../summarization/" class="md-footer__link md-footer__link--next" aria-label="Next: Summaries">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Library Map
+                Summaries
               </div>
             </div>
             <div class="md-footer__button md-icon">

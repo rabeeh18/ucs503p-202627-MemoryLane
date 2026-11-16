@@ -774,34 +774,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../summarization/" class="md-nav__link">
         
   
@@ -1134,6 +1106,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../architecture/data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../architecture/backend/" class="md-nav__link">
         
   
@@ -1226,34 +1226,6 @@
     
   
     Retrieval Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../architecture/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1721,18 +1693,16 @@
 <h2 id="automatic-capture">Automatic capture<a class="headerlink" href="#automatic-capture" title="Permanent link">&para;</a></h2>
 <p>Automatic capture saves eligible pages when they finish loading. It is <strong>off by default</strong>: you turn it on in the extension popup, and the first time you do, the popup explains what it does before enabling it.</p>
 <p>It only runs while you're signed in. Signing out stops it.</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Page finishes loading
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>        ↓
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Auto-capture on, and signed in?
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        ↓
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>Eligible page? Not an excluded site? Not MemoryLane itself?
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        ↓
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>Extract the page (HTML + text)
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        ↓
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>POST /api/memory
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        ↓
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>Cleaned, chunked, embedded and stored under your account
-</span></code></pre></div>
+<pre class="mermaid"><code>flowchart LR
+    load([Page finishes loading]) --&gt; on{Auto-capture on&lt;br/&gt;and signed in?}
+    on -- no --&gt; skip([Not saved])
+    on -- yes --&gt; ok{Eligible page, not an&lt;br/&gt;excluded site, not MemoryLane?}
+    ok -- no --&gt; skip
+    ok -- yes --&gt; recent{Being saved, or auto-captured&lt;br/&gt;in the last minute?}
+    recent -- yes --&gt; skip
+    recent -- no --&gt; extract[Extract the page:&lt;br/&gt;HTML + text, or a video's captions]
+    extract --&gt; post[POST /api/memory]
+    post --&gt; stored([Cleaned, chunked, embedded and&lt;br/&gt;stored under your account])</code></pre>
 <h3 id="what-automatic-capture-skips">What automatic capture skips<a class="headerlink" href="#what-automatic-capture-skips" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Social-media sites</li>

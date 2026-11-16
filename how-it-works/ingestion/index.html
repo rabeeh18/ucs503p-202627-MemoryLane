@@ -675,34 +675,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -942,6 +914,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-save-end-to-end" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A save, end to end
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-the-backend-does" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1117,6 +1100,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../architecture/data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../architecture/backend/" class="md-nav__link">
         
   
@@ -1209,34 +1220,6 @@
     
   
     Retrieval Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../architecture/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1701,19 +1684,57 @@
 </ul>
 <p>The service worker posts these, with the URL, title and whether the save was manual, to <code>POST /api/memory</code>, using the signed-in user's access token. If the token has expired, the extension refreshes it once and retries.</p>
 <p>Auto-capture also checks the page against the <a href="../../user-guide/automatic-capture/#what-automatic-capture-skips">capture rules</a> and your excluded sites before sending anything, and doesn't send a URL again while a save of it is in progress, or within a minute of auto-capturing it.</p>
+<h2 id="a-save-end-to-end">A save, end to end<a class="headerlink" href="#a-save-end-to-end" title="Permanent link">&para;</a></h2>
+<pre class="mermaid"><code>sequenceDiagram
+    autonumber
+    actor U as User
+    participant P as Extension popup
+    participant B as Service worker
+    participant T as The page's tab
+    participant Y as youtube.com
+    participant A as FastAPI
+    participant S as Solr
+
+    U-&gt;&gt;P: Remember this page
+    P-&gt;&gt;B: save(tab)
+    alt YouTube video
+        B-&gt;&gt;T: Run fetchYouTubeVideo(videoId) inside the tab
+        T-&gt;&gt;Y: Player API (title, channel, length, caption tracks)
+        T-&gt;&gt;Y: Caption track (timed text)
+        T--&gt;&gt;B: transcript, description, details
+    else Any other page
+        B-&gt;&gt;T: Inject content.js
+        T--&gt;&gt;B: HTML, visible text, canonical URL
+    end
+    B-&gt;&gt;A: POST /api/memory (Bearer token)
+    Note over B,A: On 401: refresh the token once and retry
+    A-&gt;&gt;A: Verify token → user_id
+    A-&gt;&gt;A: Canonical URL → normalise → page_id
+    A-&gt;&gt;A: Clean (trafilatura) or use the transcript
+    Note over A: Under 50 words: 422
+    A-&gt;&gt;S: Stored page head (content_hash, embedding_model)
+    alt Same text and model
+        A--&gt;&gt;B: unchanged
+    else New or changed
+        A-&gt;&gt;A: Chunk → embed "title + chunk" → page vector
+        A-&gt;&gt;S: Upsert chunks {page_id}::0..n-1
+        A-&gt;&gt;S: Delete chunks ≥ n
+        A--&gt;&gt;B: saved, with the page
+    end
+    B--&gt;&gt;P: Result
+    P--&gt;&gt;U: "Saved just now" + Undo</code></pre>
 <h2 id="what-the-backend-does">What the backend does<a class="headerlink" href="#what-the-backend-does" title="Permanent link">&para;</a></h2>
 <p>All of this happens in one function, <code>ingest_page</code> (<code>backend/ingest.py</code>). It is shared by the API, the re-index and backfill scripts and the evaluation.</p>
 <ol>
 <li>Take the user id from the verified token (never from the request). Refuse addresses that aren't <code>http</code> or <code>https</code> with <code>400</code>.</li>
 <li>Prefer the canonical URL if it's on the same site and isn't a parent of the page (single-page apps such as Reddit keep a stale one), then <a href="../processing/#url-normalisation">normalise</a> it.</li>
 <li>Compute <code>page_id = sha256(user_id | normalised URL)[:32]</code>. Drop an unread count from the front of the title ("(3) Reddit" becomes "Reddit").</li>
-<li><strong>YouTube</strong>: fetch the transcript and metadata instead of using the page (see <a href="../../user-guide/youtube/">YouTube Videos</a>).</li>
+<li><strong>YouTube</strong>: use the transcript, description and details the extension fetched in your browser instead of the page (YouTube blocks the server; see <a href="../../user-guide/youtube/">YouTube Videos</a>). A video without captions is saved from its description.</li>
 <li><strong>Other pages</strong>: extract the main text from the HTML with trafilatura. If that fails, use the extension's text.</li>
 <li>Reject the page with <code>422</code> if it has fewer than 50 words, and a new page with <code>403</code> once the account has reached its page limit (5,000 by default).</li>
 <li>If the page is already stored with the same content hash and embedding model, return <code>unchanged</code> and do nothing.</li>
 <li>Chunk, embed, compute the page vector and description.</li>
 <li>Upsert the chunks as <code>{page_id}::{n}</code>, then delete any higher-numbered chunks left from an older, longer version.</li>
-<li>Clear the user's cached library map.</li>
 </ol>
 <p>The response is <code>{status: saved | unchanged | skipped, message, page}</code>.</p>
 <h2 id="duplicates">Duplicates<a class="headerlink" href="#duplicates" title="Permanent link">&para;</a></h2>

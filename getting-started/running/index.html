@@ -774,34 +774,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -1134,6 +1106,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../architecture/data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../architecture/backend/" class="md-nav__link">
         
   
@@ -1226,34 +1226,6 @@
     
   
     Retrieval Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../architecture/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1720,7 +1692,7 @@
 </ol>
 </li>
 <li><strong>Save pages</strong> with <strong>Remember this page</strong> in the extension popup. You can also turn on automatic capture there.</li>
-<li><strong>Search</strong> on the website by describing what you remember. Your library, the map and related pages fill up as you save more.</li>
+<li><strong>Search</strong> on the website by describing what you remember. Your library fills up as you save more.</li>
 </ol>
 <p>Once the extension is installed, the website stops showing "Get the extension".</p>
 <h2 id="running-it-locally">Running it locally<a class="headerlink" href="#running-it-locally" title="Permanent link">&para;</a></h2>
@@ -1728,7 +1700,7 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># API (from code/src)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uvicorn<span class="w"> </span>backend.main:app<span class="w"> </span>--reload<span class="w"> </span>--host<span class="w"> </span><span class="m">0</span>.0.0.0<span class="w"> </span>--port<span class="w"> </span><span class="m">8000</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>curl<span class="w"> </span>http://localhost:8000/health
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># {&quot;status&quot;:&quot;ok&quot;,&quot;solr&quot;:true,&quot;embedding_model&quot;:true,&quot;gemini&quot;:true}</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># {"status":"ok","solr":true,"embedding_model":true,"gemini":true}</span>
 </span></code></pre></div>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Web app (from code/src/frontend)</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>npm<span class="w"> </span>run<span class="w"> </span>dev<span class="w">        </span><span class="c1"># http://localhost:5173, proxies /api to http://127.0.0.1:8000</span>
@@ -1736,7 +1708,7 @@
 <p><code>/health</code> reports <code>status: ok</code> when Solr and the embedding model are ready. Gemini is optional, so <code>gemini: false</code> is fine.</p>
 <h3 id="command-line-search">Command-line search<a class="headerlink" href="#command-line-search" title="Permanent link">&para;</a></h3>
 <p>Search a user's pages without the web app:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>-m<span class="w"> </span>backend.cli<span class="w"> </span><span class="s2">&quot;your query&quot;</span><span class="w"> </span>--user-id<span class="w"> </span>&lt;cognito-sub&gt;<span class="w"> </span>--top-k<span class="w"> </span><span class="m">5</span><span class="w"> </span>--debug<span class="w"> </span>--no-summarize
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>python<span class="w"> </span>-m<span class="w"> </span>backend.cli<span class="w"> </span><span class="s2">"your query"</span><span class="w"> </span>--user-id<span class="w"> </span>&lt;cognito-sub&gt;<span class="w"> </span>--top-k<span class="w"> </span><span class="m">5</span><span class="w"> </span>--debug<span class="w"> </span>--no-summarize
 </span></code></pre></div>
 <p><code>--debug</code> prints each page's BM25 rank, KNN rank, fused score and timings.</p>
 <h2 id="running-it-on-a-server">Running it on a server<a class="headerlink" href="#running-it-on-a-server" title="Permanent link">&para;</a></h2>

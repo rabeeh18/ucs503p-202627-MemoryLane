@@ -675,34 +675,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../user-guide/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../user-guide/summarization/" class="md-nav__link">
         
   
@@ -1035,6 +1007,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../architecture/data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../architecture/backend/" class="md-nav__link">
         
   
@@ -1127,34 +1127,6 @@
     
   
     Retrieval Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../architecture/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1740,22 +1712,12 @@
 <tr>
 <td><code>POST</code></td>
 <td><code>/search</code></td>
-<td>Hybrid search, optionally within a map topic</td>
+<td>Hybrid search</td>
 </tr>
 <tr>
 <td><code>POST</code></td>
 <td><code>/summarize</code></td>
 <td>Gemini summary of one page</td>
-</tr>
-<tr>
-<td><code>GET</code></td>
-<td><code>/map</code></td>
-<td>The library map</td>
-</tr>
-<tr>
-<td><code>GET</code></td>
-<td><code>/map/search</code></td>
-<td>Find topics and pages on the map</td>
 </tr>
 <tr>
 <td><code>GET</code></td>
@@ -1766,6 +1728,11 @@
 <td><code>DELETE</code></td>
 <td><code>/me/data</code></td>
 <td>Delete all your pages</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/reports</code></td>
+<td>Report a problem (emailed to the maintainer)</td>
 </tr>
 </tbody>
 </table>
@@ -1797,10 +1764,6 @@
 <td>Page not found, or not yours</td>
 </tr>
 <tr>
-<td><code>409</code></td>
-<td>Topic search on a map that has since changed</td>
-</tr>
-<tr>
 <td><code>422</code></td>
 <td>Invalid input, or a page with fewer than 50 words</td>
 </tr>
@@ -1811,6 +1774,10 @@
 <tr>
 <td><code>502</code> / <code>503</code></td>
 <td>Gemini failed / is not configured (summaries only)</td>
+</tr>
+<tr>
+<td><code>503</code></td>
+<td>Cognito couldn't be reached to look up a sign-in seen for the first time</td>
 </tr>
 </tbody>
 </table>

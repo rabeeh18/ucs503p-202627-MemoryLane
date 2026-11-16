@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://rabeeh18.github.io/ucs503p-202627-MemoryLane/architecture/security/">
       
       
-        <link rel="prev" href="../map/">
+        <link rel="prev" href="../retrieval/">
       
       
         <link rel="next" href="../../api/">
@@ -675,34 +675,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -1037,6 +1009,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../backend/" class="md-nav__link">
         
   
@@ -1146,34 +1146,6 @@
                 
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
     
   
   
@@ -1255,6 +1227,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Token verification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sign-in-and-the-first-request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sign-in and the first request
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1735,7 +1724,7 @@
 
 
 <h1 id="security">Security<a class="headerlink" href="#security" title="Permanent link">&para;</a></h1>
-<p>MemoryLane is multi-user, so the main security property is <strong>isolation</strong>: nobody can read, search, summarise, map or delete another person's pages.</p>
+<p>MemoryLane is multi-user, so the main security property is <strong>isolation</strong>: nobody can read, search, summarise or delete another person's pages.</p>
 <h2 id="authentication">Authentication<a class="headerlink" href="#authentication" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Sign-in is handled by <strong>Amazon Cognito</strong> (Google, or email and password). MemoryLane never handles passwords.</li>
@@ -1760,13 +1749,49 @@
 <li>If Cognito can't be reached for a <code>sub</code> seen for the first time, the request fails with <code>503</code>, so pages never land in a library they don't belong to. Known sign-ins are answered from the database without calling Cognito.</li>
 <li>The links are stored in SQLite (<code>ACCOUNTS_DB</code>, the <code>accounts</code> volume in Docker). <strong>Delete all</strong> removes them.</li>
 </ul>
+<h3 id="sign-in-and-the-first-request">Sign-in and the first request<a class="headerlink" href="#sign-in-and-the-first-request" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>sequenceDiagram
+    autonumber
+    actor U as User
+    participant W as Web app
+    participant C as Amazon Cognito
+    participant A as FastAPI
+    participant DB as accounts.db
+
+    U-&gt;&gt;W: Sign in
+    W-&gt;&gt;W: Make code_verifier, code_challenge = SHA-256(verifier)
+    W-&gt;&gt;C: /oauth2/authorize (code_challenge)
+    C-&gt;&gt;U: Hosted sign-in (Google or email)
+    U-&gt;&gt;C: Credentials
+    C-&gt;&gt;W: Redirect to /auth/callback?code=…
+    W-&gt;&gt;C: /oauth2/token (code + code_verifier)
+    C-&gt;&gt;W: Access token + refresh token
+    Note over W: Access token in memory,&lt;br/&gt;refresh token in localStorage
+    W-&gt;&gt;A: API request with Authorization: Bearer (access token)
+    A-&gt;&gt;A: Verify RS256 signature (JWKS), exp, iss, token_use, client_id
+    A-&gt;&gt;DB: Library for this sub?
+    alt Known sign-in
+        DB--&gt;&gt;A: library id
+    else First time this sub is seen
+        A-&gt;&gt;C: /oauth2/userInfo (the user's own token)
+        C--&gt;&gt;A: email, email_verified
+        Note over A,C: If Cognito can't be reached: 503, nothing is stored
+        alt Verified email, or a Google sign-in
+            A-&gt;&gt;DB: Link sub to the library for this email (create it if new)
+        else Unverified
+            A-&gt;&gt;DB: Own library for this sub (checked again after 5 minutes)
+        end
+    end
+    A-&gt;&gt;A: Handle the request, filtered by that library id
+    A--&gt;&gt;W: Response</code></pre>
+<p>The extension follows the same flow through <code>chrome.identity.launchWebAuthFlow</code>, and keeps its tokens in <code>chrome.storage.local</code>.</p>
 <h2 id="data-isolation">Data isolation<a class="headerlink" href="#data-isolation" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>SolrClient</code> adds <code>{!term f=user_id}&lt;sub&gt;</code> to every query, scan, KNN search and delete, and raises an error if the id is missing or malformed. Isolation doesn't depend on each endpoint remembering to filter.</li>
 <li>KNN searches use the filter as a <strong>pre-filter</strong>, so other users' vectors are never candidates.</li>
 <li><code>page_id</code> includes the user id in its hash, so two users' copies of a page never collide.</li>
 <li>A request for someone else's page gets <code>404</code>, the same as a missing page, so page ids can't be probed.</li>
-<li><code>tests/test_isolation.py</code> checks this with two users: search, summaries, deletes, status, library, export, delete-all, the map, map search, related pages and topic search, plus a check that every Solr request carries the user filter.</li>
+<li><code>tests/test_isolation.py</code> checks this with two users: search, summaries, deletes, status, library, export, delete-all and related pages, plus a check that every Solr request carries the user filter.</li>
 </ul>
 <h2 id="network">Network<a class="headerlink" href="#network" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1825,7 +1850,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../map/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Library Map">
+          <a href="../retrieval/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Retrieval Architecture">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1835,7 +1860,7 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Library Map
+                Retrieval Architecture
               </div>
             </div>
           </a>

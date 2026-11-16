@@ -598,10 +598,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#library-map" class="md-nav__link">
+  <a href="#gemini" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Library map
+        Gemini
       
     </span>
   </a>
@@ -609,10 +609,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#gemini" class="md-nav__link">
+  <a href="#problem-reports" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Gemini
+        Problem reports
       
     </span>
   </a>
@@ -803,34 +803,6 @@
     
   
     Library and Account
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user-guide/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1183,6 +1155,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../architecture/data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../architecture/backend/" class="md-nav__link">
         
   
@@ -1275,34 +1275,6 @@
     
   
     Retrieval Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../architecture/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1879,7 +1851,12 @@
 <tr>
 <td><code>MIN_VECTOR_SIMILARITY</code></td>
 <td><code>0.55</code></td>
-<td>Pages with no keyword match need at least this cosine similarity</td>
+<td>Pages need at least this cosine similarity, unless they hold most of the query's words</td>
+</tr>
+<tr>
+<td><code>KEYWORD_FULL_MATCH</code></td>
+<td><code>0.75</code></td>
+<td>Share of the query's words a keyword match must hold to be kept whatever its similarity</td>
 </tr>
 <tr>
 <td><code>QUERY_INTENT_ENABLED</code></td>
@@ -1942,43 +1919,6 @@
 </tr>
 </tbody>
 </table>
-<h2 id="library-map">Library map<a class="headerlink" href="#library-map" title="Permanent link">&para;</a></h2>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th>Default</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>MAP_MAX_PAGES</code></td>
-<td><code>2000</code></td>
-<td>Most recent pages placed on the map</td>
-</tr>
-<tr>
-<td><code>MAP_MIN_PAGES</code></td>
-<td><code>10</code></td>
-<td>Below this, the map asks you to save a few more</td>
-</tr>
-<tr>
-<td><code>MAP_OUTLIER_SIMILARITY</code></td>
-<td><code>0.35</code></td>
-<td>Pages less similar than this to their topic's centre stay unclustered</td>
-</tr>
-<tr>
-<td><code>MAP_CROSS_TOPIC_SIMILARITY</code></td>
-<td><code>0.65</code></td>
-<td>Topics at least this similar get a dashed link</td>
-</tr>
-<tr>
-<td><code>MAP_CACHE_USERS</code>, <code>MAP_CACHE_TTL_SECONDS</code></td>
-<td><code>50</code>, <code>600</code></td>
-<td>In-memory map cache</td>
-</tr>
-</tbody>
-</table>
 <h2 id="gemini">Gemini<a class="headerlink" href="#gemini" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1992,7 +1932,7 @@
 <tr>
 <td><code>GEMINI_API_KEY</code></td>
 <td>empty</td>
-<td>Leave empty to turn off summaries and Gemini topic names</td>
+<td>Leave empty to turn off summaries</td>
 </tr>
 <tr>
 <td><code>GEMINI_MODEL</code></td>
@@ -2001,6 +1941,50 @@
 </tr>
 </tbody>
 </table>
+<h2 id="problem-reports">Problem reports<a class="headerlink" href="#problem-reports" title="Permanent link">&para;</a></h2>
+<p><strong>Report a problem</strong> stores each report in SQLite, then emails it in the background. Without <code>SMTP_HOST</code>, <code>REPORTS_FROM</code> and <code>REPORTS_TO</code>, reports are stored but not sent.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SMTP_HOST</code></td>
+<td>empty</td>
+<td>Mail server, e.g. <code>email-smtp.&lt;region&gt;.amazonaws.com</code> for Amazon SES</td>
+</tr>
+<tr>
+<td><code>SMTP_PORT</code></td>
+<td><code>587</code></td>
+<td><code>587</code> uses STARTTLS; <code>465</code> uses TLS from the start</td>
+</tr>
+<tr>
+<td><code>SMTP_USER</code>, <code>SMTP_PASSWORD</code></td>
+<td>empty</td>
+<td>SMTP credentials (for SES, created in the SES console, not your AWS keys)</td>
+</tr>
+<tr>
+<td><code>REPORTS_FROM</code></td>
+<td>empty</td>
+<td>Sender address; must be verified in SES</td>
+</tr>
+<tr>
+<td><code>REPORTS_TO</code></td>
+<td>empty</td>
+<td>Where reports are sent; in the SES sandbox it must be verified too</td>
+</tr>
+<tr>
+<td><code>REPORTS_DB</code></td>
+<td><code>data/reports.db</code></td>
+<td>SQLite file; <code>/data/reports.db</code> (the <code>accounts</code> volume) in Docker</td>
+</tr>
+</tbody>
+</table>
+<p>A report that can't be sent is retried with backoff (1 minute, doubling, at most 6 hours apart, 12 tries), including after a restart.</p>
 <h2 id="deployment">Deployment<a class="headerlink" href="#deployment" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

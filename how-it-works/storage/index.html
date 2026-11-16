@@ -675,34 +675,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -1009,6 +981,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#data-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#writes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1128,6 +1111,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../architecture/data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../architecture/backend/" class="md-nav__link">
         
   
@@ -1220,34 +1231,6 @@
     
   
     Retrieval Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../architecture/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1789,11 +1772,67 @@
 <tr>
 <td><code>page_embedding</code></td>
 <td>vector, 384-d, stored (chunk 0)</td>
-<td>Page vector for related pages and the map</td>
+<td>Page vector for related pages</td>
 </tr>
 </tbody>
 </table>
 <p><code>scripts/setup_solr.sh</code> is the single source of truth for this schema. Automatic field creation is turned off, so a document with an unknown field is rejected instead of silently adding a guessed field.</p>
+<h2 id="data-model">Data model<a class="headerlink" href="#data-model" title="Permanent link">&para;</a></h2>
+<p>Solr holds the pages; two small SQLite files next to it hold sign-in links and problem reports. Solr isn't relational, so the diagram shows the logical model: a library is the <code>user_id</code> that every chunk, link and report carries.</p>
+<pre class="mermaid"><code>erDiagram
+    LIBRARY ||--o{ PAGE : owns
+    PAGE ||--|{ CHUNK : "split into"
+    LIBRARY ||--o{ SIGN_IN : "reached by"
+    LIBRARY ||--o| EMAIL_LINK : "claimed by"
+    LIBRARY ||--o{ REPORT : sends
+
+    LIBRARY {
+        string user_id PK "Cognito sub of the first sign-in"
+    }
+    PAGE {
+        string page_id PK "sha256(user_id | URL)[:32]"
+        string url
+        string domain
+        string title
+        date timestamp
+        string content_hash
+        string embedding_model
+        string description "chunk 0"
+        vector page_embedding "384-d, chunk 0"
+    }
+    CHUNK {
+        string id PK "page_id::n"
+        string user_id FK
+        string page_id FK
+        int chunk_id
+        int total_chunks
+        text text
+        vector embedding "384-d, not stored"
+    }
+    SIGN_IN {
+        string sub PK "accounts.db sign_ins"
+        string library FK
+        string email
+        real created_at
+    }
+    EMAIL_LINK {
+        string email PK "accounts.db libraries"
+        string library FK
+        real created_at
+    }
+    REPORT {
+        int id PK "reports.db reports"
+        string user_id FK
+        string email
+        text message
+        text context "JSON"
+        real created_at
+        real sent_at
+        int attempts
+        real next_try_at
+        text last_error
+    }</code></pre>
+<p><code>PAGE</code> isn't a separate document: its fields live on the page's chunks (chunk 0 carries the page-level ones), as the table above shows.</p>
 <h2 id="writes">Writes<a class="headerlink" href="#writes" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Saves use <code>commitWithin</code> (1 s) rather than explicit commits.</li>

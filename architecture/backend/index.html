@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://rabeeh18.github.io/ucs503p-202627-MemoryLane/architecture/backend/">
       
       
-        <link rel="prev" href="../overview/">
+        <link rel="prev" href="../data-flow/">
       
       
         <link rel="next" href="../frontend/">
@@ -675,34 +675,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -1034,6 +1006,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -1231,34 +1231,6 @@
     
   
     Retrieval Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1718,32 +1690,34 @@
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>backend/
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── main.py           API endpoints, rate limits, CORS, error handling
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── auth.py           Cognito access-token verification → user_id
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── models.py         Pydantic request and response models
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── config.py         Settings from .env
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── ingest.py         ingest_page: the one way a page gets saved
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├── cleaning.py       trafilatura extraction, junk-line removal, descriptions
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>├── url_utils.py      URL normalisation and page ids
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>├── youtube_utils.py  Video ids, metadata and transcripts
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>├── chunking.py       Sentence-aware overlapping chunks
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>├── embeddings.py     Sentence Transformers model, passage and query embeddings
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>├── retrieval.py      Hybrid search: BM25 + KNN, RRF, grouping, relevance floor
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>├── rerank.py         Optional cross-encoder reranker
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>├── snippets.py       Query-focused snippets
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>├── library_map.py    Topics, labels, layout, links, per-user map cache
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>├── summarizer.py     Gemini summaries and topic names
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>├── solr_client.py    Every Solr call, always scoped by user_id
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>├── page_filter.py    Server copy of the URL eligibility rules
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>└── cli.py            Command-line search
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── accounts.py       Links Google and email sign-ins with the same verified email
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── models.py         Pydantic request and response models
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── config.py         Settings from .env
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├── ingest.py         ingest_page: the one way a page gets saved
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>├── cleaning.py       trafilatura extraction, junk-line removal, descriptions
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>├── url_utils.py      URL normalisation and page ids
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>├── youtube_utils.py  Video ids, metadata and transcripts
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>├── chunking.py       Sentence-aware overlapping chunks
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>├── embeddings.py     Sentence Transformers model, passage and query embeddings
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>├── retrieval.py      Hybrid search: BM25 + KNN, RRF, grouping, relevance floor
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>├── query_intent.py   Site words, time phrases and URLs in a query
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>├── rerank.py         Optional cross-encoder reranker
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>├── snippets.py       Query-focused snippets
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>├── summarizer.py     Gemini summaries
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>├── reports.py        Problem reports: SQLite store and background email sender
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>├── solr_client.py    Every Solr call, always scoped by user_id
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>├── page_filter.py    Server copy of the URL eligibility rules
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>└── cli.py            Command-line search
 </span></code></pre></div>
 <h2 id="request-flow">Request flow<a class="headerlink" href="#request-flow" title="Permanent link">&para;</a></h2>
 <ol>
-<li><strong>Rate limiting</strong> (slowapi): per user once authenticated, otherwise per IP. Limits range from 5/minute (export, delete all) to 120/minute (status checks, related pages, map search).</li>
+<li><strong>Rate limiting</strong> (slowapi): per user once authenticated, otherwise per IP. Limits range from 5/minute (export, delete all) to 120/minute (status checks, related pages).</li>
 <li><strong>Authentication</strong>: the <code>current_user_id</code> dependency verifies the bearer token and returns the library of its <code>sub</code> (Google and email sign-ins with the same verified email share one; see <a href="../security/">Security</a>). Every endpoint except <code>/health</code> requires it.</li>
-<li><strong>The endpoint</strong> calls <code>ingest_page</code>, <code>hybrid_search</code>, <code>map_service</code> or the summariser with that user id.</li>
+<li><strong>The endpoint</strong> calls <code>ingest_page</code>, <code>hybrid_search</code> or the summariser with that user id.</li>
 <li><strong>Solr</strong> calls go through <code>SolrClient</code>, which adds the <code>user_id</code> filter to every query and rejects malformed ids.</li>
 </ol>
 <h2 id="start-up">Start-up<a class="headerlink" href="#start-up" title="Permanent link">&para;</a></h2>
-<p>The embedding model loads at start-up so the first save or search is fast. The API refuses to start if the Cognito settings are missing.</p>
+<p>The embedding model loads at start-up so the first save or search is fast, and the problem-report sender starts its background thread. The API refuses to start if the Cognito settings are missing.</p>
 <h2 id="caches">Caches<a class="headerlink" href="#caches" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1762,16 +1736,6 @@
 <tr>
 <td>Sentence embeddings for snippets</td>
 <td>LRU of 4,096 sentences</td>
-<td>process restart</td>
-</tr>
-<tr>
-<td>Library map</td>
-<td>per user, 50 users, 10-minute TTL</td>
-<td>the user saves or deletes a page</td>
-</tr>
-<tr>
-<td>Topic labels</td>
-<td>per topic membership</td>
 <td>process restart</td>
 </tr>
 </tbody>
@@ -1844,7 +1808,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../overview/" class="md-footer__link md-footer__link--prev" aria-label="Previous: System Architecture">
+          <a href="../data-flow/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Data Flow Diagrams">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -1854,7 +1818,7 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                System Architecture
+                Data Flow Diagrams
               </div>
             </div>
           </a>

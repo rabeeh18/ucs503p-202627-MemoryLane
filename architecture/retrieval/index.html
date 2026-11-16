@@ -16,7 +16,7 @@
         <link rel="prev" href="../processing/">
       
       
-        <link rel="next" href="../map/">
+        <link rel="next" href="../security/">
       
       
         
@@ -675,34 +675,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -1037,6 +1009,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../backend/" class="md-nav__link">
         
   
@@ -1181,6 +1181,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#one-search-step-by-step" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One search, step by step
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#lexical-retrieval" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1269,17 +1280,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#search-within-a-topic" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Search within a topic
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#debugging" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1294,34 +1294,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1791,6 +1763,37 @@
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>                       Snippets → top-K pages
 </span></code></pre></div>
 <p>The BM25 query and the query embedding run concurrently.</p>
+<h3 id="one-search-step-by-step">One search, step by step<a class="headerlink" href="#one-search-step-by-step" title="Permanent link">&para;</a></h3>
+<pre class="mermaid"><code>sequenceDiagram
+    autonumber
+    actor U as User
+    participant W as Web app
+    participant A as FastAPI
+    participant E as Embedding model
+    participant S as Solr
+
+    U-&gt;&gt;W: Type or speak a query
+    W-&gt;&gt;A: POST /api/search {query}
+    A-&gt;&gt;A: Verify token → user_id
+    par Keyword search
+        A-&gt;&gt;S: BM25 (edismax, user filter) → top 50 chunks
+    and Meaning search
+        A-&gt;&gt;E: Embed query (cached)
+        E--&gt;&gt;A: 384-d vector
+        A-&gt;&gt;S: KNN topK=50 (user pre-filter)
+    and Site, time or URL in the query (only if found)
+        A-&gt;&gt;S: BM25 + KNN within those domains / dates
+    end
+    S--&gt;&gt;A: Ranked chunk lists
+    A-&gt;&gt;A: Reciprocal Rank Fusion
+    A-&gt;&gt;A: Group chunks into pages (best + 0.3 × second)
+    opt Keyword matches without a similarity
+        A-&gt;&gt;S: One KNN restricted to those pages
+    end
+    A-&gt;&gt;A: Relevance floor
+    A-&gt;&gt;A: Snippets (2–3 sentences per page)
+    A--&gt;&gt;W: Up to 10 pages
+    W--&gt;&gt;U: Results with snippets</code></pre>
 <h2 id="lexical-retrieval">Lexical retrieval<a class="headerlink" href="#lexical-retrieval" title="Permanent link">&para;</a></h2>
 <p>Solr's <strong>edismax</strong> parser searches <code>title^2 text</code>, with a phrase boost <code>pf=text^2 title^3</code> so pages containing the query as a phrase rank higher. Both fields use <code>text_en</code> (possessives, stopwords, Porter stemming), so <em>learning</em> matches <em>learn</em>. Field queries in user input are disabled (<code>uf=-*</code>).</p>
 <h2 id="semantic-retrieval">Semantic retrieval<a class="headerlink" href="#semantic-retrieval" title="Permanent link">&para;</a></h2>
@@ -1826,11 +1829,11 @@ S_{\mathrm{page}} = s_{\mathrm{best}} + 0.3 \cdot s_{\mathrm{second}}
 \]</div>
 <p>so a page with two good passages beats a page with one, without long pages winning just by having many chunks.</p>
 <h2 id="relevance-floor">Relevance floor<a class="headerlink" href="#relevance-floor" title="Permanent link">&para;</a></h2>
-<p>KNN always returns 50 neighbours, however unrelated. A page with <strong>no</strong> BM25 match is dropped unless its best chunk's cosine similarity is at least <code>MIN_VECTOR_SIMILARITY</code> (0.55). Solr reports KNN scores as <span class="arithmatex">\((1 + \cos)/2\)</span>, so the backend converts them first. Pages that match a query word are always kept, and so are pages a site or time in the query points at that matched the rest of it by keyword.</p>
+<p>KNN always returns 50 neighbours, however unrelated. A page with <strong>no</strong> BM25 match is dropped unless its best chunk's cosine similarity is at least <code>MIN_VECTOR_SIMILARITY</code> (0.55). Solr reports KNN scores as <span class="arithmatex">\((1 + \cos)/2\)</span>, so the backend converts them first. Pages a site or time in the query points at, and that matched the rest of it by keyword, are kept.</p>
+<p>Keyword matches are judged too, because BM25 accepts a page that shares any one word with the query. A page whose title and best chunk hold at least <code>KEYWORD_FULL_MATCH</code> (75%) of the query's words (as the snippet code counts them: 3+ letters, common words left out, prefix match) is kept whatever its similarity, so exact names, error codes and rare words are never lost. A page that shares only some of them needs <code>MIN_VECTOR_SIMILARITY</code>, like a page that shares none. For "greatest football player of all time", Nintendo ("the greatest games of all time", best chunk similarity 0.51) and Video game ("the player ... a later time", 0.46) match two of the four words and are about something else, so they're dropped; Lionel Messi holds all four (0.69). Measured with <code>bge-small-en-v1.5</code> on the real Wikipedia articles.</p>
+<p>When such a page's chunks weren't in the main KNN list, its similarity is looked up with one more KNN request restricted to those pages (at most 50 pages, 8 chunks each). If that request fails, they're dropped rather than shown unjudged.</p>
 <h2 id="snippets">Snippets<a class="headerlink" href="#snippets" title="Permanent link">&para;</a></h2>
 <p>For each result, <code>backend/snippets.py</code> picks 2–3 consecutive readable sentences around the sentence that contains the most query terms (the first one on a tie). If no sentence contains a query term, the first 3 readable sentences are compared with the query by embedding, so the snippet still fits a search by meaning. Embedding runs on the server's CPU during the search, which is why it's limited to this case. A readable sentence has 8+ words, is at least 70% letters, has no table pipes and ends in punctuation. Snippets are 200–280 characters. If no sentence qualifies, the page's stored description is used.</p>
-<h2 id="search-within-a-topic">Search within a topic<a class="headerlink" href="#search-within-a-topic" title="Permanent link">&para;</a></h2>
-<p><code>POST /search</code> with a <code>topic</code> restricts both retrievers to the page ids in that <a href="../map/">library-map</a> topic. If the user's map has changed since the topic id was issued, the API returns <code>409</code>, and the web app finds the topic again by name.</p>
 <h2 id="debugging">Debugging<a class="headerlink" href="#debugging" title="Permanent link">&para;</a></h2>
 <p><code>"debug": true</code> adds each page's <code>bm25_rank</code>, <code>knn_rank</code>, <code>fused_score</code>, <code>vector_similarity</code> and per-stage <code>timings</code> (including <code>intent_ms</code>) to the response. The CLI prints the same with <code>--debug</code>.</p>
 
@@ -1887,13 +1890,13 @@ S_{\mathrm{page}} = s_{\mathrm{best}} + 0.3 \cdot s_{\mathrm{second}}
         
         
           
-          <a href="../map/" class="md-footer__link md-footer__link--next" aria-label="Next: Library Map">
+          <a href="../security/" class="md-footer__link md-footer__link--next" aria-label="Next: Security">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Library Map
+                Security
               </div>
             </div>
             <div class="md-footer__button md-icon">

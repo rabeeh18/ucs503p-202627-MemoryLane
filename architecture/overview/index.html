@@ -16,7 +16,7 @@
         <link rel="prev" href="../../how-it-works/storage/">
       
       
-        <link rel="next" href="../backend/">
+        <link rel="next" href="../data-flow/">
       
       
         
@@ -675,34 +675,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -1157,6 +1129,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#amazon-ses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Amazon SES
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1177,6 +1160,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1281,34 +1292,6 @@
     
   
     Retrieval Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1763,44 +1746,59 @@
 
 
 <h1 id="system-architecture">System Architecture<a class="headerlink" href="#system-architecture" title="Permanent link">&para;</a></h1>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>┌──────────────────┐   ┌──────────────────┐        ┌──────────────────┐
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>│ Chrome extension │   │  Svelte web app  │◀──────▶│  Amazon Cognito  │
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│ save, auto-save  │   │ search, map, lib │  PKCE  │ Google / email   │
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>└────────┬─────────┘   └────────┬─────────┘        └──────────────────┘
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>         │  HTTPS + Bearer access token
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>         ▼                      ▼
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>┌─────────────────────────────────────────┐
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│ Caddy: TLS, static web app, /api proxy  │
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>└────────────────────┬────────────────────┘
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>                     ▼
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>┌─────────────────────────────────────────┐        ┌──────────────────┐
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│ FastAPI backend                         │───────▶│ Gemini           │
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│ token check → user_id                   │        │ (optional)       │
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│ ingest · retrieval · map · summaries    │        └──────────────────┘
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│ Sentence Transformers (bge-small)       │
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>└────────────────────┬────────────────────┘
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>                     ▼   always filtered by user_id
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>┌─────────────────────────────────────────┐
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│ Apache Solr 9.7 · core memorylane_v2    │
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│ BM25 (text_en) + HNSW vectors           │
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>└─────────────────────────────────────────┘
-</span></code></pre></div>
-<p>All three server pieces run with Docker Compose on one EC2 instance. Only Caddy is reachable from the internet.</p>
+<p>The parts of MemoryLane and what they talk to, in the style of a C4 container diagram:</p>
+<pre class="mermaid"><code>flowchart TB
+    user(["User"])
+
+    subgraph client["In the user's browser"]
+        direction LR
+        ext["Chrome extension&lt;br/&gt;&lt;i&gt;Manifest V3&lt;/i&gt;&lt;br/&gt;save, auto-capture"]
+        web["Web app&lt;br/&gt;&lt;i&gt;Svelte 4&lt;/i&gt;&lt;br/&gt;search, library, account"]
+    end
+
+    subgraph server["One EC2 instance · Docker Compose"]
+        caddy["Caddy&lt;br/&gt;HTTPS, static web app, /api proxy"]
+        api["FastAPI backend&lt;br/&gt;token check → user_id&lt;br/&gt;ingest · retrieval · summaries · reports&lt;br/&gt;Sentence Transformers (bge-small)"]
+        solr[("Apache Solr 9.7&lt;br/&gt;BM25 + HNSW vectors")]
+        sqlite[("SQLite&lt;br/&gt;accounts.db, reports.db")]
+        caddy --&gt; api
+        api --&gt;|"always filtered by user_id"| solr
+        api --&gt; sqlite
+    end
+
+    subgraph outside["External services"]
+        direction LR
+        cognito["Amazon Cognito&lt;br/&gt;sign-in"]
+        youtube["YouTube"]
+        gemini["Google Gemini&lt;br/&gt;(optional)"]
+        ses["Amazon SES&lt;br/&gt;report emails"]
+    end
+
+    user --&gt; client
+    client --&gt;|"HTTPS + Bearer access token"| caddy
+    client -.-&gt;|"PKCE sign-in"| cognito
+    ext -.-&gt;|"captions, in the YouTube tab"| youtube
+    api --&gt;|"user info"| cognito
+    api --&gt;|"one page's text"| gemini
+    api --&gt;|"SMTP"| ses</code></pre>
+<p>All the server pieces run with Docker Compose on one EC2 instance. Only Caddy is reachable from the internet. The <a href="../data-flow/">data flow diagrams</a> show what data moves along each of these lines.</p>
 <h2 id="components">Components<a class="headerlink" href="#components" title="Permanent link">&para;</a></h2>
 <h3 id="chrome-extension">Chrome extension<a class="headerlink" href="#chrome-extension" title="Permanent link">&para;</a></h3>
 <p>The collection layer. It saves the current page on request, runs optional auto-capture with its eligibility rules and excluded sites, and signs in with Cognito through <code>chrome.identity</code>. It doesn't search; searching happens on the website.</p>
 <h3 id="svelte-web-app">Svelte web app<a class="headerlink" href="#svelte-web-app" title="Permanent link">&para;</a></h3>
-<p>The search interface: home with recent pages, results with snippets and summaries, the library, the library map, the extension page, privacy and the account menu. It is built into static files that Caddy serves.</p>
+<p>The search interface: home with recent pages, results with snippets and summaries, the library, the extension page, privacy and the account menu. It is built into static files that Caddy serves.</p>
 <h3 id="amazon-cognito">Amazon Cognito<a class="headerlink" href="#amazon-cognito" title="Permanent link">&para;</a></h3>
 <p>Hosts sign-in (Google, or email and password) and issues access tokens. The web app and extension both use the authorization-code flow with PKCE and a public client.</p>
 <h3 id="caddy">Caddy<a class="headerlink" href="#caddy" title="Permanent link">&para;</a></h3>
 <p>Gets and renews HTTPS certificates, serves the web app with a strict Content Security Policy, serves the extension zip, proxies <code>/api/*</code> to the backend, and redirects <code>www.memorylane.site</code> to <code>memorylane.site</code>.</p>
 <h3 id="fastapi-backend">FastAPI backend<a class="headerlink" href="#fastapi-backend" title="Permanent link">&para;</a></h3>
-<p>The application layer. It verifies every request's token, then saves pages, searches, builds library maps, finds related pages and asks Gemini for summaries, all scoped to the token's user. It loads the embedding model once at start-up.</p>
+<p>The application layer. It verifies every request's token, then saves pages, searches, finds related pages and asks Gemini for summaries, all scoped to the token's user. It loads the embedding model once at start-up.</p>
 <h3 id="apache-solr">Apache Solr<a class="headerlink" href="#apache-solr" title="Permanent link">&para;</a></h3>
 <p>Stores chunks, page vectors and metadata, and runs BM25 and KNN search. It is bound to localhost on the server.</p>
 <h3 id="gemini">Gemini<a class="headerlink" href="#gemini" title="Permanent link">&para;</a></h3>
-<p>Optional. Summarises a single page on request, and names library-map topics. Without a key, both fall back gracefully.</p>
+<p>Optional. Summarises a single page on request. Without a key, summaries are turned off and everything else works.</p>
+<h3 id="amazon-ses">Amazon SES<a class="headerlink" href="#amazon-ses" title="Permanent link">&para;</a></h3>
+<p>Sends problem reports to the maintainer by email over SMTP. Reports are stored in SQLite first, so nothing is lost if email is down; without SMTP settings they are only stored.</p>
 <h2 id="design-principles">Design principles<a class="headerlink" href="#design-principles" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>The server owns identity.</strong> User ids come only from verified tokens.</li>
@@ -1862,13 +1860,13 @@
         
         
           
-          <a href="../backend/" class="md-footer__link md-footer__link--next" aria-label="Next: Backend">
+          <a href="../data-flow/" class="md-footer__link md-footer__link--next" aria-label="Next: Data Flow Diagrams">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Backend
+                Data Flow Diagrams
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -677,34 +677,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../summarization/" class="md-nav__link">
         
   
@@ -791,6 +763,17 @@
       Table of contents
     </label>
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#why-your-browser-fetches-the-transcript" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why your browser fetches the transcript
+      
+    </span>
+  </a>
+  
+</li>
       
         <li class="md-nav__item">
   <a href="#what-gets-stored" class="md-nav__link">
@@ -1106,6 +1089,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../architecture/data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../architecture/backend/" class="md-nav__link">
         
   
@@ -1198,34 +1209,6 @@
     
   
     Retrieval Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../architecture/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1680,33 +1663,35 @@
 
 
 <h1 id="youtube-videos">YouTube Videos<a class="headerlink" href="#youtube-videos" title="Permanent link">&para;</a></h1>
-<p>A YouTube video page has almost no readable text, so MemoryLane saves the video through its <strong>transcript</strong> instead.</p>
+<p>A YouTube video page has almost no readable text, so MemoryLane saves the video through its <strong>transcript</strong> (captions) and its description instead.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>youtube.com/watch?v=… or youtu.be/…
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>        ↓
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Recognise the video id
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        ↓
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>Fetch title, channel and duration
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        ↓
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>Fetch the transcript
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>        ↓
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>Title + channel + duration + transcript
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>        ↓
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>Same pipeline as any page: chunk → embed → store
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>In your browser: fetch the title, channel, length,
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>description and captions from YouTube
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        ↓
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>Title + channel + length + description + transcript
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>        ↓
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>Same pipeline as any page: chunk → embed → store
 </span></code></pre></div>
-<p>The backend builds the video's URL itself from the video id. It never fetches a URL sent by the browser.</p>
+<h2 id="why-your-browser-fetches-the-transcript">Why your browser fetches the transcript<a class="headerlink" href="#why-your-browser-fetches-the-transcript" title="Permanent link">&para;</a></h2>
+<p>YouTube blocks transcript requests from cloud servers, and the MemoryLane server runs on AWS. Your browser isn't blocked, so when you save a video the extension fetches its captions and details from YouTube and sends them along with the page.</p>
+<p>The extension does this from inside the YouTube tab, because YouTube's API refuses requests that come from an extension directly. It talks only to youtube.com, the same site you are already on, and sends no cookies.</p>
+<p>The server only fetches a transcript itself when an older version of the extension sent nothing. It builds the video's URL from the video id and never fetches a URL sent by the browser.</p>
 <h2 id="what-gets-stored">What gets stored<a class="headerlink" href="#what-gets-stored" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Video title</li>
-<li>Channel</li>
-<li>Duration</li>
-<li>The transcript text</li>
+<li>Video title, channel and length</li>
+<li>The description (its first 2,000 characters)</li>
+<li>The transcript text: English captions if the video has them (uploaded before auto-generated), otherwise its first caption track in the original language</li>
 </ul>
-<p>You then find the video by what was said in it.</p>
+<p>You then find the video by what was said in it, or by what its description says.</p>
 <h2 id="limits">Limits<a class="headerlink" href="#limits" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The video needs an available transcript (uploaded or auto-generated). Without one it can't be saved.</li>
+<li>A video with no captions is saved from its title and description, if the description has at least 15 words. With neither, it can't be saved.</li>
+<li>MemoryLane's search model is trained on English. A transcript in another language is saved as it is (YouTube doesn't translate captions for this kind of request), so search finds such a video mainly through its title and description.</li>
 <li>Automatic capture skips videos longer than <strong>two hours</strong>, and skips them when their length can't be determined. <strong>Remember this page</strong> saves them anyway.</li>
-<li>YouTube pages that aren't a video (home, channels, search) are never captured automatically.</li>
+<li>YouTube Shorts and YouTube pages that aren't a video (home, channels, search) are never saved.</li>
 </ul>
 
 

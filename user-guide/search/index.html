@@ -714,17 +714,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#searching-within-a-topic" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Searching within a topic
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#how-it-works" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -759,34 +748,6 @@
     
   
     Library and Account
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1139,6 +1100,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../architecture/data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../architecture/backend/" class="md-nav__link">
         
   
@@ -1231,34 +1220,6 @@
     
   
     Retrieval Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../architecture/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1785,8 +1746,16 @@
 <td>Move between results</td>
 </tr>
 <tr>
+<td><code>/</code></td>
+<td>Jump to the search box</td>
+</tr>
+<tr>
 <td><code>Enter</code></td>
 <td>Open the selected page</td>
+</tr>
+<tr>
+<td><code>S</code></td>
+<td>Show or hide the summary of the selected page</td>
 </tr>
 <tr>
 <td><code>Shift</code> + <code>Del</code></td>
@@ -1798,8 +1767,6 @@
 </tr>
 </tbody>
 </table>
-<h2 id="searching-within-a-topic">Searching within a topic<a class="headerlink" href="#searching-within-a-topic" title="Permanent link">&para;</a></h2>
-<p>From the <a href="../map/">library map</a>, <strong>Search only these pages</strong> limits a search to one topic. The results page shows the topic as a chip; remove it to search everything again. If the topic changed because you saved or deleted pages in the meantime, MemoryLane finds the same topic by name, or searches all pages and tells you.</p>
 <h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <p>Every search runs a keyword search (BM25) and a meaning search (vector KNN) over your pages at the same time, then combines them. See <a href="../../architecture/retrieval/">Retrieval Architecture</a>.</p>
 

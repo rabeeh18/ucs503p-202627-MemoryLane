@@ -675,34 +675,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -925,17 +897,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#mapping-the-library" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Mapping the library
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#separation-of-responsibilities" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1128,6 +1089,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../architecture/data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../architecture/backend/" class="md-nav__link">
         
   
@@ -1220,34 +1209,6 @@
     
   
     Retrieval Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../architecture/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1720,7 +1681,7 @@
 </span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>          ↓
 </span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>Chunk (≤150 words, 30-word overlap)
 </span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>          ↓
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>Embed &quot;title + chunk&quot; (bge-small-en-v1.5, 384-d)
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>Embed "title + chunk" (bge-small-en-v1.5, 384-d)
 </span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>          ↓
 </span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>Solr: chunks + page vector + description
 </span></code></pre></div>
@@ -1743,17 +1704,6 @@
 </span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>          ↓
 </span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>Snippets → results
 </span></code></pre></div>
-<h2 id="mapping-the-library">Mapping the library<a class="headerlink" href="#mapping-the-library" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>User&#39;s page vectors (newest 2,000)
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>          ↓
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>PCA → k-means (k chosen by silhouette) → split oversized topics
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>          ↓
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>Outliers left unclustered
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>          ↓
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>Topic names (Gemini, or keywords)
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>          ↓
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>Layout + links → cached per user
-</span></code></pre></div>
 <h2 id="separation-of-responsibilities">Separation of responsibilities<a class="headerlink" href="#separation-of-responsibilities" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -1769,7 +1719,7 @@
 </tr>
 <tr>
 <td>Web app</td>
-<td>Search, library, map, summaries, account</td>
+<td>Search, library, summaries, account</td>
 </tr>
 <tr>
 <td>Cognito</td>
@@ -1781,7 +1731,7 @@
 </tr>
 <tr>
 <td>FastAPI</td>
-<td>Token checks, ingest, retrieval, map, summaries</td>
+<td>Token checks, ingest, retrieval, summaries</td>
 </tr>
 <tr>
 <td>Sentence Transformers</td>
@@ -1793,7 +1743,11 @@
 </tr>
 <tr>
 <td>Gemini</td>
-<td>Optional summaries and topic names</td>
+<td>Optional summaries</td>
+</tr>
+<tr>
+<td>Amazon SES</td>
+<td>Emails problem reports</td>
 </tr>
 </tbody>
 </table>

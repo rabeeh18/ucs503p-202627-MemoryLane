@@ -783,34 +783,6 @@
   
   
     <li class="md-nav__item">
-      <a href="user-guide/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="user-guide/summarization/" class="md-nav__link">
         
   
@@ -1143,6 +1115,34 @@
   
   
     <li class="md-nav__item">
+      <a href="architecture/data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="architecture/backend/" class="md-nav__link">
         
   
@@ -1235,34 +1235,6 @@
     
   
     Retrieval Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="architecture/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1730,9 +1702,6 @@
 <li><strong>Automatic capture</strong> (off by default) that skips sensitive and low-value pages and any site you exclude</li>
 <li><strong>Search by meaning or by exact words</strong>: hybrid BM25 + vector search, fused with Reciprocal Rank Fusion</li>
 <li><strong>Readable snippets</strong> that show the sentences matching your query</li>
-<li><strong>Library map</strong>: your saved pages grouped into named topics on a zoomable map</li>
-<li><strong>Related pages</strong> for any saved page</li>
-<li><strong>Search within a topic</strong> from the map</li>
 <li><strong>On-demand summaries</strong> of a single result (Gemini)</li>
 <li><strong>YouTube videos</strong>, saved through their transcripts</li>
 <li><strong>Voice search</strong> in browsers that support speech recognition</li>
@@ -1761,7 +1730,7 @@
 </tr>
 <tr>
 <td>Svelte web app</td>
-<td>Search, library, map, related pages, summaries, account</td>
+<td>Search, library, summaries, account</td>
 </tr>
 <tr>
 <td>Amazon Cognito</td>
@@ -1773,7 +1742,7 @@
 </tr>
 <tr>
 <td>FastAPI backend</td>
-<td>Verifies tokens, saves pages, searches, builds the map</td>
+<td>Verifies tokens, saves pages, searches</td>
 </tr>
 <tr>
 <td>trafilatura</td>
@@ -1788,12 +1757,12 @@
 <td>Stores chunks; BM25 and vector (KNN) search</td>
 </tr>
 <tr>
-<td>scikit-learn</td>
-<td>Topic clustering for the library map</td>
+<td>Gemini</td>
+<td>Optional: result summaries</td>
 </tr>
 <tr>
-<td>Gemini</td>
-<td>Optional: result summaries and map topic names</td>
+<td>Amazon SES</td>
+<td>Emails problem reports to the maintainer</td>
 </tr>
 </tbody>
 </table>
@@ -1801,9 +1770,9 @@
 <h2 id="explore-the-documentation">Explore the documentation<a class="headerlink" href="#explore-the-documentation" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><a href="getting-started/">Getting Started</a></strong>: use the hosted site, or run your own copy.</li>
-<li><strong><a href="user-guide/automatic-capture/">Using MemoryLane</a></strong>: saving, searching, the library and the map.</li>
+<li><strong><a href="user-guide/automatic-capture/">Using MemoryLane</a></strong>: saving, searching and the library.</li>
 <li><strong><a href="how-it-works/overview/">How It Works</a></strong>: follow a page from saving to search.</li>
-<li><strong><a href="architecture/overview/">Architecture</a></strong>: components, retrieval, the map and security.</li>
+<li><strong><a href="architecture/overview/">Architecture</a></strong>: components, retrieval and security.</li>
 <li><strong><a href="api/">API Reference</a></strong>: the backend endpoints.</li>
 <li><strong><a href="development/project-structure/">Development</a></strong>: repository layout, tests and deployment.</li>
 <li><strong><a href="evaluation/methodology/">Evaluation</a></strong>: the SciFact retrieval benchmark.</li>

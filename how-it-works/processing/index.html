@@ -675,34 +675,6 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -1139,6 +1111,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../architecture/data-flow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Flow Diagrams
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../architecture/backend/" class="md-nav__link">
         
   
@@ -1231,34 +1231,6 @@
     
   
     Retrieval Architecture
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../architecture/map/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Library Map
   
 
     
@@ -1766,7 +1738,7 @@
 <h2 id="page-vector-and-description">Page vector and description<a class="headerlink" href="#page-vector-and-description" title="Permanent link">&para;</a></h2>
 <p>Two more values are computed per page:</p>
 <ul>
-<li><strong>Page vector</strong>: the normalised mean of the page's chunk vectors. It powers <a href="../../user-guide/map/#pages">related pages</a> and the <a href="../../architecture/map/">library map</a>.</li>
+<li><strong>Page vector</strong>: the normalised mean of the page's chunk vectors. It powers related pages (<code>GET /memory/{page_id}/related</code>).</li>
 <li><strong>Description</strong>: the page's meta description, otherwise its first readable sentences (up to 300 characters). Snippets fall back to it when no sentence matches the query well.</li>
 </ul>
 
