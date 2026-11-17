@@ -22,7 +22,7 @@ Browse → Save → Clean → Chunk → Embed → Store
 - **YouTube videos**, saved through their transcripts
 - **Voice search** in browsers that support speech recognition
 - **Private accounts**: sign in with Google or email; every page belongs to one account only
-- **Export or delete** all your data at any time
+- **Delete** all your data at any time
 
 ## Why MemoryLane?
 

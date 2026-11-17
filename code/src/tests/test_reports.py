@@ -123,16 +123,6 @@ def test_delete_all_data_removes_only_my_reports(client):
     assert [row[0] for row in _rows()] == [OTHER]
 
 
-def test_export_includes_my_reports_only(client):
-    reports.save_report(OTHER, "theirs", {})
-    client.post("/reports", json={"message": "mine", "context": {"page": "/library"}})
-    with patch("backend.main.get_solr_client") as solr:
-        solr.return_value.scan.return_value = []
-        data = client.get("/me/export").json()
-    assert [r["message"] for r in data["reports"]] == ["mine"]
-    assert data["reports"][0]["context"]["page"] == "/library"
-
-
 # ---- sending -------------------------------------------------------------------
 
 def test_nothing_is_sent_when_email_is_off():

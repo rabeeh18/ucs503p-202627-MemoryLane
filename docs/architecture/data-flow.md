@@ -18,7 +18,7 @@ flowchart LR
     ml(("0<br/>MemoryLane"))
 
     user -- "pages, queries, requests, reports" --> ml
-    ml -- "results, summaries, lists, export" --> user
+    ml -- "results, summaries, lists" --> user
     youtube -- "captions + video details" --> ml
     ml -- "access token" --> cognito
     cognito -- "email, verified" --> ml
@@ -83,7 +83,7 @@ flowchart LR
     d2[("D2 Solr<br/>chunks, vectors, metadata")]
     d3[("D3 reports.db<br/>problem reports")]
 
-    user <-->|"list, delete, export, delete all /<br/>pages, export file"| p5
+    user <-->|"list, delete, delete all /<br/>pages"| p5
     p5 <-->|"pages"| d2
     p5 -->|"delete links"| d1
     p5 <-->|"user's reports"| d3
@@ -101,7 +101,7 @@ Processes 2.0 to 6.0 all get the `user_id` from 1.0 Authenticate; those arrows a
 | 2.0 Save page | `extension/background.js`, `backend/ingest.py` | Captures the page (or a video's captions), cleans, chunks, embeds and stores it |
 | 3.0 Search | `backend/retrieval.py`, `backend/query_intent.py`, `backend/snippets.py` | Hybrid BM25 + vector search, fusion, relevance floor, snippets |
 | 4.0 Summarise | `backend/summarizer.py` | Sends one page's stored text to Gemini |
-| 5.0 Manage library | `backend/main.py` | Lists, deletes, exports and deletes everything |
+| 5.0 Manage library | `backend/main.py` | Lists pages, deletes one, and deletes everything |
 | 6.0 Report a problem | `backend/reports.py` | Stores the report, then emails it in the background with retries |
 
 Every process gets the `user_id` from 1.0, and every read or write of D2 is filtered by it (see [Security](security.md)).

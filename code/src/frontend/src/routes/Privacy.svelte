@@ -24,8 +24,8 @@
     shown. The form lists all of it before you send. Your saved pages are not included.
   </p>
 
-  <h2>Export or delete</h2>
-  <p>Use <strong>Export my data</strong> or <strong>Delete all my data</strong> in the account menu at the top right.</p>
+  <h2>Delete your data</h2>
+  <p>Use <strong>Delete all my data</strong> in the account menu at the top right.</p>
 
   <h2>Automatic capture</h2>
   <p>

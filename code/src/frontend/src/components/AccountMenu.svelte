@@ -2,7 +2,7 @@
   import { tick } from 'svelte';
   import ConfirmDialog from './ConfirmDialog.svelte';
   import { session, signOut } from '../auth.js';
-  import { deleteAllData, exportData } from '../api.js';
+  import { deleteAllData } from '../api.js';
   import { navigate } from '../lib/router.js';
   import { libraryVersion } from '../stores';
   import { openReport } from '../report.js';
@@ -88,17 +88,6 @@
     openReport();
   }
 
-  async function doExport() {
-    closeMenu();
-    status = 'Preparing your export…';
-    try {
-      await exportData();
-      status = '';
-    } catch {
-      status = "Couldn't export your data. Try again.";
-    }
-  }
-
   function askDelete() {
     closeMenu({ restoreFocus: false });
     deleteError = '';
@@ -158,7 +147,6 @@
       <div class="menu-email" role="presentation">{email || 'Signed in'}</div>
       <button type="button" role="menuitem" tabindex="-1" on:click={goLibrary}>All saved pages</button>
       <button type="button" role="menuitem" tabindex="-1" on:click={goExtension}>Get the extension</button>
-      <button type="button" role="menuitem" tabindex="-1" on:click={doExport}>Export my data</button>
       <button type="button" role="menuitem" tabindex="-1" on:click={askDelete}>Delete all my data</button>
       <button type="button" role="menuitem" tabindex="-1" on:click={goReport}>Report a problem</button>
       <button type="button" role="menuitem" tabindex="-1" on:click={signOut}>Sign out</button>

@@ -1,6 +1,6 @@
 # MemoryLane web app
 
-Svelte 4 + Vite. Signed-out visitors see the landing page; signed-in users search their saved pages, browse the library, and export or delete their data.
+Svelte 4 + Vite. Signed-out visitors see the landing page; signed-in users search their saved pages, browse the library, and delete their data.
 
 ## Setup
 

@@ -23,5 +23,5 @@ Reports also carry context (the page, the browser, the last error), which must n
 ## Consequences
 
 - **Easier:** reports survive restarts and email outages, and the user gets an instant reply. Without SMTP settings, reports are still stored.
-- **Harder:** the server holds reports, so **Export my data** includes them and **Delete all** removes them. SES's sandbox only delivers to verified addresses, which is fine for emailing the maintainer.
+- **Harder:** the server holds reports, so **Delete all** removes them. (**Export my data** used to include them, until it was removed: [0010](0010-remove-export.md).) SES's sandbox only delivers to verified addresses, which is fine for emailing the maintainer.
 - Rate-limited to 5 reports an hour per user, so the form can't be used to spam the maintainer.

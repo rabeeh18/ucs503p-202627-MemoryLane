@@ -158,7 +158,7 @@ def test_cannot_summarize_delete_or_check_status_of_another_users_page(env):
     assert any(d["user_id"] == B for d in fake.docs.values())
 
 
-def test_library_and_export_only_show_own_pages(env):
+def test_library_only_shows_own_pages(env):
     _, as_user = env
     _save(as_user(A), url="https://a.example/1")
     _save(as_user(B), url="https://b.example/1")
@@ -166,8 +166,6 @@ def test_library_and_export_only_show_own_pages(env):
     listing = client.get("/memories").json()
     assert listing["total"] == 1
     assert listing["pages"][0]["url"] == "https://a.example/1"
-    exported = client.get("/me/export").json()["pages"]
-    assert [p["url"] for p in exported] == ["https://a.example/1"]
 
 
 def test_delete_my_data_leaves_other_user_untouched(env):

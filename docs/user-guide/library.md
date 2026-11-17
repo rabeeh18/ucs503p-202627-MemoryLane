@@ -37,7 +37,6 @@ The circle at the top right shows your initial and opens the account menu:
 | --- | --- |
 | **All saved pages** | Opens the library |
 | **Get the extension** | Opens the extension page (hidden once the extension is installed) |
-| **Export my data** | Downloads every saved page as JSON |
 | **Delete all my data** | Deletes every page you saved, after a confirmation |
 | **Report a problem** | Sends a message to the maintainer; the form shows everything sent with it ([what's included](../privacy.md#problem-reports)) |
 | **Sign out** | Signs out of the website |

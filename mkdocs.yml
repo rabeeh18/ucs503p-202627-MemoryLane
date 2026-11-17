@@ -139,6 +139,7 @@ nav:
       - 0007 Storing reports before emailing: decisions/0007-store-reports-before-emailing.md
       - 0008 Keeping summaries optional: decisions/0008-keep-summaries-optional.md
       - 0009 Removing the library map: decisions/0009-remove-library-map.md
+      - 0010 Removing Export my data: decisions/0010-remove-export.md
 
   - API Reference:
       - Overview: api/index.md

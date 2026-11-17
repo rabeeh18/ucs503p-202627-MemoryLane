@@ -99,20 +99,6 @@ export function fetchSummary({ query, id }) {
   return request('/summarize', { method: 'POST', body: { query, id } });
 }
 
-/** Download every saved page as a JSON file. */
-export async function exportData() {
-  const response = await request('/me/export', { raw: true, timeoutMs: 120000 });
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `memorylane-export-${new Date().toISOString().slice(0, 10)}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 export function deleteAllData() {
   return request('/me/data', { method: 'DELETE' });
 }

@@ -83,7 +83,6 @@ def test_health_is_public(client):
     ("get", "/memories", None),
     ("post", "/search", {"query": "q"}),
     ("post", "/summarize", {"query": "q", "id": PAGE_ID}),
-    ("get", "/me/export", None),
     ("delete", "/me/data", None),
 ])
 def test_every_endpoint_but_health_requires_a_token(client, solr, method, path, body):
@@ -325,27 +324,6 @@ def test_summarize_foreign_page_is_404(client, solr):
 
 
 # ---- /me ----------------------------------------------------------------------
-
-def test_export_downloads_full_text_per_page(client, solr):
-    solr.scan.return_value = iter([
-        {"page_id": "p1", "url": "https://a.com/", "title": "A", "timestamp": "2024-02-01T00:00:00Z",
-         "text": "Second part here.", "chunk_id": 1},
-        {"page_id": "p1", "url": "https://a.com/", "title": "A", "timestamp": "2024-02-01T00:00:00Z",
-         "text": "First part.", "chunk_id": 0},
-        {"page_id": "p2", "url": "https://b.com/", "title": "B", "timestamp": "2024-01-01T00:00:00Z",
-         "text": "Only part.", "chunk_id": 0},
-    ])
-    response = client.get("/me/export")
-    assert response.status_code == 200
-    assert "attachment" in response.headers["content-disposition"]
-    pages = response.json()["pages"]
-    assert pages == [
-        {"url": "https://a.com/", "title": "A", "timestamp": "2024-02-01T00:00:00Z",
-         "text": "First part.\n\nSecond part here."},
-        {"url": "https://b.com/", "title": "B", "timestamp": "2024-01-01T00:00:00Z", "text": "Only part."},
-    ]
-    assert solr.scan.call_args[0][1] == USER
-
 
 def test_delete_all_my_data(client, solr):
     response = client.delete("/me/data")

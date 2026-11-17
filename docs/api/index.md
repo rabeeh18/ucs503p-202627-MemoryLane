@@ -24,7 +24,6 @@ Missing, expired or invalid tokens get `401`. The user is always the token's sub
 | `GET` | `/memories` | Saved pages, newest first |
 | `POST` | `/search` | Hybrid search |
 | `POST` | `/summarize` | Gemini summary of one page |
-| `GET` | `/me/export` | Download all your pages as JSON |
 | `DELETE` | `/me/data` | Delete all your pages |
 | `POST` | `/reports` | Report a problem (emailed to the maintainer) |
 

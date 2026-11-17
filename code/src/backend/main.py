@@ -1,7 +1,6 @@
 import logging
 import re
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,7 +18,6 @@ from backend.models import (
     HealthResponse, SummarizeInput, SummarizeResponse, RelatedPage, RelatedResponse,
     ReportInput, ReportResponse,
 )
-from backend.chunking import join_chunks
 from backend.embeddings import is_model_loaded, get_model
 from backend.ingest import IngestError, ingest_page, resolve_canonical_url
 from backend.solr_client import get_solr_client
@@ -337,33 +335,6 @@ def search_memory(request: Request, search: SearchInput, user_id: str = Depends(
     except Exception as e:
         logger.error(f"Search failed: {e}")
         raise HTTPException(status_code=500, detail="Search failed")
-
-
-@app.get("/me/export")
-@limiter.limit("5/minute")
-def export_my_data(request: Request, user_id: str = Depends(current_user_id)):
-    """Download every page the caller has saved, with its full text."""
-    pages: dict[str, dict] = {}
-    for doc in get_solr_client().scan("page_id,url,title,timestamp,text,chunk_id", user_id):
-        page = pages.setdefault(doc.get("page_id"), {
-            "url": doc.get("url"), "title": doc.get("title"),
-            "timestamp": str(doc.get("timestamp") or ""), "chunks": [],
-        })
-        page["chunks"].append((int(doc.get("chunk_id") or 0), doc.get("text") or ""))
-
-    exported = []
-    for page in sorted(pages.values(), key=lambda p: p["timestamp"], reverse=True):
-        chunks = [text for _, text in sorted(page.pop("chunks"))]
-        exported.append({**page, "text": join_chunks(chunks)})
-
-    return JSONResponse(
-        content={
-            "exported_at": datetime.now(timezone.utc).isoformat(),
-            "pages": exported,
-            "reports": reports.user_reports(user_id),
-        },
-        headers={"Content-Disposition": 'attachment; filename="memorylane-export.json"'},
-    )
 
 
 @app.delete("/me/data", status_code=204)

@@ -21,7 +21,7 @@
     <button type="button" class="btn btn-primary" on:click={() => signIn({ signUp: true })}>Get started</button>
   </div>
   <p class="fine-print">
-    Pages you save are stored on our servers and visible only to you. You can export or delete them any time.
+    Pages you save are stored on our servers and visible only to you. You can delete them any time.
     <a href="/privacy" use:link>Privacy</a>
   </p>
 

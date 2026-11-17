@@ -57,13 +57,10 @@ Apart from Gemini summaries, the only thing that leaves the server is a problem 
 - your browser (its user-agent string);
 - the last error message the app showed, if any.
 
-Your saved pages and searches are not included. Reports are kept in a small database on the server (so none are lost if email is briefly down); **Delete all my data** removes them, and **Export my data** includes them.
+Your saved pages and searches are not included. Reports are kept in a small database on the server (so none are lost if email is briefly down); **Delete all my data** removes them.
 
-## Export or delete
+## Deleting your data
 
-From the account menu (top right of the website):
-
-- **Export my data** downloads every page you saved as JSON.
-- **Delete all my data** removes all your pages from the index, your sign-in links and your problem reports.
+From the account menu (top right of the website), **Delete all my data** removes all your pages from the index, your sign-in links and your problem reports.
 
 Single pages can be deleted from the library or search results, with a few seconds to undo.

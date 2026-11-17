@@ -111,19 +111,6 @@ def delete_user_reports(user_id: str) -> None:
             db.execute("DELETE FROM reports WHERE user_id = ?", (user_id,))
 
 
-def user_reports(user_id: str) -> list[dict]:
-    """The user's reports, oldest first (for the data export)."""
-    with _lock:
-        rows = _db().execute(
-            "SELECT created_at, message, context FROM reports WHERE user_id = ? ORDER BY id",
-            (user_id,),
-        ).fetchall()
-    return [
-        {"sent_at": formatdate(created, usegmt=True), "message": message, "context": json.loads(context)}
-        for created, message, context in rows
-    ]
-
-
 def _header(value: str, limit: int = 120) -> str:
     return _HEADER_UNSAFE.sub(" ", value or "").strip()[:limit]
 

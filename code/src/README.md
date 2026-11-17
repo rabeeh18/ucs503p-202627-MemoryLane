@@ -130,7 +130,6 @@ Every endpoint except `/health` needs `Authorization: Bearer <Cognito access tok
 | `GET /memories?limit=20&offset=0` | `{total, pages}`, newest first |
 | `POST /search` | `{query, num_results, summarize, debug}` → `{query, results}` |
 | `POST /summarize` | `{query, id}` → `{id, summary}`; 404 if not the caller's |
-| `GET /me/export` | JSON download of all the caller's pages |
 | `DELETE /me/data` | 204; deletes all the caller's chunks and problem reports |
 | `POST /reports` | `{message, source, context}` → 202 `{status: "received", id}`; stored, then emailed in the background; 5/hour |
 | `GET /memory/{page_id}/related?k=5` | `{page_id, related: [{id, title, url, domain, saved_at, similarity}]}`; 404 if not the caller's |

@@ -15,6 +15,7 @@ A decision that changes later isn't edited away. A new record replaces it, and t
 | [0007](0007-store-reports-before-emailing.md) | Store problem reports before emailing them | Accepted | Nov 2026 |
 | [0008](0008-keep-summaries-optional.md) | Keep summaries, on demand and optional | Accepted | Nov 2026 |
 | [0009](0009-remove-library-map.md) | Remove the library map | Accepted | Nov 2026 |
+| [0010](0010-remove-export.md) | Remove Export my data | Accepted | Nov 2026 |
 
 ## Template
 

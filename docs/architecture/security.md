@@ -75,7 +75,7 @@ The extension follows the same flow through `chrome.identity.launchWebAuthFlow`,
 - KNN searches use the filter as a **pre-filter**, so other users' vectors are never candidates.
 - `page_id` includes the user id in its hash, so two users' copies of a page never collide.
 - A request for someone else's page gets `404`, the same as a missing page, so page ids can't be probed.
-- `tests/test_isolation.py` checks this with two users: search, summaries, deletes, status, library, export, delete-all and related pages, plus a check that every Solr request carries the user filter.
+- `tests/test_isolation.py` checks this with two users: search, summaries, deletes, status, library, delete-all and related pages, plus a check that every Solr request carries the user filter.
 
 ## Network
 
@@ -90,7 +90,7 @@ The extension follows the same flow through `chrome.identity.launchWebAuthFlow`,
 
 ## Abuse limits
 
-- Rate limits per user (or per IP before sign-in), from 5/minute for export and delete-all to 120/minute for light reads.
+- Rate limits per user (or per IP before sign-in), from 5/minute for delete-all to 120/minute for light reads.
 - At most 5,000 saved pages per account (`MAX_PAGES_PER_USER`).
 - Request size limits: URL 2,048 characters, title 500, text 500 KB, HTML 3 MB, query 500 characters.
 - The backend never fetches a URL supplied by the client. YouTube requests are built from a validated video id.

@@ -158,12 +158,6 @@ Summarise one of your pages with Gemini. Rate limit: 20/minute.
 
 ---
 
-## `GET /me/export`
-
-Downloads `memorylane-export.json` with every page you saved (URL, title, timestamp and full text), newest first, and the problem reports you sent. Rate limit: 5/minute.
-
----
-
 ## `DELETE /me/data`
 
 Deletes all your pages and the problem reports you sent. Returns `204`. Rate limit: 5/minute.
