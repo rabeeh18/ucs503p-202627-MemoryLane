@@ -69,7 +69,7 @@
     {#if $recentError}
       <p class="error">{$recentError} <button type="button" class="link-button" on:click={loadRecent}>Try again</button></p>
     {:else if $recentPages && visibleRecent.length === 0}
-      <EmptyState>
+      <EmptyState center>
         Nothing saved yet. <a href="/extension" use:link>Install the extension</a> and press
         <strong>Remember this page</strong> on anything worth keeping.
       </EmptyState>

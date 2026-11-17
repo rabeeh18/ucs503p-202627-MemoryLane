@@ -1,4 +1,9 @@
-<div class="empty">
+<script>
+  /** Center the text (the home page, where everything above is centered). */
+  export let center = false;
+</script>
+
+<div class="empty" class:center>
   <slot />
 </div>
 
@@ -9,6 +14,10 @@
     font-size: 14px;
     line-height: 1.6;
     border-bottom: 1px solid var(--divider-soft);
+  }
+
+  .center {
+    text-align: center;
   }
   .empty :global(a) {
     color: var(--text);
