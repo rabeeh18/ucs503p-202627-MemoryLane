@@ -1601,6 +1601,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0010-remove-export/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0010 Removing Export my data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2055,7 +2083,7 @@
     ml(("0&lt;br/&gt;MemoryLane"))
 
     user -- "pages, queries, requests, reports" --&gt; ml
-    ml -- "results, summaries, lists, export" --&gt; user
+    ml -- "results, summaries, lists" --&gt; user
     youtube -- "captions + video details" --&gt; ml
     ml -- "access token" --&gt; cognito
     cognito -- "email, verified" --&gt; ml
@@ -2108,7 +2136,7 @@
     d2[("D2 Solr&lt;br/&gt;chunks, vectors, metadata")]
     d3[("D3 reports.db&lt;br/&gt;problem reports")]
 
-    user &lt;--&gt;|"list, delete, export, delete all /&lt;br/&gt;pages, export file"| p5
+    user &lt;--&gt;|"list, delete, delete all /&lt;br/&gt;pages"| p5
     p5 &lt;--&gt;|"pages"| d2
     p5 --&gt;|"delete links"| d1
     p5 &lt;--&gt;|"user's reports"| d3
@@ -2149,7 +2177,7 @@
 <tr>
 <td>5.0 Manage library</td>
 <td><code>backend/main.py</code></td>
-<td>Lists, deletes, exports and deletes everything</td>
+<td>Lists pages, deletes one, and deletes everything</td>
 </tr>
 <tr>
 <td>6.0 Report a problem</td>

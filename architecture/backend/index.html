@@ -1606,6 +1606,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0010-remove-export/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0010 Removing Export my data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2072,7 +2100,7 @@
 </span></code></pre></div>
 <h2 id="request-flow">Request flow<a class="headerlink" href="#request-flow" title="Permanent link">&para;</a></h2>
 <ol>
-<li><strong>Rate limiting</strong> (slowapi): per user once authenticated, otherwise per IP. Limits range from 5/minute (export, delete all) to 120/minute (status checks, related pages).</li>
+<li><strong>Rate limiting</strong> (slowapi): per user once authenticated, otherwise per IP. Limits range from 5/minute (delete all) to 120/minute (status checks, related pages).</li>
 <li><strong>Authentication</strong>: the <code>current_user_id</code> dependency verifies the bearer token and returns the library of its <code>sub</code> (Google and email sign-ins with the same verified email share one; see <a href="../security/">Security</a>). Every endpoint except <code>/health</code> requires it.</li>
 <li><strong>The endpoint</strong> calls <code>ingest_page</code>, <code>hybrid_search</code> or the summariser with that user id.</li>
 <li><strong>Solr</strong> calls go through <code>SolrClient</code>, which adds the <code>user_id</code> filter to every query and rejects malformed ids.</li>

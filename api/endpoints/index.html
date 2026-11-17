@@ -1502,6 +1502,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0010-remove-export/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0010 Removing Export my data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1734,17 +1762,6 @@
     <span class="md-ellipsis">
       
         POST /summarize
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#get-meexport" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GET /me/export
       
     </span>
   </a>
@@ -2233,9 +2250,6 @@
 <div class="language-json highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"id"</span><span class="p">:</span><span class="w"> </span><span class="s2">"3f9c..."</span><span class="p">,</span><span class="w"> </span><span class="nt">"summary"</span><span class="p">:</span><span class="w"> </span><span class="s2">"..."</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p><code>404</code> if the page isn't yours, <code>503</code> if Gemini isn't configured, <code>502</code> if it failed.</p>
-<hr />
-<h2 id="get-meexport"><code>GET /me/export</code><a class="headerlink" href="#get-meexport" title="Permanent link">&para;</a></h2>
-<p>Downloads <code>memorylane-export.json</code> with every page you saved (URL, title, timestamp and full text), newest first, and the problem reports you sent. Rate limit: 5/minute.</p>
 <hr />
 <h2 id="delete-medata"><code>DELETE /me/data</code><a class="headerlink" href="#delete-medata" title="Permanent link">&para;</a></h2>
 <p>Deletes all your pages and the problem reports you sent. Returns <code>204</code>. Rate limit: 5/minute.</p>

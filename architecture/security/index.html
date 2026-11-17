@@ -1645,6 +1645,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0010-remove-export/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0010 Removing Export my data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2152,7 +2180,7 @@
 <li><abbr title="k-nearest neighbours: finds the stored vectors closest to the query's vector, i.e. the passages closest in meaning">KNN</abbr> searches use the filter as a <strong>pre-filter</strong>, so other users' vectors are never candidates.</li>
 <li><code>page_id</code> includes the user id in its hash, so two users' copies of a page never collide.</li>
 <li>A request for someone else's page gets <code>404</code>, the same as a missing page, so page ids can't be probed.</li>
-<li><code>tests/test_isolation.py</code> checks this with two users: search, summaries, deletes, status, library, export, delete-all and related pages, plus a check that every Solr request carries the user filter.</li>
+<li><code>tests/test_isolation.py</code> checks this with two users: search, summaries, deletes, status, library, delete-all and related pages, plus a check that every Solr request carries the user filter.</li>
 </ul>
 <h2 id="network">Network<a class="headerlink" href="#network" title="Permanent link">&para;</a></h2>
 <ul>
@@ -2167,7 +2195,7 @@
 </ul>
 <h2 id="abuse-limits">Abuse limits<a class="headerlink" href="#abuse-limits" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Rate limits per user (or per IP before sign-in), from 5/minute for export and delete-all to 120/minute for light reads.</li>
+<li>Rate limits per user (or per IP before sign-in), from 5/minute for delete-all to 120/minute for light reads.</li>
 <li>At most 5,000 saved pages per account (<code>MAX_PAGES_PER_USER</code>).</li>
 <li>Request size limits: URL 2,048 characters, title 500, text 500 KB, HTML 3 MB, query 500 characters.</li>
 <li>The backend never fetches a URL supplied by the client. YouTube requests are built from a validated video id.</li>
