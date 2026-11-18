@@ -44,7 +44,13 @@ extra_css:
   - assets/stylesheets/extra.css
   - https://unpkg.com/katex@0.16.11/dist/katex.min.css
 
+hooks:
+  # Builds the meaning-based search index (needs `pip install model2vec`).
+  - hooks/semantic_search.py
+
 extra_javascript:
+  - path: assets/javascripts/semantic-search.js
+    type: module
   - javascript/arithmatex.js
   - https://unpkg.com/katex@0.16.11/dist/katex.min.js
   - https://unpkg.com/katex@0.16.11/dist/contrib/auto-render.min.js
@@ -95,20 +101,17 @@ markdown_extensions:
 
 nav:
   - Home:
-      - MemoryLane: index.md
+      - Overview: index.md
       - Problem Statement: problem_statement.md
       - Features: features.md
 
   - Getting Started:
-      - Overview: getting-started/index.md
-      - Installation: getting-started/installation.md
-      - Configuration: getting-started/configuration.md
-      - Running MemoryLane: getting-started/running.md
+      - Quick Start (hosted application): getting-started/index.md
 
-  - Using MemoryLane:
+  - User Guide:
       - Saving Pages: user-guide/automatic-capture.md
       - Searching: user-guide/search.md
-      - Library and Account: user-guide/library.md
+      - Library & Account: user-guide/library.md
       - Summaries: user-guide/summarization.md
       - YouTube Videos: user-guide/youtube.md
       - Voice Search: user-guide/voice-search.md
@@ -123,32 +126,37 @@ nav:
       - System Architecture: architecture/overview.md
       - Data Flow Diagrams: architecture/data-flow.md
       - Backend: architecture/backend.md
-      - Frontend and Extension: architecture/frontend.md
+      - Frontend & Extension: architecture/frontend.md
       - Processing Architecture: architecture/processing.md
       - Retrieval Architecture: architecture/retrieval.md
       - Security: architecture/security.md
 
   - Design Decisions:
       - Overview: decisions/index.md
-      - 0001 Solr for keyword and vector search: decisions/0001-solr.md
-      - 0002 Reciprocal Rank Fusion: decisions/0002-reciprocal-rank-fusion.md
-      - 0003 Relevance floor: decisions/0003-relevance-floor.md
-      - 0004 One EC2 instance: decisions/0004-one-ec2-instance.md
-      - 0005 Linking sign-ins by email: decisions/0005-link-sign-ins-by-email.md
-      - 0006 YouTube captions in the browser: decisions/0006-youtube-in-the-browser.md
-      - 0007 Storing reports before emailing: decisions/0007-store-reports-before-emailing.md
-      - 0008 Keeping summaries optional: decisions/0008-keep-summaries-optional.md
-      - 0009 Removing the library map: decisions/0009-remove-library-map.md
-      - 0010 Removing Export my data: decisions/0010-remove-export.md
+      - Architecture Decision Records (ADRs):
+          - 0001 Solr for keyword and vector search: decisions/0001-solr.md
+          - 0002 Reciprocal Rank Fusion: decisions/0002-reciprocal-rank-fusion.md
+          - 0003 Relevance floor: decisions/0003-relevance-floor.md
+          - 0004 One EC2 instance: decisions/0004-one-ec2-instance.md
+          - 0005 Linking sign-ins by email: decisions/0005-link-sign-ins-by-email.md
+          - 0006 YouTube captions in the browser: decisions/0006-youtube-in-the-browser.md
+          - 0007 Storing reports before emailing: decisions/0007-store-reports-before-emailing.md
+          - 0008 Keeping summaries optional: decisions/0008-keep-summaries-optional.md
+          - 0009 Removing the library map: decisions/0009-remove-library-map.md
+          - 0010 Removing Export my data: decisions/0010-remove-export.md
+
+  - Development:
+      - Project Structure: development/project-structure.md
+      - Installation: development/installation.md
+      - Configuration: development/configuration.md
+      - Running Locally: development/running-locally.md
+      - Testing: development/testing.md
+      - Deployment: development/deployment.md
+      - Troubleshooting: development/troubleshooting.md
 
   - API Reference:
       - Overview: api/index.md
       - Endpoints: api/endpoints.md
-
-  - Development:
-      - Project Structure: development/project-structure.md
-      - Testing: development/testing.md
-      - Deployment: development/deployment.md
 
   - Evaluation:
       - Methodology: evaluation/methodology.md

@@ -103,3 +103,51 @@ describe('delayed delete with undo', () => {
     expect(remove).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('pages saved again after a delete (ML-009) and the library count (ML-011)', () => {
+  let clock;
+  let queue;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    clock = 1000;
+    queue = createDeleteQueue({ remove: vi.fn().mockResolvedValue(null), now: () => clock });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function deleteAndConfirm(id) {
+    queue.schedule(id);
+    clock = 2000;
+    await vi.advanceTimersByTimeAsync(DELETE_DELAY_MS);
+  }
+
+  it('shows a re-saved page once a later fetch lists it', async () => {
+    await deleteAndConfirm('p1');
+    expect(get(queue.hidden).has('p1')).toBe(true);
+    queue.reconcile(['p1'], 3000); // fetched after the delete: it was saved again
+    expect(get(queue.hidden).has('p1')).toBe(false);
+  });
+
+  it("keeps a page hidden when the list was fetched before the delete landed", async () => {
+    await deleteAndConfirm('p1');
+    queue.reconcile(['p1'], 1500);
+    expect(get(queue.hidden).has('p1')).toBe(true);
+  });
+
+  it('never shows a page whose delete is still pending', () => {
+    queue.schedule('p1');
+    queue.reconcile(['p1'], 5000);
+    expect(get(queue.hidden).has('p1')).toBe(true);
+  });
+
+  it("counts a delete against a total only if that total didn't include it", async () => {
+    queue.schedule('p1');
+    expect(queue.notInTotal('p1', 500)).toBe(true); // pending: no total knows yet
+    await deleteAndConfirm('p1');                   // confirmed at 2000
+    expect(queue.notInTotal('p1', 1500)).toBe(true);  // total fetched before the delete
+    expect(queue.notInTotal('p1', 2500)).toBe(false); // total fetched after: already left out
+  });
+});

@@ -12,6 +12,7 @@
 
   let pages = [];
   let total = 0;
+  let fetchedAt = 0; // when the request behind `total` started
   let loading = false;
   let loaded = false;
   let error = '';
@@ -23,14 +24,17 @@
     const mine = controller;
     loading = true;
     error = '';
+    const startedAt = Date.now();
     try {
       // Pages already deleted on the server no longer count towards the offset.
       const deleted = pages.filter((p) => $hiddenPageIds.has(p.id) && !pageDeletes.isPending(p.id)).length;
       const data = await listMemories(PAGE_SIZE, reset ? 0 : pages.length - deleted, mine.signal);
       if (!reset) data.pages = data.pages.filter((p) => !pages.some((q) => q.id === p.id));
       if (mine !== controller) return;
+      pageDeletes.reconcile(data.pages.map((p) => p.id), startedAt);
       pages = reset ? data.pages : [...pages, ...data.pages];
       total = data.total;
+      fetchedAt = startedAt;
       loaded = true;
     } catch (err) {
       if (mine !== controller || err?.name === 'CancelledError' || err?.status === 401) return;
@@ -42,7 +46,11 @@
 
   $: $libraryVersion, load(true);
   $: visible = pages.filter((page) => !$hiddenPageIds.has(page.id));
-  $: shownTotal = Math.max(0, total - (pages.length - visible.length));
+  // The server's total already leaves out deletes it had confirmed when it was
+  // fetched; subtract only the hidden pages it couldn't know about yet.
+  $: shownTotal = Math.max(0, total - pages.filter(
+    (page) => $hiddenPageIds.has(page.id) && pageDeletes.notInTotal(page.id, fetchedAt),
+  ).length);
   onDestroy(() => controller?.abort());
 </script>
 

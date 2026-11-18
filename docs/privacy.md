@@ -23,6 +23,7 @@ Automatic capture is **off by default**. It only runs when you're signed in and 
 
 - Social-media sites
 - Banks and payment services
+- Email: Gmail, Outlook, Yahoo Mail, Proton Mail, iCloud Mail and other webmail
 - Login, sign-up, account, password, checkout, billing, payment and wallet pages
 - Browser-internal pages (`chrome://`, extensions, `file://`, ...)
 - Search-engine result pages

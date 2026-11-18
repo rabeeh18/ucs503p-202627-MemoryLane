@@ -36,6 +36,7 @@ flowchart LR
 
 - Social-media sites
 - Banks and payment services
+- Email: Gmail, Outlook, Yahoo Mail, Proton Mail, iCloud Mail and other webmail (including `mail.` and `webmail.` sites, and `/owa/` and `/webmail/` pages)
 - Login, sign-up, account, password, checkout, billing, payment and wallet pages
 - Browser-internal pages (`chrome://`, `chrome-extension://`, `file://`, ...)
 - Search-engine result pages
@@ -48,4 +49,8 @@ flowchart LR
 
 From the popup you can exclude the current site with one click. The extension's options page lists every excluded site, and you can add or remove them there. Excluded sites are never captured automatically, but you can still save a page from them by hand.
 
-Manual saving skips the automatic-capture filters: if you press **Remember this page**, the page is saved (as long as it has enough text).
+Manual saving skips the automatic-capture filters: if you press **Remember this page**, the page is saved (as long as it has enough text). The button is there whether or not automatic capture is on, so you can still save a page it skipped, such as a Reddit thread or a long video.
+
+### When a capture fails
+
+If an automatic save fails (no connection, or you were signed out), reloading the page tries again. A page isn't sent twice within a minute, and the extension checks the tab is still on the same page when it reads it, so text from one page is never saved under another's address.

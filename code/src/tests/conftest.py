@@ -27,3 +27,12 @@ def _no_real_sentence_embeddings(monkeypatch):
     monkeypatch.setattr(retrieval, "embed_passages", fake_embed_passages)
     monkeypatch.setattr(retrieval, "_sentence_embeddings",
                         retrieval.SentenceEmbeddingCache(lambda texts: retrieval.embed_passages(texts)))
+
+
+@pytest.fixture(autouse=True)
+def _fresh_save_state():
+    """Per-user write locks and the recent-new-pages list don't carry over between tests."""
+    from backend import ingest
+    ingest.reset_for_tests()
+    yield
+    ingest.reset_for_tests()

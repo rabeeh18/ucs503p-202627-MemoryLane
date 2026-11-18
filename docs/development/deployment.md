@@ -88,3 +88,22 @@ Solr's automatic field creation is turned off, so a new field has to exist **bef
 docker compose exec backend python -m scripts.reindex \
   --source-core memorylane --target-core memorylane_v2 --user-id <cognito-sub> [--dry-run]
 ```
+
+## Publishing the documentation
+
+This site is built with MkDocs and Material, and published to GitHub Pages by hand from the repository root:
+
+```bash
+pip install mkdocs==1.6.1 mkdocs-material==9.7.7 pymdown-extensions==11.0.1 model2vec==0.10.0
+mkdocs gh-deploy --strict
+```
+
+`.github/workflows/mkdocs.yml` runs the same build (`mkdocs build --strict`) on every push that changes the docs, so broken links fail the check, but it doesn't publish.
+
+### Meaning-based search
+
+Besides the theme's keyword search, the search box finds sections by meaning. After each build, `hooks/semantic_search.py` embeds every section of the docs with **Model2Vec potion-base-8M**, a small *static* embedding model distilled from bge-base-en-v1.5, and writes the files to `site/assets/semantic/`: the model's word pieces and an int8 vector table (about 8 MB in all), and every section's vector. The file names carry a content hash, so browsers re-download them only when they change.
+
+In the browser (`docs/assets/javascripts/semantic-*.js`), nothing loads with the page. The first time the search box gets focus, the files are fetched. Each query is then split into word pieces exactly as the build did (BERT WordPiece), its vector is the average of their vectors, and it's compared with every section in a few milliseconds; no neural network runs. The best sections are fused with the keyword results by Reciprocal Rank Fusion, as MemoryLane fuses BM25 and vector search, and shown above them. Meaning-only matches with a cosine similarity below 0.35 are left out.
+
+`code/src/frontend/src/lib/docsSearch.test.js` checks that the browser's tokenizer and vectors match the build's, using a fixture made from the real model.

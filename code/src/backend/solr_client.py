@@ -323,9 +323,18 @@ class SolrClient:
         })
         return [normalize_solr_doc(doc) for doc in data.get("response", {}).get("docs", [])]
 
-    def count_pages(self, user_id: str) -> int:
-        """How many pages the user has saved."""
-        return self.list_pages(user_id, limit=0)[0]
+    def count_pages(self, user_id: str, page_ids: list[str] | None = None) -> int:
+        """How many pages the user has saved (only among `page_ids`, if given)."""
+        if page_ids is None:
+            return self.list_pages(user_id, limit=0)[0]
+        if not page_ids:
+            return 0
+        data = self._select({
+            "q": "*:*",
+            "fq": [user_filter(user_id), "chunk_id:0", page_ids_filter(page_ids)],
+            "rows": 0,
+        })
+        return data.get("response", {}).get("numFound", 0)
 
     def list_pages(self, user_id: str, limit: int = 20, offset: int = 0) -> tuple[int, list[dict]]:
         """The user's pages (one doc per page, chunk 0), newest first: (total, docs)."""

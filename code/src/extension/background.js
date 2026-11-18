@@ -3,7 +3,7 @@
 import { COGNITO_DOMAIN, WEB_APP_URL } from "./config.js";
 import { getSession, signIn, signOut } from "./auth.js";
 import { ApiError, apiFetch } from "./api.js";
-import { isAutoCaptureEligible, isExcluded, isSaveableUrl, normalizeHost } from "./page_filter.js";
+import { isAutoCaptureEligible, isExcluded, isSaveableUrl, normalizeHost, sameDocument } from "./page_filter.js";
 import { fetchYouTubeVideo, youtubeVideoId } from "./youtube.js";
 
 const RECENT_CAPTURE_MS = 60 * 1000;
@@ -85,12 +85,17 @@ async function extractTabContent(tabId) {
         });
         const result = injection && injection.result;
         if (result) {
-            return { html: result.html || null, text: result.text || "", canonicalUrl: result.canonicalUrl || null };
+            return {
+                html: result.html || null,
+                text: result.text || "",
+                canonicalUrl: result.canonicalUrl || null,
+                url: result.url || null,
+            };
         }
     } catch (_err) {
         // Pages Chrome won't let extensions script; the server may still manage (e.g. YouTube).
     }
-    return { html: null, text: "", canonicalUrl: null };
+    return { html: null, text: "", canonicalUrl: null, url: null };
 }
 
 /**
@@ -120,10 +125,15 @@ async function saveTab(tab, { manual }) {
     try {
         const videoId = youtubeVideoId(tab.url);
         // YouTube blocks the server, so a video's transcript and details are fetched here.
-        const [{ html, text, canonicalUrl }, youtube] = await Promise.all([
+        const [{ html, text, canonicalUrl, url: documentUrl }, youtube] = await Promise.all([
             extractTabContent(tab.id),
             videoId ? youtubeDetails(tab.id, videoId) : null,
         ]);
+        // The tab moved on while we were reading it: the text belongs to a different
+        // page than tab.url (and that page may be excluded), so send nothing.
+        if (documentUrl && !sameDocument(documentUrl, tab.url)) {
+            return { ok: false, reason: "navigated", error: "The page changed while it was being saved. Try again." };
+        }
         if (!manual && !youtube && text.length < MIN_AUTO_TEXT_CHARS && !html) {
             return { ok: false, reason: "low-content" };
         }
@@ -209,6 +219,12 @@ async function setSiteExcluded(host, excluded) {
 // ---- auto-capture -------------------------------------------------------------
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === "loading") {
+        // A reload or a new page: allow another capture (RECENT_CAPTURE_MS still
+        // stops the same URL being sent twice within a minute).
+        capturedTabUrls.delete(tabId);
+        return;
+    }
     if (changeInfo.status !== "complete" || !tab || !tab.url) {
         return;
     }
@@ -223,8 +239,11 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         if (!isAutoCaptureEligible(tab.url) || isExcluded(tab.url, settings.excludedSites) || isOwnSite(tab.url)) {
             return;
         }
-        capturedTabUrls.set(tabId, tab.url);
+        capturedTabUrls.set(tabId, tab.url); // ignore repeated "complete" events while saving
         const result = await saveTab(tab, { manual: false });
+        if (!result.ok && capturedTabUrls.get(tabId) === tab.url) {
+            capturedTabUrls.delete(tabId); // failed: the next load of this page tries again
+        }
         if (result.ok) {
             await chrome.storage.local.set({
                 lastAutoSave: { title: tab.title || tab.url, url: tab.url, at: Date.now() },

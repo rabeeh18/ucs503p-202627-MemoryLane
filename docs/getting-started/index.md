@@ -1,21 +1,30 @@
-# Getting Started
+# Quick Start
 
-There are two ways to use MemoryLane.
+MemoryLane runs at **[memorylane.site](https://memorylane.site)**. You don't need to install anything except the Chrome extension.
 
-## Use the hosted site
+## 1. Create an account
 
-1. Open **[memorylane.site](https://memorylane.site)** and sign in with Google or with email.
-2. Install the Chrome extension from **[memorylane.site/extension](https://memorylane.site/extension)** and sign in from its popup.
-3. On any page worth keeping, open the extension and press **Remember this page**.
-4. Back on the website, describe what you're looking for.
+Open [memorylane.site](https://memorylane.site) and press **Get started**. Sign in with Google or with email. Each account has its own private, empty library. If you already have an account, use **Sign in** in the top corner.
 
-Each account has its own private library. See [Running MemoryLane](running.md) for details.
+## 2. Install the extension
 
-## Run your own copy
+From **[memorylane.site/extension](https://memorylane.site/extension)**:
 
-MemoryLane is open source. To run it on your machine or your own server:
+1. Download `memorylane-extension.zip` and unzip it.
+2. Open `chrome://extensions` and turn on **Developer mode**.
+3. Click **Load unpacked** and choose the unzipped folder.
+4. Pin MemoryLane to the toolbar, open it, and sign in.
 
-1. [Installation](installation.md): Python, Solr 9 and the web app.
-2. [Configuration](configuration.md): the `.env` file and a Cognito user pool.
-3. [Running MemoryLane](running.md): start the API, the web app and the extension locally.
-4. [Deployment](../development/deployment.md): Docker Compose and Caddy on a server.
+Once the extension is installed, the website stops showing "Get the extension".
+
+## 3. Save pages
+
+On any page worth keeping, open the extension and press **Remember this page**. You can also turn on **automatic capture** in the popup; it skips banking, email, social and login pages, and any site you exclude. See [Saving Pages](../user-guide/automatic-capture.md).
+
+## 4. Search
+
+Back on the website, describe what you remember, in your own words: *"that article about reducing database query latency"*. You don't need the title or the exact wording. See [Searching](../user-guide/search.md).
+
+---
+
+Want to run your own copy instead? See [Installation](../development/installation.md) in the Development section.

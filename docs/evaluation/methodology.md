@@ -39,6 +39,8 @@ python -m evaluation.scifact_evaluate    # writes evaluation/scifact_report.json
 | **Vector only** | Dense retrieval |
 | **Hybrid** | The production pipeline: both, fused |
 
+The single-method runs set the other method's weight to 0 (`BM25_WEIGHT` or `VECTOR_WEIGHT`), which turns that retriever off completely: it isn't queried and none of its results take part. Until November 2026 a zero weight only zeroed its score, so its pages could still fill empty result slots in a "BM25 only" or "vector only" run. Numbers measured before then (the [Results](results.md) table) may be slightly affected.
+
 ## Metrics
 
 - **MRR@10**: how early the first relevant result appears

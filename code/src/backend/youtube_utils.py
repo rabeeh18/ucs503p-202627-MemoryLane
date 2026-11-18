@@ -47,7 +47,8 @@ def extract_video_id(url: str) -> str | None:
             if parsed.path == '/watch':
                 query = urllib.parse.parse_qs(parsed.query)
                 video_id = query.get('v', [None])[0]
-            elif parsed.path.startswith('/embed/') or parsed.path.startswith('/v/'):
+            elif parsed.path.startswith(('/embed/', '/v/', '/live/')):
+                # Same cases as the extension's youtubeVideoId (extension/youtube.js).
                 video_id = parsed.path.split('/')[2]
 
     except Exception as e:

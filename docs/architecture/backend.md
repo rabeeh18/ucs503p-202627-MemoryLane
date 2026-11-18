@@ -9,6 +9,7 @@ backend/
 ├── main.py           API endpoints, rate limits, CORS, error handling
 ├── auth.py           Cognito access-token verification → user_id
 ├── accounts.py       Links Google and email sign-ins with the same verified email
+├── library_moves.py  Moves pages saved before a sign-in was linked into its library
 ├── models.py         Pydantic request and response models
 ├── config.py         Settings from .env
 ├── ingest.py         ingest_page: the one way a page gets saved
@@ -35,9 +36,13 @@ backend/
 3. **The endpoint** calls `ingest_page`, `hybrid_search` or the summariser with that user id.
 4. **Solr** calls go through `SolrClient`, which adds the `user_id` filter to every query and rejects malformed ids.
 
+## Saving pages
+
+The API runs as one process (`uvicorn --workers 1`), and each user's saves run one at a time behind a per-user lock in `ingest.py`. Otherwise two saves of the same page could interleave (a shorter version's cleanup deleting a longer version's chunks), or two new pages could both pass the page limit. Solr shows new pages about a second after they're written, so new pages from the last few seconds are counted separately until it does.
+
 ## Start-up
 
-The embedding model loads at start-up so the first save or search is fast, and the problem-report sender starts its background thread. The API refuses to start if the Cognito settings are missing.
+The embedding model loads at start-up so the first save or search is fast, and two background threads start: the problem-report sender and the library mover (`library_moves.py`). The API refuses to start if the Cognito settings are missing.
 
 ## Caches
 

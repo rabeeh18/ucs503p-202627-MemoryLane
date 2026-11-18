@@ -89,6 +89,13 @@ body {
   min-height: 120px;
 }
 
+/* Two stacked buttons (Remember this page + Skip this site) */
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 /* Signed out / confirmation */
 .intro-title {
   margin: 8px 0 0;

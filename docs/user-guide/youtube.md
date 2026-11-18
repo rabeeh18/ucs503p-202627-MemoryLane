@@ -3,7 +3,7 @@
 A YouTube video page has almost no readable text, so MemoryLane saves the video through its **transcript** (captions) and its description instead.
 
 ```text
-youtube.com/watch?v=… or youtu.be/…
+youtube.com/watch?v=…, youtu.be/… or youtube.com/live/…
         ↓
 Recognise the video id
         ↓

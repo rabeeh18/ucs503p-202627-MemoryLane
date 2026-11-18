@@ -282,11 +282,14 @@ def _intent_lists(solr, intent: QueryIntent, user_id: str, rows: int, page_ids,
     filters = intent_filters(intent)
     if filters:
         if intent.text:
-            bm25 = _executor.submit(_timed_bm25, solr, intent.text, user_id, rows, page_ids, filters)
-            knn = solr.knn_search(query_vector(), user_id, k=rows, filters=filters,
-                                  **_page_filter_kwargs(page_ids))
-            lists.append((bm25.result()[0], BM25_WEIGHT * INTENT_WEIGHT, "bm25"))
-            lists.append((knn, VECTOR_WEIGHT * INTENT_WEIGHT, "knn"))
+            bm25 = (_executor.submit(_timed_bm25, solr, intent.text, user_id, rows, page_ids, filters)
+                    if BM25_WEIGHT > 0 else None)
+            if VECTOR_WEIGHT > 0:
+                knn = solr.knn_search(query_vector(), user_id, k=rows, filters=filters,
+                                      **_page_filter_kwargs(page_ids))
+                lists.append((knn, VECTOR_WEIGHT * INTENT_WEIGHT, "knn"))
+            if bm25 is not None:
+                lists.append((bm25.result()[0], BM25_WEIGHT * INTENT_WEIGHT, "bm25"))
         else:
             if page_ids is not None:
                 filters = filters + [page_ids_filter(page_ids)]
@@ -361,8 +364,12 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
 
     solr = solr or get_solr_client()
 
-    bm25_future = _executor.submit(_timed_bm25, solr, query, user_id, candidate_pool, page_ids)
-    knn_future = _executor.submit(_timed_knn, solr, query, user_id, candidate_pool, page_ids)
+    # A weight of 0 turns that retriever off entirely, so a BM25-only or vector-only
+    # evaluation run never sees the other method's candidates.
+    bm25_future = (_executor.submit(_timed_bm25, solr, query, user_id, candidate_pool, page_ids)
+                   if BM25_WEIGHT > 0 else None)
+    knn_future = (_executor.submit(_timed_knn, solr, query, user_id, candidate_pool, page_ids)
+                  if VECTOR_WEIGHT > 0 else None)
 
     # Meanwhile: does the query name a site, a time or a URL?
     intent_start = time.perf_counter()
@@ -371,7 +378,8 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
     if intent and intent.active:
         try:
             def query_vector():
-                knn_future.result()  # it embeds the query first; the vector is then cached
+                if knn_future is not None:
+                    knn_future.result()  # it embeds the query first; the vector is then cached
                 return list(_cached_query_embedding(query))
 
             intent_lists = _intent_lists(solr, intent, user_id, candidate_pool, page_ids, query_vector)
@@ -379,8 +387,8 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
             logger.warning(f"Query intent search skipped: {e}")
     intent_ms = (time.perf_counter() - intent_start) * 1000
 
-    bm25_docs, bm25_ms = bm25_future.result()
-    knn_docs, embed_ms, knn_ms = knn_future.result()
+    bm25_docs, bm25_ms = bm25_future.result() if bm25_future is not None else ([], 0.0)
+    knn_docs, embed_ms, knn_ms = knn_future.result() if knn_future is not None else ([], 0.0, 0.0)
     logger.info(f"BM25 returned {len(bm25_docs)} candidates, KNN returned {len(knn_docs)}"
                 + (f", intent lists {[len(docs) for docs, _, _ in intent_lists]}" if intent_lists else ""))
 

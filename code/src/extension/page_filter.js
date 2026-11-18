@@ -14,6 +14,19 @@ const BANKING_HOST_MARKERS = [
     "ally.com", "sofi.com",
 ];
 
+// Webmail: inboxes and messages are private, so automatic capture never sends them.
+const EMAIL_HOSTS = [
+    "mail.google.com", "inbox.google.com", "outlook.live.com", "outlook.office.com",
+    "outlook.office365.com", "outlook.com", "hotmail.com", "mail.yahoo.com",
+    "mail.proton.me", "protonmail.com", "mail.zoho.com", "mail.zoho.in", "mail.zoho.eu",
+    "fastmail.com", "tuta.com", "tutanota.com", "mail.aol.com", "mail.yandex.com",
+    "mail.yandex.ru", "gmx.com", "gmx.net", "web.de", "mail.com", "hey.com",
+    "rediffmail.com", "superhuman.com",
+];
+// Self-hosted and other webmail: mail.example.com, webmail.example.com, /owa/, /webmail/.
+const EMAIL_HOST_PREFIXES = ["mail.", "webmail.", "email."];
+const EMAIL_PATH_SEGMENTS = ["owa", "webmail", "roundcube", "squirrelmail"];
+
 const LOGIN_ACCOUNT_SEGMENTS = [
     "login", "log-in", "signin", "sign-in", "signup", "sign-up",
     "register", "auth", "oauth", "sso", "account", "accounts",
@@ -45,6 +58,29 @@ function hostMatches(host, domain) {
     return host === domain || host.endsWith("." + domain);
 }
 
+/** The same document, ignoring the #fragment (in-page jumps don't change the page). */
+export function sameDocument(a, b) {
+    return String(a || "").split("#")[0] === String(b || "").split("#")[0];
+}
+
+/** Webmail inboxes and messages, including iCloud Mail (icloud.com/mail). */
+export function isEmailUrl(url) {
+    let parsed = url;
+    if (!(parsed instanceof URL)) {
+        try {
+            parsed = new URL(String(url || "").trim());
+        } catch (_err) {
+            return false;
+        }
+    }
+    const host = (parsed.hostname || "").toLowerCase().replace(/^www\./, "");
+    if (EMAIL_HOSTS.some((d) => hostMatches(host, d))) return true;
+    if (EMAIL_HOST_PREFIXES.some((p) => host.startsWith(p))) return true;
+    const segments = (parsed.pathname || "").split("/").filter(Boolean).map((s) => s.toLowerCase());
+    if (hostMatches(host, "icloud.com") && segments[0] === "mail") return true;
+    return segments.some((seg) => EMAIL_PATH_SEGMENTS.includes(seg));
+}
+
 export function isAutoCaptureEligible(url) {
     if (!url || !String(url).trim()) {
         return false;
@@ -72,6 +108,9 @@ export function isAutoCaptureEligible(url) {
         return false;
     }
     if (BANKING_HOST_MARKERS.some((d) => hostMatches(host, d))) {
+        return false;
+    }
+    if (isEmailUrl(parsed)) {
         return false;
     }
     if (host.split(".")[0].includes("bank")) {

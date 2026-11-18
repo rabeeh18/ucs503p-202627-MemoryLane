@@ -17,6 +17,13 @@ The rules that keep this safe:
 - If Cognito can't be reached for a sign-in seen for the first time, the
   request fails (503) instead of guessing, so pages never land in the wrong
   library.
+- A sign-in that saved pages while unverified, and then links to an existing
+  library, has those pages moved into it (backend/library_moves.py), so they
+  aren't stranded under its old id.
+- Known sign-ins are re-checked with Cognito once a day. If a sign-in's verified
+  email has changed, or is no longer verified, the old address stops pointing at
+  the library (unless another of its sign-ins still has it), so whoever verifies
+  that address later can't reach this library.
 
 The table lives in a small SQLite file (ACCOUNTS_DB). Without a Cognito domain
 configured, linking is off and each sign-in is its own library.
@@ -37,11 +44,16 @@ logger = logging.getLogger(__name__)
 
 UNVERIFIED_RECHECK_SECONDS = 300
 USERINFO_TIMEOUT_SECONDS = 5
+# Known sign-ins are re-checked with Cognito this often (and retried after a failure).
+REVALIDATE_SECONDS = 24 * 3600
+REVALIDATE_RETRY_SECONDS = 600
 
 _lock = threading.Lock()
 _conn = None
-_linked = {}        # sub -> library id, for subs with a stored mapping
+_linked = {}        # sub -> (library id, email, last checked), for subs with a stored mapping
 _unverified = {}    # sub -> time it was last found unverified
+# Set when a library move is queued, so backend/library_moves.py starts it straight away.
+moves_waiting = threading.Event()
 
 
 class LinkUnavailable(Exception):
@@ -67,6 +79,15 @@ def _db() -> sqlite3.Connection:
         conn.execute(
             "CREATE TABLE IF NOT EXISTS sign_ins ("
             " sub TEXT PRIMARY KEY, library TEXT NOT NULL, email TEXT NOT NULL, created_at REAL NOT NULL)"
+        )
+        # Added later: when the sign-in's email was last checked with Cognito.
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(sign_ins)")}
+        if "checked_at" not in columns:
+            conn.execute("ALTER TABLE sign_ins ADD COLUMN checked_at REAL")
+        # Pages saved under one library id that belong in another (see library_moves.py).
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS library_moves ("
+            " old TEXT PRIMARY KEY, new TEXT NOT NULL, created_at REAL NOT NULL)"
         )
         conn.commit()
         _conn = conn
@@ -120,18 +141,66 @@ def fetch_userinfo(access_token: str) -> dict:
     return info
 
 
+def _known(sub: str) -> tuple[str, str, float] | None:
+    """(library, email, last checked) for a sign-in with a stored mapping."""
+    known = _linked.get(sub)
+    if known:
+        return known
+    with _lock:
+        row = _db().execute(
+            "SELECT library, email, COALESCE(checked_at, created_at) FROM sign_ins WHERE sub = ?", (sub,)
+        ).fetchone()
+    if row:
+        _linked[sub] = (row[0], row[1], row[2])
+        return _linked[sub]
+    return None
+
+
+def _revalidate(sub: str, access_token: str, library: str, email: str) -> None:
+    """Re-check a known sign-in's email. If it changed or isn't verified any more,
+    the old address stops vouching for this library. Never fails the request."""
+    now = time.time()
+    try:
+        info = fetch_userinfo(access_token)
+    except LinkUnavailable:
+        _linked[sub] = (library, email, now - REVALIDATE_SECONDS + REVALIDATE_RETRY_SECONDS)
+        return
+    if info.get("sub") != sub:
+        return
+    current = verified_email(info)
+    with _lock:
+        db = _db()
+        with db:
+            if current != email:
+                others = db.execute(
+                    "SELECT COUNT(*) FROM sign_ins WHERE library = ? AND email = ? AND sub != ?",
+                    (library, email, sub),
+                ).fetchone()[0]
+                if not others:
+                    db.execute("DELETE FROM libraries WHERE email = ? AND library = ?", (email, library))
+                if current:
+                    db.execute(
+                        "INSERT OR IGNORE INTO libraries (email, library, created_at) VALUES (?, ?, ?)",
+                        (current, library, now),
+                    )
+                logger.info("A sign-in's verified email changed; its old address no longer links")
+            db.execute(
+                "UPDATE sign_ins SET email = ?, checked_at = ? WHERE sub = ?",
+                (current or email, now, sub),
+            )
+    _linked[sub] = (library, current or email, now)
+
+
 def library_for(sub: str, access_token: str) -> str:
     """The library id this verified sign-in uses. Raises LinkUnavailable."""
     if not enabled():
         return sub
-    library = _linked.get(sub)
-    if library:
+    known = _known(sub)
+    if known:
+        library, email, checked = known
+        if time.time() - (checked or 0) >= REVALIDATE_SECONDS:
+            _revalidate(sub, access_token, library, email)
         return library
-    with _lock:
-        row = _db().execute("SELECT library FROM sign_ins WHERE sub = ?", (sub,)).fetchone()
-    if row:
-        _linked[sub] = row[0]
-        return row[0]
     checked = _unverified.get(sub)
     if checked and time.time() - checked < UNVERIFIED_RECHECK_SECONDS:
         return sub
@@ -154,17 +223,49 @@ def library_for(sub: str, access_token: str) -> str:
             )
             library = db.execute("SELECT library FROM libraries WHERE email = ?", (email,)).fetchone()[0]
             db.execute(
-                "INSERT OR IGNORE INTO sign_ins (sub, library, email, created_at) VALUES (?, ?, ?, ?)",
-                (sub, library, email, now),
+                "INSERT OR IGNORE INTO sign_ins (sub, library, email, created_at, checked_at)"
+                " VALUES (?, ?, ?, ?, ?)",
+                (sub, library, email, now, now),
             )
             library = db.execute("SELECT library FROM sign_ins WHERE sub = ?", (sub,)).fetchone()[0]
+            if library != sub and is_valid_user_id(library):
+                # Until now this sign-in used its own id as its library (while it was
+                # unverified, or before linking existed). Any pages saved there move over.
+                db.execute(
+                    "INSERT OR IGNORE INTO library_moves (old, new, created_at) VALUES (?, ?, ?)",
+                    (sub, library, now),
+                )
     if not is_valid_user_id(library):
         raise LinkUnavailable("stored library id")
     _unverified.pop(sub, None)
-    _linked[sub] = library
+    _linked[sub] = (library, email, now)
     if library != sub:
         logger.info("Sign-in linked to an existing library")
+        moves_waiting.set()
     return library
+
+
+def pending_moves() -> list[tuple[str, str]]:
+    """Library moves still to do, oldest first: (old library, new library)."""
+    if not enabled():
+        return []
+    with _lock:
+        return [tuple(r) for r in _db().execute("SELECT old, new FROM library_moves ORDER BY created_at")]
+
+
+def finish_move(old: str) -> None:
+    with _lock:
+        db = _db()
+        with db:
+            db.execute("DELETE FROM library_moves WHERE old = ?", (old,))
+
+
+def moves_into(library: str) -> list[str]:
+    """Old library ids whose pages are still being moved into `library`."""
+    if not enabled():
+        return []
+    with _lock:
+        return [r[0] for r in _db().execute("SELECT old FROM library_moves WHERE new = ?", (library,))]
 
 
 def email_for(library: str) -> str | None:
@@ -185,7 +286,8 @@ def forget_library(library: str) -> None:
         with db:
             db.execute("DELETE FROM sign_ins WHERE library = ?", (library,))
             db.execute("DELETE FROM libraries WHERE library = ?", (library,))
-    for sub in [s for s, lib in _linked.items() if lib == library]:
+            db.execute("DELETE FROM library_moves WHERE new = ? OR old = ?", (library, library))
+    for sub in [s for s, known in _linked.items() if known[0] == library]:
         _linked.pop(sub, None)
 
 
@@ -197,3 +299,4 @@ def reset_for_tests() -> None:
         _conn = None
         _linked.clear()
         _unverified.clear()
+        moves_waiting.clear()

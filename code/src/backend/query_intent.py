@@ -60,7 +60,7 @@ _NUMBERS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 
             "seven": 7, "eight": 8, "nine": 9, "ten": 10, "couple": 2, "few": 3}
 
 _WORD = re.compile(r"[a-z0-9]+")
-_URL_LIKE = re.compile(r"^(https?://)?([a-z0-9-]+\.)+[a-z]{2,}(:\d+)?(/\S*)?$|^https?://\S+$")
+_URL_LIKE = re.compile(r"^(https?://)?([a-z0-9-]+\.)+[a-z]{2,}(:\d+)?(/\S*)?$|^https?://\S+$", re.IGNORECASE)
 _MONTH_NAME = "|".join(sorted(list(_MONTHS) + list(_MONTH_ABBR), key=len, reverse=True))
 _FULL_MONTH = "|".join(sorted(_MONTHS, key=len, reverse=True))
 _ORDINAL = r"(\d{1,2})(?:st|nd|rd|th)?"
@@ -223,7 +223,8 @@ def _url_intent(query: str, domains) -> tuple[str | None, set[str]]:
     if " " in token or not _URL_LIKE.match(token):
         return None, set()
     parsed = urlparse(token if "://" in token else "https://" + token)
-    host = parsed.netloc.lower().removeprefix("www.")
+    parsed = parsed._replace(scheme=parsed.scheme.lower(), netloc=parsed.netloc.lower())
+    host = parsed.netloc.removeprefix("www.")
     saved = {d for d in domains if d == host}
     has_path = parsed.path not in ("", "/") or bool(parsed.query)
     return (normalize_url(parsed.geturl()) if has_path else None), saved
@@ -236,10 +237,12 @@ def parse_query(query: str, domains, now: datetime | None = None) -> QueryIntent
     lowered = (query or "").lower()
     intent = QueryIntent()
 
-    url, url_domains = _url_intent(lowered, domains)
+    # The original query, not the lowered one: only the scheme and host of a URL are
+    # case-insensitive, and its path and query (a YouTube video id) are not.
+    url, url_domains = _url_intent(query or "", domains)
     if url or url_domains:
         intent.url, intent.domains = url, url_domains
-        path = urlparse(url).path if url else ""
+        path = urlparse(url).path.lower() if url else ""
         intent.text = " ".join(w for w in _WORD.findall(path) if w not in FILLER_WORDS)
         return intent
 

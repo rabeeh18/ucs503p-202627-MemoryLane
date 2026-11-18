@@ -24,6 +24,7 @@
   const CLOSED = { open: false, loading: false, text: '', error: '' };
   /** Per-result summary state, keyed by page id. */
   let summaries = {};
+  let summaryToken = 0;
 
   async function run(q) {
     controller?.abort();
@@ -43,8 +44,10 @@
     summaries = {};
     selected = 0;
     try {
+      const startedAt = Date.now();
       const data = await search(q, mine.signal);
       if (mine !== controller) return;
+      pageDeletes.reconcile(data.results.map((r) => r.id), startedAt); // re-saved after a delete
       results.set(data.results);
     } catch (err) {
       if (mine !== controller || err?.name === 'CancelledError' || err?.status === 401) return;
@@ -78,10 +81,14 @@
       summaries = { ...summaries, [result.id]: { ...current, open: true } };
       return;
     }
-    summaries = { ...summaries, [result.id]: { open: true, loading: true, text: '', error: '' } };
+    // Each request gets a token; an answer for an older request (an earlier search,
+    // or a summary closed and reopened) is ignored instead of overwriting this one.
+    const token = ++summaryToken;
+    const askedFor = query;
+    summaries = { ...summaries, [result.id]: { open: true, loading: true, text: '', error: '', token } };
     let next;
     try {
-      const data = await fetchSummary({ query, id: result.id });
+      const data = await fetchSummary({ query: askedFor, id: result.id });
       next = { open: true, loading: false, text: data.summary || '', error: data.summary ? '' : 'No summary was returned.' };
     } catch (err) {
       const error = err?.status === 503
@@ -91,7 +98,10 @@
           : "Couldn't summarise this page. Try again.";
       next = { open: true, loading: false, text: '', error };
     }
-    if (summaries[result.id]?.open) summaries = { ...summaries, [result.id]: next };
+    const latest = summaries[result.id];
+    if (latest?.open && latest.token === token && query === askedFor) {
+      summaries = { ...summaries, [result.id]: { ...next, token } };
+    }
   }
 
   function isTyping(target) {

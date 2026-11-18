@@ -6,6 +6,8 @@ import { rememberError } from './report.js';
 
 const API_BASE = (import.meta.env.VITE_API_BASE || '/api').replace(/\/$/, '');
 const TIMEOUT_MS = 15000;
+// Summaries wait longer: the backend gives Gemini up to 20 s (backend/summarizer.py).
+export const SUMMARY_TIMEOUT_MS = 30000;
 
 export class ApiError extends Error {
   /** @param {string} message @param {number} status */
@@ -96,7 +98,7 @@ export function listMemories(limit = 20, offset = 0, signal) {
 
 /** @returns {Promise<{ id: string, summary: string }>} */
 export function fetchSummary({ query, id }) {
-  return request('/summarize', { method: 'POST', body: { query, id } });
+  return request('/summarize', { method: 'POST', body: { query, id }, timeoutMs: SUMMARY_TIMEOUT_MS });
 }
 
 export function deleteAllData() {

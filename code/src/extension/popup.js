@@ -171,13 +171,6 @@ function mainView() {
         const undo = h("button", { type: "button", class: "link-button", onclick: () => undoSave(view.page.id) }, "Undo");
         return [pageCard([checkIcon(), "Saved just now"], undo), outline("Saved", null, true, true)];
     }
-    if (state.autoCapture && state.excluded) {
-        return [pageCard([dot(), "This site is excluded"]), outline("Allow this site", () => setExcluded(false))];
-    }
-    if (state.autoCapture) {
-        const last = state.lastAutoSave ? `last saved ${ago(state.lastAutoSave.at)}` : "nothing saved yet";
-        return [pageCard([dot(true), `Saving automatically · ${last}`]), outline("Skip this site", () => setExcluded(true))];
-    }
     if (state.status?.saved) {
         const when = ago(state.status.page?.timestamp);
         const pageId = state.status.page?.id;
@@ -185,6 +178,19 @@ function mainView() {
             ? h("button", { type: "button", class: "link-button", onclick: () => undoSave(pageId) }, "Remove")
             : null;
         return [pageCard([checkIcon(), when ? `Saved ${when}` : "Saved"], remove), outline("Saved", null, true, true)];
+    }
+    if (state.autoCapture) {
+        // Manual saving works whatever the automatic rules say (skipped sites, long
+        // videos, pages opened before auto-capture was on, failed captures).
+        const last = state.lastAutoSave ? `last saved ${ago(state.lastAutoSave.at)}` : "nothing saved yet";
+        const status = state.excluded ? "This site is excluded" : `Saving automatically · ${last}`;
+        const site = state.excluded
+            ? outline("Allow this site", () => setExcluded(false))
+            : outline("Skip this site", () => setExcluded(true));
+        return [
+            pageCard([dot(!state.excluded), status]),
+            h("div", { class: "actions" }, primary("Remember this page", savePage), site),
+        ];
     }
     return [pageCard([dot(), "Not saved yet"]), primary("Remember this page", savePage)];
 }

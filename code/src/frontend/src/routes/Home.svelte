@@ -7,7 +7,7 @@
   import { listMemories } from '../api.js';
   import { link, navigate } from '../lib/router.js';
   import { libraryVersion, recentError, recentPages, searchQuery } from '../stores';
-  import { hiddenPageIds } from '../pageDeletes.js';
+  import { hiddenPageIds, pageDeletes } from '../pageDeletes.js';
   import { nextGreeting } from '../lib/greetings.js';
 
   let searchBar;
@@ -20,9 +20,12 @@
     controller = new AbortController();
     const mine = controller;
     recentError.set(null);
+    const startedAt = Date.now();
     try {
       const data = await listMemories(5, 0, mine.signal);
-      if (mine === controller) recentPages.set(data.pages);
+      if (mine !== controller) return;
+      pageDeletes.reconcile(data.pages.map((p) => p.id), startedAt); // re-saved after a delete
+      recentPages.set(data.pages);
     } catch (err) {
       if (err?.name === 'CancelledError' || err?.status === 401 || mine !== controller) return;
       recentError.set("Couldn't load your recent pages.");

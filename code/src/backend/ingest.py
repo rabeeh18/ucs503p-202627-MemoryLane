@@ -2,6 +2,8 @@ import hashlib
 import logging
 import math
 import re
+import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse
@@ -124,6 +126,59 @@ def resolve_canonical_url(url: str, canonical_url: str | None) -> str:
     return url
 
 
+
+# ---- one write at a time per user ------------------------------------------------
+#
+# Saving a page is read (is it unchanged? is the account full?), then embed, then
+# write chunks and delete stale ones. Two saves for the same user running at once
+# could interleave: a shorter version's cleanup deleting a longer version's chunks
+# (a page whose head says 3 chunks but has 1), or two new pages both passing the page
+# limit. The API runs one process (uvicorn --workers 1), so a lock per user is enough.
+# Scripts (re-index, backfill) are separate processes and run when the site is quiet.
+
+_locks_guard = threading.Lock()
+_user_locks: dict[str, threading.RLock] = {}
+
+# New pages written in the last few seconds. Solr makes writes searchable within
+# about a second (commitWithin), so a count straight after a write can miss them.
+RECENT_PAGE_SECONDS = 10
+_recent_new: dict[str, dict[str, float]] = {}
+
+
+def _user_write_lock(user_id: str) -> threading.RLock:
+    with _locks_guard:
+        lock = _user_locks.get(user_id)
+        if lock is None:
+            lock = _user_locks[user_id] = threading.RLock()
+        return lock
+
+
+def _note_new_page(user_id: str, page_id: str) -> None:
+    with _locks_guard:
+        _recent_new.setdefault(user_id, {})[page_id] = time.monotonic()
+
+
+def _page_count(solr: SolrClient, user_id: str) -> int:
+    """The user's page count, including new pages Solr may not show yet."""
+    count = solr.count_pages(user_id)
+    now = time.monotonic()
+    with _locks_guard:
+        recent = _recent_new.get(user_id, {})
+        for page_id, at in list(recent.items()):
+            if now - at > RECENT_PAGE_SECONDS:
+                del recent[page_id]
+        ids = list(recent)
+    if ids:
+        count += len(ids) - solr.count_pages(user_id, page_ids=ids)  # the ones not visible yet
+    return count
+
+
+def reset_for_tests() -> None:
+    with _locks_guard:
+        _user_locks.clear()
+        _recent_new.clear()
+
+
 def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None = None,
                 canonical_url: str | None = None, is_manual: bool = False, *,
                 solr: SolrClient | None = None, timestamp: str | None = None,
@@ -177,58 +232,62 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
         if word_count(cleaned) < MIN_CONTENT_WORDS:
             raise IngestError(422, NOT_ENOUGH_TEXT)
 
-    # 4. Unchanged content (and same embedding model) needs no work
-    content_hash = hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
-    existing = solr.get_page_head(page_id, user_id)
-    if not force and existing and existing.get("content_hash") == content_hash \
-            and existing.get("embedding_model") == EMBEDDING_MODEL \
-            and "description" in existing:
-        # (Pages stored before `description` existed are re-ingested once to gain it.)
-        logger.info(f"Unchanged page {page_id}")
-        return IngestResult(
-            "unchanged", "Memory already stored", page_id,
-            existing.get("url") or normalized_url,
-            existing.get("title") or title,
-            existing.get("domain") or domain,
-            str(existing.get("timestamp") or ""),
-            int(existing.get("total_chunks") or 0),
-        )
-    if max_pages is not None and existing is None and solr.count_pages(user_id) >= max_pages:
-        raise IngestError(403, TOO_MANY_PAGES.format(limit=max_pages))
+    # 4-6 run under the user's write lock: see _user_write_lock.
+    with _user_write_lock(user_id):
+        # 4. Unchanged content (and same embedding model) needs no work
+        content_hash = hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
+        existing = solr.get_page_head(page_id, user_id)
+        if not force and existing and existing.get("content_hash") == content_hash \
+                and existing.get("embedding_model") == EMBEDDING_MODEL \
+                and "description" in existing:
+            # (Pages stored before `description` existed are re-ingested once to gain it.)
+            logger.info(f"Unchanged page {page_id}")
+            return IngestResult(
+                "unchanged", "Memory already stored", page_id,
+                existing.get("url") or normalized_url,
+                existing.get("title") or title,
+                existing.get("domain") or domain,
+                str(existing.get("timestamp") or ""),
+                int(existing.get("total_chunks") or 0),
+            )
+        if max_pages is not None and existing is None and _page_count(solr, user_id) >= max_pages:
+            raise IngestError(403, TOO_MANY_PAGES.format(limit=max_pages))
 
-    # 5. Chunk, embed title + chunk, build docs
-    chunks = chunk_text(cleaned)
-    if not chunks:
-        raise IngestError(422, NOT_ENOUGH_TEXT)
-    embeddings = embed_passages([f"{title}\n\n{chunk}" for chunk in chunks])
-    saved_at = to_solr_date(timestamp)
-    if description is None:
-        description = extract_description(None if youtube_content is not None else html, cleaned)
-    docs = [
-        {
-            "id": f"{page_id}::{i}",
-            "user_id": user_id,
-            "page_id": page_id,
-            "url": normalized_url,
-            "title": title,
-            "domain": domain,
-            "text": chunk,
-            "description": description,
-            "chunk_id": i,
-            "total_chunks": len(chunks),
-            "timestamp": saved_at,
-            "content_hash": content_hash,
-            "embedding_model": EMBEDDING_MODEL,
-            "embedding": embedding,
-        }
-        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings))
-    ]
+        # 5. Chunk, embed title + chunk, build docs
+        chunks = chunk_text(cleaned)
+        if not chunks:
+            raise IngestError(422, NOT_ENOUGH_TEXT)
+        embeddings = embed_passages([f"{title}\n\n{chunk}" for chunk in chunks])
+        saved_at = to_solr_date(timestamp)
+        if description is None:
+            description = extract_description(None if youtube_content is not None else html, cleaned)
+        docs = [
+            {
+                "id": f"{page_id}::{i}",
+                "user_id": user_id,
+                "page_id": page_id,
+                "url": normalized_url,
+                "title": title,
+                "domain": domain,
+                "text": chunk,
+                "description": description,
+                "chunk_id": i,
+                "total_chunks": len(chunks),
+                "timestamp": saved_at,
+                "content_hash": content_hash,
+                "embedding_model": EMBEDDING_MODEL,
+                "embedding": embedding,
+            }
+            for i, (chunk, embedding) in enumerate(zip(chunks, embeddings))
+        ]
 
-    # The page vector (mean of its chunk vectors) lives on chunk 0 only.
-    docs[0]["page_embedding"] = page_vector(embeddings)
+        # The page vector (mean of its chunk vectors) lives on chunk 0 only.
+        docs[0]["page_embedding"] = page_vector(embeddings)
 
-    # 6. Overwrite in place, then drop stale chunks
-    solr.upsert_page_chunks(page_id, docs, user_id)
+        # 6. Overwrite in place, then drop stale chunks
+        solr.upsert_page_chunks(page_id, docs, user_id)
+        if existing is None:
+            _note_new_page(user_id, page_id)
     logger.info(f"Indexed {len(docs)} chunks for page {page_id}")
     return IngestResult(
         "saved", "Memory stored successfully", page_id, normalized_url,

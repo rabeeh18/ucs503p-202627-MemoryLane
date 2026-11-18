@@ -9,7 +9,7 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from backend import accounts, reports
+from backend import accounts, library_moves, reports
 from backend.auth import check_config, current_user_id
 from backend.config import CORS_ORIGINS, MAX_PAGES_PER_USER, MIN_VECTOR_SIMILARITY
 from backend.models import (
@@ -55,7 +55,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to load embedding model: {e}")
     reports.start_sender()
+    library_moves.start_mover()
     yield
+    library_moves.stop_mover()
     reports.stop_sender()
 
 
@@ -340,8 +342,12 @@ def search_memory(request: Request, search: SearchInput, user_id: str = Depends(
 @app.delete("/me/data", status_code=204)
 @limiter.limit("5/minute")
 def delete_my_data(request: Request, user_id: str = Depends(current_user_id)):
-    """Delete every chunk the caller owns."""
-    get_solr_client().delete_user(user_id)
+    """Delete every chunk the caller owns, including pages still being moved into
+    their library from a sign-in that was linked recently."""
+    solr = get_solr_client()
+    solr.delete_user(user_id)
+    for old in accounts.moves_into(user_id):
+        solr.delete_user(old)
     forget_user_sites(user_id)
     reports.delete_user_reports(user_id)
     accounts.forget_library(user_id)

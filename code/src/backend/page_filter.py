@@ -22,6 +22,18 @@ BANKING_HOST_MARKERS = (
     "ally.com", "sofi.com",
 )
 
+# Webmail: inboxes and messages are private (kept identical to extension/page_filter.js).
+EMAIL_HOSTS = (
+    "mail.google.com", "inbox.google.com", "outlook.live.com", "outlook.office.com",
+    "outlook.office365.com", "outlook.com", "hotmail.com", "mail.yahoo.com",
+    "mail.proton.me", "protonmail.com", "mail.zoho.com", "mail.zoho.in", "mail.zoho.eu",
+    "fastmail.com", "tuta.com", "tutanota.com", "mail.aol.com", "mail.yandex.com",
+    "mail.yandex.ru", "gmx.com", "gmx.net", "web.de", "mail.com", "hey.com",
+    "rediffmail.com", "superhuman.com",
+)
+EMAIL_HOST_PREFIXES = ("mail.", "webmail.", "email.")
+EMAIL_PATH_SEGMENTS = ("owa", "webmail", "roundcube", "squirrelmail")
+
 LOGIN_ACCOUNT_SEGMENTS = (
     "login", "log-in", "signin", "sign-in", "signup", "sign-up",
     "register", "auth", "oauth", "sso", "account", "accounts",
@@ -54,6 +66,19 @@ def _host_matches(host: str, domain: str) -> bool:
     return host == domain or host.endswith("." + domain)
 
 
+def is_email_host_path(host: str, path: str) -> bool:
+    """Webmail inboxes and messages, including iCloud Mail (icloud.com/mail)."""
+    host = host.lower().removeprefix("www.")
+    if any(_host_matches(host, d) for d in EMAIL_HOSTS):
+        return True
+    if host.startswith(EMAIL_HOST_PREFIXES):
+        return True
+    segments = [s.lower() for s in (path or "").split("/") if s]
+    if _host_matches(host, "icloud.com") and segments[:1] == ["mail"]:
+        return True
+    return any(seg in EMAIL_PATH_SEGMENTS for seg in segments)
+
+
 def is_auto_capture_eligible(url: str) -> bool:
     """Return True if automatic capture may save this URL."""
     if not url or not url.strip():
@@ -77,6 +102,8 @@ def is_auto_capture_eligible(url: str) -> bool:
     if any(_host_matches(host, d) for d in BANKING_HOST_MARKERS):
         return False
     if "bank" in host.split(".")[0]:
+        return False
+    if is_email_host_path(host, parsed.path):
         return False
 
     path = parsed.path or "/"

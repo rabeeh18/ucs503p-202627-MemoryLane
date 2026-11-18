@@ -24,7 +24,8 @@ Cognito gives a Google sign-in and an email + password sign-in different `sub`s,
 
 - The first time a `sub` is seen, the backend calls Cognito's `/oauth2/userInfo` with that user's own access token, so the email can't be faked by the browser.
 - The email links only if it's verified: `email_verified` is `"true"` (the string Cognito sends; `"false"` doesn't count), or the sign-in came through Google. The first verified sign-in for an address gives the library its id; later ones for the same address use it.
-- An unverified sign-in keeps its own library and claims nothing. It's checked again after 5 minutes, so verifying later still links.
+- An unverified sign-in keeps its own library and claims nothing. It's checked again after 5 minutes, so verifying later still links. Any pages it saved meanwhile are then moved into the linked library in the background (`backend/library_moves.py`): each page is re-saved under the library from its stored text, keeping its save time, and the newer copy wins if both have the same URL. **Delete all** also deletes pages still waiting to move.
+- Known sign-ins are re-checked with Cognito once a day. If a sign-in's verified email has changed, or isn't verified any more, the old address stops pointing at the library (unless another of its sign-ins still has it), so whoever verifies that address later can't reach it. If Cognito can't be reached, the known answer is kept and the check is retried 10 minutes later.
 - If Cognito can't be reached for a `sub` seen for the first time, the request fails with `503`, so pages never land in a library they don't belong to. Known sign-ins are answered from the database without calling Cognito.
 - The links are stored in SQLite (`ACCOUNTS_DB`, the `accounts` volume in Docker). **Delete all** removes them.
 

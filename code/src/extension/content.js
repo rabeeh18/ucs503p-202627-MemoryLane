@@ -1,6 +1,6 @@
 // Injected on demand by background.js (chrome.scripting.executeScript), right
 // after canonical.js. The value of the final expression is returned to the caller:
-//   { html, text, canonicalUrl }
+//   { html, text, canonicalUrl, url }
 // `html` feeds the server's article extraction; `text` is the fallback.
 (() => {
     // The API's limits (backend/models.py).
@@ -24,5 +24,7 @@
         text: readableText().slice(0, MAX_TEXT_CHARS),
         // eslint-disable-next-line no-undef
         canonicalUrl: typeof memorylaneCanonical === "function" ? memorylaneCanonical() : null,
+        // The document this text came from, so the caller can tell if the tab navigated meanwhile.
+        url: location.href,
     };
 })();

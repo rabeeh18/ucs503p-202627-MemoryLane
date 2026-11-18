@@ -4,6 +4,10 @@
 // for 6 seconds. The DELETE request is sent only when that toast expires; Undo
 // cancels it. If the request fails the page comes back and an error toast says
 // so. Pending deletes are sent straight away if the tab is closed.
+//
+// A deleted page stays hidden until a list fetched *after* the delete shows it
+// again (reconcile): that only happens when the same URL was saved again, since
+// page ids come from the URL, so the re-saved page then appears without a reload.
 import { writable } from 'svelte/store';
 
 export const DELETE_DELAY_MS = 6000;
@@ -17,7 +21,9 @@ export const ERROR_TOAST_MS = 6000;
  *   clearTimer?: typeof clearTimeout,
  * }} options
  */
-export function createDeleteQueue({ remove, delay = DELETE_DELAY_MS, setTimer = setTimeout, clearTimer = clearTimeout }) {
+export function createDeleteQueue({
+  remove, delay = DELETE_DELAY_MS, setTimer = setTimeout, clearTimer = clearTimeout, now = () => Date.now(),
+}) {
   /** Ids hidden from every list (pending or deleted). */
   const hidden = writable(new Set());
   /** @type {import('svelte/store').Writable<Array<{ id: number, kind: 'undo' | 'error', message: string, pageId?: string }>>} */
@@ -26,6 +32,8 @@ export function createDeleteQueue({ remove, delay = DELETE_DELAY_MS, setTimer = 
   const committed = writable(0);
   /** pageId -> { timer, toastId } */
   const pending = new Map();
+  /** pageId -> when the server confirmed its delete */
+  const committedAt = new Map();
   let nextToastId = 1;
 
   const setHidden = (pageId, isHidden) =>
@@ -53,6 +61,7 @@ export function createDeleteQueue({ remove, delay = DELETE_DELAY_MS, setTimer = 
     dismissToast(entry.toastId);
     try {
       await remove(pageId, opts);
+      committedAt.set(pageId, now());
       committed.update((n) => n + 1);
     } catch {
       setHidden(pageId, false);
@@ -90,6 +99,31 @@ export function createDeleteQueue({ remove, delay = DELETE_DELAY_MS, setTimer = 
     return ids.length;
   }
 
+  /**
+   * A list was fetched from the server, starting at `fetchedAt`, and holds `ids`.
+   * A page deleted before that fetch but listed again was saved again: show it.
+   */
+  function reconcile(ids, fetchedAt) {
+    const back = [...ids].filter((id) => committedAt.has(id) && committedAt.get(id) < fetchedAt);
+    if (!back.length) return;
+    for (const id of back) committedAt.delete(id);
+    hidden.update((current) => {
+      const next = new Set(current);
+      for (const id of back) next.delete(id);
+      return next;
+    });
+  }
+
+  /**
+   * Is this hidden page's delete missing from a total fetched at `fetchedAt`?
+   * True while it's pending, or if the server confirmed it after that fetch began.
+   */
+  function notInTotal(id, fetchedAt) {
+    if (pending.has(id)) return true;
+    const at = committedAt.get(id);
+    return at !== undefined && at >= fetchedAt;
+  }
+
   /** Show a short error toast that dismisses itself. */
   function notify(message) {
     const id = addToast({ kind: 'error', message });
@@ -98,7 +132,7 @@ export function createDeleteQueue({ remove, delay = DELETE_DELAY_MS, setTimer = 
   }
 
   return {
-    hidden, toasts, committed, schedule, undo, flush, dismissToast, notify,
+    hidden, toasts, committed, schedule, undo, flush, dismissToast, notify, reconcile, notInTotal,
     isPending: (id) => pending.has(id),
   };
 }

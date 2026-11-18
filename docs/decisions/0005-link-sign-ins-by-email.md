@@ -29,4 +29,6 @@ Linking by email is only safe if the email is proven. Otherwise anyone could sig
 
 - **Easier:** both sign-in methods open the same library, with no change to Solr data: the library id is still the first `sub`.
 - **Harder:** the server now stores email addresses, which the [privacy page](../privacy.md) states, and **Delete all** removes them. `accounts.db` has to be backed up with Solr's data.
-- A first request for a new sign-in costs one call to Cognito; known sign-ins are answered from SQLite.
+- A first request for a new sign-in costs one call to Cognito; known sign-ins are answered from SQLite, and re-checked with Cognito once a day.
+
+**Revised, November 2026** (after a bug audit): pages saved by a sign-in before it linked were stranded under its old id. They're now moved into the linked library in the background. And a stored email link used to last forever, so if someone changed their email, whoever later verified the old address could have been linked to their library. The daily re-check now drops a link whose email changed or stopped being verified.
