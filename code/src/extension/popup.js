@@ -182,8 +182,12 @@ function mainView() {
     if (state.autoCapture) {
         // Manual saving works whatever the automatic rules say (skipped sites, long
         // videos, pages opened before auto-capture was on, failed captures).
-        const last = state.lastAutoSave ? `last saved ${ago(state.lastAutoSave.at)}` : "nothing saved yet";
-        const status = state.excluded ? "This site is excluded" : `Saving automatically · ${last}`;
+        // This page's own status. (It used to show the time of the last auto-save of
+        // any page, which read as if this page had been saved; "Auto-saved today"
+        // below lists recent automatic saves instead.)
+        const status = state.excluded
+            ? "Not saved · this site is excluded"
+            : "Not saved yet · auto-capture is on";
         const site = state.excluded
             ? outline("Allow this site", () => setExcluded(false))
             : outline("Skip this site", () => setExcluded(true));

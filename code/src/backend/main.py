@@ -43,6 +43,13 @@ class DropQueryStrings(logging.Filter):
 
 logging.getLogger("uvicorn.access").addFilter(DropQueryStrings())
 
+# httpx logs every request it makes at INFO, with the full URL. Solr queries go
+# out as GET URLs carrying the user id and, for searches, the words searched for,
+# and Cognito/Gemini calls would show up too, so keep only its warnings and errors.
+QUIET_LOGGERS = ("httpx", "httpcore")
+for _name in QUIET_LOGGERS:
+    logging.getLogger(_name).setLevel(logging.WARNING)
+
 _PAGE_ID_RE = re.compile(r"^[0-9a-f]{32}$")
 
 

@@ -387,3 +387,17 @@ def test_save_without_youtube_details_passes_none(client):
 def test_youtube_details_are_size_limited(client, youtube):
     body = {"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "title": "x", "content": "x", "youtube": youtube}
     assert client.post("/memory", json=body).status_code == 422
+
+
+def test_solr_and_cognito_requests_are_not_logged(caplog):
+    """httpx logs each request's full URL at INFO; Solr GETs carry the user id and
+    the search text, so the API must keep those out of its logs."""
+    import logging
+    import httpx
+    from backend import main  # noqa: F401  (importing configures the loggers)
+
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, json={}))
+    with caplog.at_level(logging.INFO), httpx.Client(transport=transport) as http:
+        http.get("http://solr:8983/solr/core/select", params={"q": "my secret search", "fq": "user_id:abc"})
+    assert "my secret search" not in caplog.text
+    assert "user_id" not in caplog.text

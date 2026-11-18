@@ -66,7 +66,7 @@ docker compose up -d --build
 docker compose logs -f backend
 ```
 
-Container logs are capped at 3 files of 10 MB per service. They contain page ids, not the URLs people save.
+Container logs are capped at 3 files of 10 MB per service. They contain page ids, not the URLs people save or what they search for: query strings are dropped from the access log, and the backend's own requests to Solr and Cognito aren't logged.
 
 ### Schema changes
 
