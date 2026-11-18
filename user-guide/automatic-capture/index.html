@@ -603,6 +603,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#auto-saved-today" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto-saved today
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#excluded-sites" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1603,6 +1614,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0011-auto-capture-keeps-only-content/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0011 Auto-capture keeps only content
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2174,31 +2213,50 @@
 </ul>
 <p><code>Alt+Shift+M</code> opens the MemoryLane website from anywhere in Chrome.</p>
 <h2 id="automatic-capture">Automatic capture<a class="headerlink" href="#automatic-capture" title="Permanent link">&para;</a></h2>
-<p>Automatic capture saves eligible pages when they finish loading. It is <strong>off by default</strong>: you turn it on in the extension popup, and the first time you do, the popup explains what it does before enabling it.</p>
+<p>Automatic capture saves pages you actually read, as long as they look like something worth keeping: an article, documentation, a post or a video. It is <strong>off by default</strong>: you turn it on in the extension popup, and the first time you do, the popup explains what it does before enabling it.</p>
 <p>It only runs while you're signed in. Signing out stops it.</p>
+<p>Instead of trying to list every site you wouldn't want saved, it only keeps pages that pass three tests:</p>
+<ol>
+<li><strong>The address isn't private</strong>: not email, banking, social media, a private app, a local address, or an account area (lists below).</li>
+<li><strong>You read it</strong>: the page was on screen for 30 seconds, or you scrolled at least halfway down a long page. Pages you bounce off (wrong clicks, redirects, login walls) are never saved.</li>
+<li><strong>It reads like content</strong>: at least 150 words of readable text that isn't mostly links, and no sign of being a private screen: no visible password field, no compose box or document editor, not mostly a form, and not marked <code>noindex</code> (the tag most logged-in pages carry). Videos pass on their page type.</li>
+</ol>
 <pre class="mermaid"><code>flowchart LR
     load([Page finishes loading]) --&gt; on{Auto-capture on&lt;br/&gt;and signed in?}
     on -- no --&gt; skip([Not saved])
     on -- yes --&gt; ok{Eligible page, not an&lt;br/&gt;excluded site, not MemoryLane?}
     ok -- no --&gt; skip
-    ok -- yes --&gt; recent{Being saved, or auto-captured&lt;br/&gt;in the last minute?}
+    ok -- yes --&gt; read{Read it? 30 s in view,&lt;br/&gt;or scrolled halfway}
+    read -- no --&gt; skip
+    read -- yes --&gt; recent{Being saved, or auto-captured&lt;br/&gt;in the last minute?}
     recent -- yes --&gt; skip
     recent -- no --&gt; extract[Extract the page:&lt;br/&gt;HTML + text, or a video's captions]
-    extract --&gt; post[POST /api/memory]
-    post --&gt; stored([Cleaned, chunked, embedded and&lt;br/&gt;stored under your account])</code></pre>
+    extract --&gt; content{Reads like content?&lt;br/&gt;no password field, editor, noindex}
+    content -- no --&gt; skip
+    content -- yes --&gt; post[POST /api/memory]
+    post --&gt; server{Server checks&lt;br/&gt;the address again}
+    server -- refused --&gt; skip
+    server -- ok --&gt; stored([Cleaned, chunked, embedded and&lt;br/&gt;stored under your account])</code></pre>
 <h3 id="what-automatic-capture-skips">What automatic capture skips<a class="headerlink" href="#what-automatic-capture-skips" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Social-media sites</li>
 <li>Banks and payment services</li>
 <li>Email: Gmail, Outlook, Yahoo Mail, Proton Mail, iCloud Mail and other webmail (including <code>mail.</code> and <code>webmail.</code> sites, and <code>/owa/</code> and <code>/webmail/</code> pages)</li>
+<li>Private apps: Google Docs, Drive, Calendar and Classroom, Microsoft Teams and OneDrive, Notion, Slack, WhatsApp Web, Telegram Web, Figma, Trello, Dropbox, iCloud, chat assistants, cloud consoles, and college systems (Canvas, Blackboard, and <code>moodle.</code>, <code>lms.</code>, <code>portal.</code> and similar sites)</li>
+<li>Local and intranet addresses: <code>localhost</code>, <code>192.168.x.x</code>, <code>10.x.x.x</code>, <code>.local</code>, <code>.internal</code></li>
+<li>Account areas of any site: dashboard, admin, settings, profile, inbox, messages, notifications, cart and orders pages</li>
+<li>Links that carry a secret, such as <code>?token=</code>, <code>?code=</code> or <code>?session=</code></li>
 <li>Login, sign-up, account, password, checkout, billing, payment and wallet pages</li>
 <li>Browser-internal pages (<code>chrome://</code>, <code>chrome-extension://</code>, <code>file://</code>, ...)</li>
 <li>Search-engine result pages</li>
 <li>Utility pages such as error, privacy, terms, cookie and sitemap pages</li>
 <li>Files: PDF, images, audio and video, archives, CSV, JSON, XML</li>
-<li>Pages with very little text</li>
+<li>Pages that don't read like content (see the three tests above)</li>
 <li>YouTube pages that aren't a video, and videos longer than two hours</li>
 </ul>
+<p>The server checks the address rules (and <code>noindex</code>) again for every automatic save, so even an outdated extension can't store these pages.</p>
+<h3 id="auto-saved-today">Auto-saved today<a class="headerlink" href="#auto-saved-today" title="Permanent link">&para;</a></h3>
+<p>The popup lists the last few pages automatic capture saved in the past day. Each has <strong>Remove</strong>, which deletes it, and <strong>Never this site</strong>, which deletes it and excludes its site, so a page you didn't want is gone in one click.</p>
 <h3 id="excluded-sites">Excluded sites<a class="headerlink" href="#excluded-sites" title="Permanent link">&para;</a></h3>
 <p>From the popup you can exclude the current site with one click. The extension's options page lists every excluded site, and you can add or remove them there. Excluded sites are never captured automatically, but you can still save a page from them by hand.</p>
 <p>Manual saving skips the automatic-capture filters: if you press <strong>Remember this page</strong>, the page is saved (as long as it has enough text). The button is there whether or not automatic capture is on, so you can still save a page it skipped, such as a Reddit thread or a long video.</p>

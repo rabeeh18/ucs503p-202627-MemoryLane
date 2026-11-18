@@ -1493,6 +1493,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../decisions/0011-auto-capture-keeps-only-content/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0011 Auto-capture keeps only content
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2196,6 +2224,9 @@
 <li>Social-media sites</li>
 <li>Banks and payment services</li>
 <li>Email: Gmail, Outlook, Yahoo Mail, Proton Mail, iCloud Mail and other webmail</li>
+<li>Private apps (Google Docs and Drive, Teams, Notion, Slack, WhatsApp Web, college systems and similar), local and intranet addresses, account areas of any site, and links carrying a secret</li>
+<li>Pages that don't read like content: with a visible password field, a compose box or editor, mostly a form, or marked <code>noindex</code></li>
+<li>Pages you didn't stay on: a page is only saved after 30 seconds in view, or once you've scrolled halfway</li>
 <li>Login, sign-up, account, password, checkout, billing, payment and wallet pages</li>
 <li>Browser-internal pages (<code>chrome://</code>, extensions, <code>file://</code>, ...)</li>
 <li>Search-engine result pages</li>
@@ -2204,7 +2235,7 @@
 <li>Any site you add to <strong>Excluded sites</strong> in the extension</li>
 <li>MemoryLane's own website</li>
 </ul>
-<p>The filtering happens in the extension, before anything is sent.</p>
+<p>The filtering happens in the extension, before anything is sent. The server checks the address rules again for every automatic save, so an outdated extension can't store these pages either. The popup's <strong>Auto-saved today</strong> list shows what was saved automatically, with one-click removal.</p>
 <h2 id="youtube-videos">YouTube videos<a class="headerlink" href="#youtube-videos" title="Permanent link">&para;</a></h2>
 <p>When you save a YouTube video, the extension asks YouTube, from inside the YouTube tab you're on, for that video's captions, title, description and length, and sends them to MemoryLane with the page. It contacts only youtube.com, sends no cookies, and does this only for the video you are saving.</p>
 <h2 id="what-is-sent-to-google-gemini">What is sent to Google Gemini<a class="headerlink" href="#what-is-sent-to-google-gemini" title="Permanent link">&para;</a></h2>

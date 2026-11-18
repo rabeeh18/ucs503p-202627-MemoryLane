@@ -1581,6 +1581,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0011-auto-capture-keeps-only-content/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0011 Auto-capture keeps only content
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2193,11 +2221,15 @@
 </tr>
 <tr>
 <td><code>content.js</code></td>
-<td>Injected on demand; returns the page's HTML, text and canonical URL</td>
+<td>Injected on demand; returns the page's HTML, text, canonical URL and measurements for auto-capture (words, links, password fields, editors, <code>noindex</code>)</td>
+</tr>
+<tr>
+<td><code>engagement.js</code></td>
+<td>Injected when auto-capture is on; reports once the page has been read (30 s in view, or scrolled halfway)</td>
 </tr>
 <tr>
 <td><code>page_filter.js</code></td>
-<td>Auto-capture eligibility, saveable pages, excluded-site matching</td>
+<td>Auto-capture rules (private addresses, <code>assessContent</code> for what's on the page), saveable pages, excluded-site matching</td>
 </tr>
 <tr>
 <td><code>site_marker.js</code></td>
@@ -2205,7 +2237,7 @@
 </tr>
 <tr>
 <td><code>popup.*</code>, <code>options.*</code></td>
-<td>The popup and the excluded-sites page</td>
+<td>The popup (with <strong>Auto-saved today</strong>) and the excluded-sites page</td>
 </tr>
 <tr>
 <td><code>config.js</code></td>
