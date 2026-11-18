@@ -21,7 +21,7 @@ Install the test tools with `pip install -r requirements-dev.txt`. The tests nee
 | `test_url_normalization.py` | URL normalisation and page ids |
 | `test_retrieval.py` | RRF, page grouping, the relevance floor |
 | `test_query_intent.py` | Site words, time phrases and URLs in queries |
-| `test_page_filter.py` | The server's copy of the auto-capture rules, including email pages |
+| `test_page_filter.py` | The server's copy of the auto-capture rules (email, private apps, local addresses, secret links, `noindex`), and the API refusing unsafe automatic saves while still allowing manual ones |
 | `test_audit_fixes.py` | Fixes from the November 2026 bug audit: one save at a time per user, the page limit before Solr shows new pages, exact URLs keeping their case, BM25-only and vector-only runs, YouTube `/live/` links, moving pages after sign-ins link, and re-checking changed emails |
 | `test_rerank.py` | Optional cross-encoder reranking |
 | `test_snippets.py` | Snippet sentence choice, length and fallbacks |
@@ -39,7 +39,7 @@ npm test          # vitest
 npm run check     # svelte-check (types and Svelte diagnostics)
 ```
 
-Unit tests cover the pure modules in `src/lib/`: delete-with-undo, including pages saved again after a delete (`deletes.test.js`), domain letters (`domain.test.js`), home-page greetings (`greetings.test.js`), problem reports (`report.test.js`), the extension's YouTube fetch (`extensionYoutube.test.js`) and auto-capture rules (`extensionFilter.test.js`), and the docs site's meaning-based search (`docsSearch.test.js`).
+Unit tests cover the pure modules in `src/lib/`: delete-with-undo, including pages saved again after a delete (`deletes.test.js`), domain letters (`domain.test.js`), home-page greetings (`greetings.test.js`), problem reports (`report.test.js`), the extension's YouTube fetch (`extensionYoutube.test.js`) and auto-capture rules, both addresses and what's on the page (`extensionFilter.test.js`), and the docs site's meaning-based search (`docsSearch.test.js`).
 
 ## Continuous integration
 

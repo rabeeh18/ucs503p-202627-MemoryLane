@@ -27,6 +27,33 @@ const EMAIL_HOSTS = [
 const EMAIL_HOST_PREFIXES = ["mail.", "webmail.", "email."];
 const EMAIL_PATH_SEGMENTS = ["owa", "webmail", "roundcube", "squirrelmail"];
 
+// Web apps that show your own private things: documents, chats, calendars,
+// coursework, cloud consoles. Kept identical to backend/page_filter.py.
+const PRIVATE_APP_HOSTS = [
+    "docs.google.com", "drive.google.com", "calendar.google.com", "keep.google.com",
+    "classroom.google.com", "contacts.google.com", "photos.google.com", "meet.google.com",
+    "chat.google.com", "myaccount.google.com", "onedrive.live.com", "sharepoint.com",
+    "office.com", "teams.microsoft.com", "teams.live.com", "notion.so", "notion.site",
+    "slack.com", "discord.gg", "web.whatsapp.com", "web.telegram.org", "messenger.com",
+    "figma.com", "miro.com", "trello.com", "asana.com", "atlassian.net", "monday.com",
+    "dropbox.com", "box.com", "icloud.com", "zoom.us", "chatgpt.com", "chat.openai.com",
+    "claude.ai", "gemini.google.com", "instructure.com", "blackboard.com",
+    "console.aws.amazon.com", "portal.azure.com", "console.cloud.google.com",
+    "vercel.com", "netlify.app", "app.netlify.com", "dashboard.stripe.com",
+];
+// Hosts that are private apps whatever the company (moodle.<university>, lms.<college>).
+const PRIVATE_HOST_LABELS = ["moodle", "lms", "intranet", "portal", "erp", "webkiosk"];
+// Paths of a site's private area rather than its public pages.
+const PRIVATE_PATH_SEGMENTS = [
+    "dashboard", "admin", "settings", "preferences", "profile", "inbox", "messages",
+    "notifications", "cart", "basket", "orders", "my-account", "myaccount", "console",
+];
+// Query parameters that carry a secret: opening the link again would reuse it.
+const SECRET_PARAMS = [
+    "token", "access_token", "id_token", "auth", "code", "session", "sessionid", "sid",
+    "key", "apikey", "api_key", "sig", "signature", "otp", "ticket", "secret", "password",
+];
+
 const LOGIN_ACCOUNT_SEGMENTS = [
     "login", "log-in", "signin", "sign-in", "signup", "sign-up",
     "register", "auth", "oauth", "sso", "account", "accounts",
@@ -61,6 +88,75 @@ function hostMatches(host, domain) {
 /** The same document, ignoring the #fragment (in-page jumps don't change the page). */
 export function sameDocument(a, b) {
     return String(a || "").split("#")[0] === String(b || "").split("#")[0];
+}
+
+/** Local or intranet addresses: localhost, 10.x, 192.168.x, 172.16-31.x, .local, .internal. */
+function isPrivateNetworkHost(host) {
+    if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")
+        || host.endsWith(".internal") || host.endsWith(".lan") || host.endsWith(".home.arpa")) {
+        return true;
+    }
+    const ip = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+    if (ip) {
+        const [a, b] = [Number(ip[1]), Number(ip[2])];
+        return a === 10 || a === 127 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31)
+            || (a === 169 && b === 254) || a === 0;
+    }
+    return host.startsWith("[");  // IPv6 literals: almost always local in practice
+}
+
+/** Pages that show the person's own private things: private apps, local sites,
+ * account areas, and links carrying a secret. */
+export function isPrivateUrl(url) {
+    let parsed = url;
+    if (!(parsed instanceof URL)) {
+        try {
+            parsed = new URL(String(url || "").trim());
+        } catch (_err) {
+            return false;
+        }
+    }
+    const host = (parsed.hostname || "").toLowerCase().replace(/^www\./, "");
+    if (isPrivateNetworkHost(host)) return true;
+    if (PRIVATE_APP_HOSTS.some((d) => hostMatches(host, d))) return true;
+    if (host.split(".").some((label) => PRIVATE_HOST_LABELS.includes(label))) return true;
+    const segments = (parsed.pathname || "").split("/").filter(Boolean).map((s) => s.toLowerCase());
+    if (segments.some((seg) => PRIVATE_PATH_SEGMENTS.includes(seg))) return true;
+    for (const name of parsed.searchParams.keys()) {
+        if (SECRET_PARAMS.includes(name.toLowerCase())) return true;
+    }
+    return false;
+}
+
+// ---- what's on the page -----------------------------------------------------------
+//
+// content.js measures the page (see pageSignals there); this decides from those
+// measurements whether automatic capture should keep it. The idea: only save pages
+// that read like something worth keeping (an article, docs, a post, a video), and
+// skip anything that looks like an app, a form or a private screen, without having
+// to name every such site.
+
+export const MIN_AUTO_WORDS = 150;
+const MAX_LINK_RATIO = 0.5;         // more link text than this: a menu, feed or index page
+const MAX_EDITOR_AREA = 60000;      // px²: a visible compose box or document editor
+const FORM_INPUTS = 8;              // this many visible fields with little text: a form
+
+/**
+ * @param {{words: number, linkWords: number, ogType: string, noindex: boolean,
+ *          passwordFields: number, editorArea: number, inputs: number}} s
+ * @returns {{ok: true} | {ok: false, reason: string}}
+ */
+export function assessContent(s) {
+    if (!s) return { ok: false, reason: "couldn't read the page" };
+    if (s.passwordFields > 0) return { ok: false, reason: "it has a password field" };
+    if (s.editorArea >= MAX_EDITOR_AREA) return { ok: false, reason: "it's an editor or compose screen" };
+    if (s.noindex) return { ok: false, reason: "it asks not to be indexed, as private pages usually do" };
+    const type = String(s.ogType || "").toLowerCase();
+    if (type.startsWith("video")) return { ok: true };
+    if (s.words < MIN_AUTO_WORDS) return { ok: false, reason: "it has too little text to read" };
+    if (s.words > 0 && s.linkWords / s.words > MAX_LINK_RATIO) return { ok: false, reason: "it's mostly links" };
+    if (s.inputs >= FORM_INPUTS && s.words < 400) return { ok: false, reason: "it's mostly a form" };
+    return { ok: true };
 }
 
 /** Webmail inboxes and messages, including iCloud Mail (icloud.com/mail). */
@@ -111,6 +207,9 @@ export function isAutoCaptureEligible(url) {
         return false;
     }
     if (isEmailUrl(parsed)) {
+        return false;
+    }
+    if (isPrivateUrl(parsed)) {
         return false;
     }
     if (host.split(".")[0].includes("bank")) {

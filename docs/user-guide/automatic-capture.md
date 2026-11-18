@@ -15,9 +15,15 @@ Open the extension on any page and press **Remember this page**.
 
 ## Automatic capture
 
-Automatic capture saves eligible pages when they finish loading. It is **off by default**: you turn it on in the extension popup, and the first time you do, the popup explains what it does before enabling it.
+Automatic capture saves pages you actually read, as long as they look like something worth keeping: an article, documentation, a post or a video. It is **off by default**: you turn it on in the extension popup, and the first time you do, the popup explains what it does before enabling it.
 
 It only runs while you're signed in. Signing out stops it.
+
+Instead of trying to list every site you wouldn't want saved, it only keeps pages that pass three tests:
+
+1. **The address isn't private**: not email, banking, social media, a private app, a local address, or an account area (lists below).
+2. **You read it**: the page was on screen for 30 seconds, or you scrolled at least halfway down a long page. Pages you bounce off (wrong clicks, redirects, login walls) are never saved.
+3. **It reads like content**: at least 150 words of readable text that isn't mostly links, and no sign of being a private screen: no visible password field, no compose box or document editor, not mostly a form, and not marked `noindex` (the tag most logged-in pages carry). Videos pass on their page type.
 
 ```mermaid
 flowchart LR
@@ -25,11 +31,17 @@ flowchart LR
     on -- no --> skip([Not saved])
     on -- yes --> ok{Eligible page, not an<br/>excluded site, not MemoryLane?}
     ok -- no --> skip
-    ok -- yes --> recent{Being saved, or auto-captured<br/>in the last minute?}
+    ok -- yes --> read{Read it? 30 s in view,<br/>or scrolled halfway}
+    read -- no --> skip
+    read -- yes --> recent{Being saved, or auto-captured<br/>in the last minute?}
     recent -- yes --> skip
     recent -- no --> extract[Extract the page:<br/>HTML + text, or a video's captions]
-    extract --> post[POST /api/memory]
-    post --> stored([Cleaned, chunked, embedded and<br/>stored under your account])
+    extract --> content{Reads like content?<br/>no password field, editor, noindex}
+    content -- no --> skip
+    content -- yes --> post[POST /api/memory]
+    post --> server{Server checks<br/>the address again}
+    server -- refused --> skip
+    server -- ok --> stored([Cleaned, chunked, embedded and<br/>stored under your account])
 ```
 
 ### What automatic capture skips
@@ -37,13 +49,23 @@ flowchart LR
 - Social-media sites
 - Banks and payment services
 - Email: Gmail, Outlook, Yahoo Mail, Proton Mail, iCloud Mail and other webmail (including `mail.` and `webmail.` sites, and `/owa/` and `/webmail/` pages)
+- Private apps: Google Docs, Drive, Calendar and Classroom, Microsoft Teams and OneDrive, Notion, Slack, WhatsApp Web, Telegram Web, Figma, Trello, Dropbox, iCloud, chat assistants, cloud consoles, and college systems (Canvas, Blackboard, and `moodle.`, `lms.`, `portal.` and similar sites)
+- Local and intranet addresses: `localhost`, `192.168.x.x`, `10.x.x.x`, `.local`, `.internal`
+- Account areas of any site: dashboard, admin, settings, profile, inbox, messages, notifications, cart and orders pages
+- Links that carry a secret, such as `?token=`, `?code=` or `?session=`
 - Login, sign-up, account, password, checkout, billing, payment and wallet pages
 - Browser-internal pages (`chrome://`, `chrome-extension://`, `file://`, ...)
 - Search-engine result pages
 - Utility pages such as error, privacy, terms, cookie and sitemap pages
 - Files: PDF, images, audio and video, archives, CSV, JSON, XML
-- Pages with very little text
+- Pages that don't read like content (see the three tests above)
 - YouTube pages that aren't a video, and videos longer than two hours
+
+The server checks the address rules (and `noindex`) again for every automatic save, so even an outdated extension can't store these pages.
+
+### Auto-saved today
+
+The popup lists the last few pages automatic capture saved in the past day. Each has **Remove**, which deletes it, and **Never this site**, which deletes it and excludes its site, so a page you didn't want is gone in one click.
 
 ### Excluded sites
 

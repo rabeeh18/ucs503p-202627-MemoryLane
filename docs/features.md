@@ -2,7 +2,7 @@
 
 ## Browser extension
 
-The Chrome extension saves the current page with **Remember this page**, and lets you undo a save straight away. Automatic capture is optional and off by default, and you can exclude any site from it. `Alt+Shift+M` opens the MemoryLane website.
+The Chrome extension saves the current page with **Remember this page**, and lets you undo a save straight away. Automatic capture is optional and off by default. It only saves pages you actually read that look like articles, docs, posts or videos, skips private pages such as email and documents, and lists what it saved today so you can remove anything in one click. You can exclude any site. `Alt+Shift+M` opens the MemoryLane website.
 
 [More on saving pages](user-guide/automatic-capture.md)
 

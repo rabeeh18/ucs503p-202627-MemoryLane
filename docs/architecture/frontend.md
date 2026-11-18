@@ -41,10 +41,11 @@ The extension is Manifest V3, in `code/src/extension`, written as plain ES modul
 | `background.js` | Service worker: sign-in, save, undo, auto-capture, excluded sites, `Alt+Shift+M` |
 | `auth.js` | Cognito PKCE through `chrome.identity.launchWebAuthFlow`; tokens in `chrome.storage.local` |
 | `api.js` | Authenticated fetch with one refresh-and-retry |
-| `content.js` | Injected on demand; returns the page's HTML, text and canonical URL |
-| `page_filter.js` | Auto-capture eligibility, saveable pages, excluded-site matching |
+| `content.js` | Injected on demand; returns the page's HTML, text, canonical URL and measurements for auto-capture (words, links, password fields, editors, `noindex`) |
+| `engagement.js` | Injected when auto-capture is on; reports once the page has been read (30 s in view, or scrolled halfway) |
+| `page_filter.js` | Auto-capture rules (private addresses, `assessContent` for what's on the page), saveable pages, excluded-site matching |
 | `site_marker.js` | Runs only on memorylane.site; tells the site the extension is installed |
-| `popup.*`, `options.*` | The popup and the excluded-sites page |
+| `popup.*`, `options.*` | The popup (with **Auto-saved today**) and the excluded-sites page |
 | `config.js` | Website, API and Cognito endpoints |
 
 The extension's ID is fixed by the public `key` in `manifest.json` (`igdbkkmpnplmboeccgigbjgoefecdhck`), so its Cognito redirect URL is the same on every machine.

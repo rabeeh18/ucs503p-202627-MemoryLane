@@ -195,6 +195,44 @@ function mainView() {
     return [pageCard([dot(), "Not saved yet"]), primary("Remember this page", savePage)];
 }
 
+const AUTO_SAVES_SHOWN = 5;
+
+/** "Auto-saved today": the last few automatic saves, each removable in one click. */
+function autoSavesView() {
+    const saves = (state.autoSaves || []).slice(0, AUTO_SAVES_SHOWN);
+    if (!saves.length) return null;
+    return h("section", { class: "auto-saves", "aria-label": "Auto-saved today" },
+        h("div", { class: "auto-saves-head" }, "Auto-saved today"),
+        h("ul", {},
+            ...saves.map((save) => h("li", { class: "auto-save" },
+                h("div", { class: "auto-save-text" },
+                    h("a", {
+                        href: save.url, class: "auto-save-title", title: save.title,
+                        onclick: (e) => { e.preventDefault(); openTab(save.url); },
+                    }, save.title || save.url),
+                    h("span", { class: "auto-save-meta" }, `${domainOf(save.url)} · ${ago(save.at)}`),
+                ),
+                h("div", { class: "auto-save-actions" },
+                    h("button", { type: "button", class: "link-button", onclick: () => removeAutoSave(save, false) }, "Remove"),
+                    h("button", {
+                        type: "button", class: "link-button",
+                        title: `Remove it and never auto-save from ${domainOf(save.url)}`,
+                        onclick: () => removeAutoSave(save, true),
+                    }, "Never this site"),
+                ),
+            )),
+        ),
+    );
+}
+
+function domainOf(url) {
+    try {
+        return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+        return "";
+    }
+}
+
 function renderSignedIn() {
     account.hidden = false;
     const email = state.email || "";
@@ -207,6 +245,7 @@ function renderSignedIn() {
     } else {
         fill(body,
             ...mainView(),
+            autoSavesView(),
             h("div", { class: "search-link" },
                 h("a", { href: WEB_APP_URL, onclick: (e) => { e.preventDefault(); openTab(WEB_APP_URL); } },
                     "Search your saved pages ↗"),
@@ -305,6 +344,20 @@ async function setAutoCapture(enabled) {
     await send({ type: "SET_AUTO_CAPTURE", enabled });
     view = null;
     await load();
+}
+
+async function removeAutoSave(save, excludeSite) {
+    const result = await send({ type: "REMOVE_AUTO_SAVE", id: save.id, url: save.url, excludeSite });
+    if (result?.reason === "signed-out") {
+        state.signedIn = false;
+    } else if (!result?.ok) {
+        view = { kind: "error", message: result?.error || "Couldn't remove the page. Try again.", retry: () => removeAutoSave(save, excludeSite) };
+    } else {
+        state.autoSaves = (state.autoSaves || []).filter((s) => s.id !== save.id);
+        if (state.status?.page?.id === save.id) state.status = { saved: false, page: null };
+        if (excludeSite && domainOf(save.url) === state.host) state.excluded = true;
+    }
+    render();
 }
 
 async function setExcluded(excluded) {

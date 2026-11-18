@@ -101,7 +101,7 @@ def test_memory_requires_fields(client, solr):
     response = client.post("/memory", json={"url": "", "title": "t", "content": "c" * 250})
     assert response.status_code == 400
 
-    response = client.post("/memory", json={"url": "https://ex.com", "title": "t", "content": "too short"})
+    response = client.post("/memory", json={"url": "https://ex.com/a", "title": "t", "content": "too short"})
     assert response.status_code == 422
     assert response.json()["detail"] == "Not enough readable text on this page"
 
@@ -188,9 +188,9 @@ def test_memory_lookalike_youtube_host_is_not_treated_as_youtube(client, solr):
 def test_memory_input_limits(client, solr):
     too_long_url = "https://example.com/" + "a" * 2048
     assert client.post("/memory", json={"url": too_long_url, "title": "t", "content": "c"}).status_code == 422
-    assert client.post("/memory", json={"url": "https://e.com", "title": "t" * 501, "content": "c"}).status_code == 422
-    assert client.post("/memory", json={"url": "https://e.com", "title": "t", "content": "c" * 500_001}).status_code == 422
-    assert client.post("/memory", json={"url": "https://e.com", "title": "t", "content": "c",
+    assert client.post("/memory", json={"url": "https://e.com/a", "title": "t" * 501, "content": "c"}).status_code == 422
+    assert client.post("/memory", json={"url": "https://e.com/a", "title": "t", "content": "c" * 500_001}).status_code == 422
+    assert client.post("/memory", json={"url": "https://e.com/a", "title": "t", "content": "c",
                                         "html": "h" * 3_000_001}).status_code == 422
     assert client.post("/search", json={"query": "q" * 501}).status_code == 422
 
@@ -374,7 +374,7 @@ def test_save_without_youtube_details_passes_none(client):
     from backend.ingest import IngestResult
     result = IngestResult("saved", "ok", PAGE_ID, "https://e.com/", "T", "e.com", "t", 1)
     with patch("backend.main.ingest_page", return_value=result) as ingest:
-        client.post("/memory", json={"url": "https://e.com/", "title": "t", "content": LONG_TEXT})
+        client.post("/memory", json={"url": "https://e.com/page", "title": "t", "content": LONG_TEXT})
     assert ingest.call_args.kwargs["youtube"] is None
 
 

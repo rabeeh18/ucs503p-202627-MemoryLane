@@ -3,10 +3,15 @@
 import { COGNITO_DOMAIN, WEB_APP_URL } from "./config.js";
 import { getSession, signIn, signOut } from "./auth.js";
 import { ApiError, apiFetch } from "./api.js";
-import { isAutoCaptureEligible, isExcluded, isSaveableUrl, normalizeHost, sameDocument } from "./page_filter.js";
+import {
+    assessContent, isAutoCaptureEligible, isExcluded, isSaveableUrl, normalizeHost, sameDocument,
+} from "./page_filter.js";
 import { fetchYouTubeVideo, youtubeVideoId } from "./youtube.js";
 
 const RECENT_CAPTURE_MS = 60 * 1000;
+// Auto-saves the popup lists under "Auto-saved today".
+const AUTO_SAVES_KEPT = 20;
+const AUTO_SAVES_SHOWN_MS = 24 * 60 * 60 * 1000;
 const MIN_AUTO_TEXT_CHARS = 200;
 const OWN_HOSTS = [normalizeHost(WEB_APP_URL), normalizeHost(COGNITO_DOMAIN)];
 
@@ -19,6 +24,7 @@ const SETTINGS_DEFAULTS = {
     autoCaptureConfirmed: false,
     excludedSites: [],
     lastAutoSave: null,
+    autoSaves: [],
 };
 
 async function getSettings() {
@@ -90,12 +96,13 @@ async function extractTabContent(tabId) {
                 text: result.text || "",
                 canonicalUrl: result.canonicalUrl || null,
                 url: result.url || null,
+                signals: result.signals || null,
             };
         }
     } catch (_err) {
         // Pages Chrome won't let extensions script; the server may still manage (e.g. YouTube).
     }
-    return { html: null, text: "", canonicalUrl: null, url: null };
+    return { html: null, text: "", canonicalUrl: null, url: null, signals: null };
 }
 
 /**
@@ -125,7 +132,7 @@ async function saveTab(tab, { manual }) {
     try {
         const videoId = youtubeVideoId(tab.url);
         // YouTube blocks the server, so a video's transcript and details are fetched here.
-        const [{ html, text, canonicalUrl, url: documentUrl }, youtube] = await Promise.all([
+        const [{ html, text, canonicalUrl, url: documentUrl, signals }, youtube] = await Promise.all([
             extractTabContent(tab.id),
             videoId ? youtubeDetails(tab.id, videoId) : null,
         ]);
@@ -136,6 +143,14 @@ async function saveTab(tab, { manual }) {
         }
         if (!manual && !youtube && text.length < MIN_AUTO_TEXT_CHARS && !html) {
             return { ok: false, reason: "low-content" };
+        }
+        // Automatic capture keeps only pages that read like content (page_filter.js).
+        if (!manual && !youtube) {
+            const verdict = assessContent(signals);
+            if (!verdict.ok) {
+                console.info(`MemoryLane: not auto-saving ${tab.url}: ${verdict.reason}`);
+                return { ok: false, reason: "not-content", error: verdict.reason };
+            }
         }
         const body = {
             url: tab.url,
@@ -177,6 +192,7 @@ async function popupState() {
         autoCapture: settings.autoCapture,
         autoCaptureConfirmed: settings.autoCaptureConfirmed,
         lastAutoSave: settings.lastAutoSave,
+        autoSaves: (settings.autoSaves || []).filter((s) => Date.now() - s.at < AUTO_SAVES_SHOWN_MS),
         tab: tab ? { title: tab.title || "", url: tab.url || "", domain: normalizeHost(tab.url) } : null,
         host: tab ? normalizeHost(tab.url) : "",
         saveable: Boolean(tab && isSaveableUrl(tab.url) && !isOwnSite(tab.url)),
@@ -239,18 +255,43 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         if (!isAutoCaptureEligible(tab.url) || isExcluded(tab.url, settings.excludedSites) || isOwnSite(tab.url)) {
             return;
         }
-        capturedTabUrls.set(tabId, tab.url); // ignore repeated "complete" events while saving
-        const result = await saveTab(tab, { manual: false });
-        if (!result.ok && capturedTabUrls.get(tabId) === tab.url) {
-            capturedTabUrls.delete(tabId); // failed: the next load of this page tries again
-        }
-        if (result.ok) {
-            await chrome.storage.local.set({
-                lastAutoSave: { title: tab.title || tab.url, url: tab.url, at: Date.now() },
-            });
+        // Don't save yet: engagement.js reports back once the page has been read
+        // (30 s in view, or scrolled through), so pages you bounce off aren't kept.
+        capturedTabUrls.set(tabId, tab.url); // ignore repeated "complete" events
+        try {
+            await chrome.scripting.executeScript({ target: { tabId }, files: ["engagement.js"] });
+        } catch (_err) {
+            capturedTabUrls.delete(tabId); // pages extensions can't script
         }
     })().catch((err) => console.warn("Auto-capture failed:", err));
 });
+
+/** engagement.js says this tab's page has been read: save it if it still qualifies. */
+async function autoCaptureEngaged(tab, url) {
+    if (!tab || !tab.id || !tab.url || !sameDocument(url, tab.url)) return;
+    const settings = await getSettings();
+    if (!settings.autoCapture || !(await getSession())) return;
+    if (!isAutoCaptureEligible(tab.url) || isExcluded(tab.url, settings.excludedSites) || isOwnSite(tab.url)) return;
+    const result = await saveTab(tab, { manual: false });
+    if (result.ok && result.status === "saved" && result.page) {
+        await rememberAutoSave(result.page, tab);
+    }
+}
+
+/** Newest first, the last day's auto-saves, for the popup's "Auto-saved today". */
+async function rememberAutoSave(page, tab) {
+    const { autoSaves = [] } = await chrome.storage.local.get({ autoSaves: [] });
+    const entry = { id: page.id, title: page.title || tab.title || tab.url, url: tab.url, at: Date.now() };
+    const next = [entry, ...autoSaves.filter((s) => s.id !== page.id)]
+        .filter((s) => Date.now() - s.at < AUTO_SAVES_SHOWN_MS)
+        .slice(0, AUTO_SAVES_KEPT);
+    await chrome.storage.local.set({ autoSaves: next, lastAutoSave: { title: entry.title, url: entry.url, at: entry.at } });
+}
+
+async function forgetAutoSave(id) {
+    const { autoSaves = [] } = await chrome.storage.local.get({ autoSaves: [] });
+    await chrome.storage.local.set({ autoSaves: autoSaves.filter((s) => s.id !== id) });
+}
 
 chrome.tabs.onRemoved.addListener((tabId) => {
     capturedTabUrls.delete(tabId);
@@ -289,6 +330,7 @@ const handlers = {
     async UNDO_SAVE({ id }) {
         try {
             await apiFetch(`/memory/${encodeURIComponent(id)}`, { method: "DELETE" });
+            await forgetAutoSave(id);
             return { ok: true };
         } catch (err) {
             if (err instanceof ApiError && err.status === 401) return { ok: false, reason: "signed-out" };
@@ -303,6 +345,20 @@ const handlers = {
         await chrome.storage.local.set(update);
         return { ok: true };
     },
+    /** "Auto-saved today": remove a page, and optionally never auto-save its site again. */
+    async REMOVE_AUTO_SAVE({ id, url, excludeSite }) {
+        if (excludeSite && url) await setSiteExcluded(url, true);
+        try {
+            await apiFetch(`/memory/${encodeURIComponent(id)}`, { method: "DELETE" });
+        } catch (err) {
+            if (err instanceof ApiError && err.status === 401) return { ok: false, reason: "signed-out" };
+            if (!(err instanceof ApiError && err.status === 404)) {
+                return { ok: false, error: "Couldn't remove the page. Try again." };
+            }
+        }
+        await forgetAutoSave(id);
+        return { ok: true };
+    },
     async SET_SITE_EXCLUDED({ host, excluded }) {
         const settings = await setSiteExcluded(host, excluded);
         return { ok: true, excludedSites: settings.excludedSites };
@@ -310,6 +366,14 @@ const handlers = {
 };
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    // From engagement.js, running in a page's top frame: that page has been read.
+    if (message && message.type === "PAGE_ENGAGED") {
+        if (sender.id === chrome.runtime.id && sender.tab && sender.frameId === 0) {
+            autoCaptureEngaged(sender.tab, String(message.url || ""))
+                .catch((err) => console.warn("Auto-capture failed:", err));
+        }
+        return false;
+    }
     // Only this extension's own pages may drive it.
     if (sender.id !== chrome.runtime.id || !message || !handlers[message.type]) {
         return false;

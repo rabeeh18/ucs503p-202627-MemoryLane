@@ -1,10 +1,15 @@
-"""URL eligibility for automatic webpage capture.
+"""Which pages automatic capture may save.
 
-Used by tests as the reference ruleset. The Chrome extension applies the same
-checks client-side so sensitive pages are never POSTed in automatic mode.
-Manual "Remember this page" is not filtered.
+The Chrome extension applies these rules (extension/page_filter.js) before it
+sends anything. The API applies them again to every automatic save
+(`is_manual: false`), so an outdated or misbehaving extension still can't store
+an inbox, a document editor or a login page: `auto_capture_refusal` says why a
+page is refused. Manual "Remember this page" saves are never filtered.
+Keep the lists identical to the extension's.
 """
-from urllib.parse import urlparse
+import ipaddress
+import re
+from urllib.parse import parse_qsl, urlparse
 
 SOCIAL_HOSTS = (
     "facebook.com", "fb.com", "instagram.com", "twitter.com", "x.com",
@@ -33,6 +38,28 @@ EMAIL_HOSTS = (
 )
 EMAIL_HOST_PREFIXES = ("mail.", "webmail.", "email.")
 EMAIL_PATH_SEGMENTS = ("owa", "webmail", "roundcube", "squirrelmail")
+
+PRIVATE_APP_HOSTS = (
+    "docs.google.com", "drive.google.com", "calendar.google.com", "keep.google.com",
+    "classroom.google.com", "contacts.google.com", "photos.google.com", "meet.google.com",
+    "chat.google.com", "myaccount.google.com", "onedrive.live.com", "sharepoint.com",
+    "office.com", "teams.microsoft.com", "teams.live.com", "notion.so", "notion.site",
+    "slack.com", "discord.gg", "web.whatsapp.com", "web.telegram.org", "messenger.com",
+    "figma.com", "miro.com", "trello.com", "asana.com", "atlassian.net", "monday.com",
+    "dropbox.com", "box.com", "icloud.com", "zoom.us", "chatgpt.com", "chat.openai.com",
+    "claude.ai", "gemini.google.com", "instructure.com", "blackboard.com",
+    "console.aws.amazon.com", "portal.azure.com", "console.cloud.google.com",
+    "vercel.com", "netlify.app", "app.netlify.com", "dashboard.stripe.com",
+)
+PRIVATE_HOST_LABELS = ("moodle", "lms", "intranet", "portal", "erp", "webkiosk")
+PRIVATE_PATH_SEGMENTS = (
+    "dashboard", "admin", "settings", "preferences", "profile", "inbox", "messages",
+    "notifications", "cart", "basket", "orders", "my-account", "myaccount", "console",
+)
+SECRET_PARAMS = (
+    "token", "access_token", "id_token", "auth", "code", "session", "sessionid", "sid",
+    "key", "apikey", "api_key", "sig", "signature", "otp", "ticket", "secret", "password",
+)
 
 LOGIN_ACCOUNT_SEGMENTS = (
     "login", "log-in", "signin", "sign-in", "signup", "sign-up",
@@ -79,6 +106,32 @@ def is_email_host_path(host: str, path: str) -> bool:
     return any(seg in EMAIL_PATH_SEGMENTS for seg in segments)
 
 
+def _is_private_network_host(host: str) -> bool:
+    if host == "localhost" or host.endswith((".localhost", ".local", ".internal", ".lan", ".home.arpa")):
+        return True
+    try:
+        ip = ipaddress.ip_address(host.strip("[]"))
+    except ValueError:
+        return False
+    return ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_unspecified
+
+
+def is_private_page(host: str, path: str, query: str) -> bool:
+    """Pages that show the person's own private things: private apps, local sites,
+    account areas, and links carrying a secret."""
+    host = host.lower().removeprefix("www.")
+    if _is_private_network_host(host):
+        return True
+    if any(_host_matches(host, d) for d in PRIVATE_APP_HOSTS):
+        return True
+    if any(label in PRIVATE_HOST_LABELS for label in host.split(".")):
+        return True
+    segments = [s.lower() for s in (path or "").split("/") if s]
+    if any(seg in PRIVATE_PATH_SEGMENTS for seg in segments):
+        return True
+    return any(name.lower() in SECRET_PARAMS for name, _ in parse_qsl(query or "", keep_blank_values=True))
+
+
 def is_auto_capture_eligible(url: str) -> bool:
     """Return True if automatic capture may save this URL."""
     if not url or not url.strip():
@@ -104,6 +157,8 @@ def is_auto_capture_eligible(url: str) -> bool:
     if "bank" in host.split(".")[0]:
         return False
     if is_email_host_path(host, parsed.path):
+        return False
+    if is_private_page(host, parsed.path, parsed.query):
         return False
 
     path = parsed.path or "/"
@@ -143,3 +198,25 @@ def is_auto_capture_eligible(url: str) -> bool:
         return False
 
     return True
+
+
+# ---- the page itself (for automatic saves) ----------------------------------------
+
+_ROBOTS_META = re.compile(r"<meta\b[^>]*\bname\s*=\s*[\"']?(?:robots|googlebot)[\"']?[^>]*>", re.IGNORECASE)
+
+
+def auto_capture_refusal(url: str, html: str | None) -> str | None:
+    """Why an automatic save of this page is refused, or None if it's allowed.
+
+    The address rules above, plus the page's robots "noindex" tag (what most
+    private and logged-in pages carry). Password fields and editors are checked by
+    the extension, which can tell whether they're visible: many article pages hide
+    a login form in their HTML, so the server doesn't judge by that.
+    """
+    if not is_auto_capture_eligible(url):
+        return "Automatic capture doesn't save this kind of page"
+    if html:
+        for tag in _ROBOTS_META.findall(html):
+            if "noindex" in tag.lower():
+                return "Automatic capture doesn't save pages marked noindex"
+    return None

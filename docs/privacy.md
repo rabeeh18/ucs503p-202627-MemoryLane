@@ -24,6 +24,9 @@ Automatic capture is **off by default**. It only runs when you're signed in and 
 - Social-media sites
 - Banks and payment services
 - Email: Gmail, Outlook, Yahoo Mail, Proton Mail, iCloud Mail and other webmail
+- Private apps (Google Docs and Drive, Teams, Notion, Slack, WhatsApp Web, college systems and similar), local and intranet addresses, account areas of any site, and links carrying a secret
+- Pages that don't read like content: with a visible password field, a compose box or editor, mostly a form, or marked `noindex`
+- Pages you didn't stay on: a page is only saved after 30 seconds in view, or once you've scrolled halfway
 - Login, sign-up, account, password, checkout, billing, payment and wallet pages
 - Browser-internal pages (`chrome://`, extensions, `file://`, ...)
 - Search-engine result pages
@@ -32,7 +35,7 @@ Automatic capture is **off by default**. It only runs when you're signed in and 
 - Any site you add to **Excluded sites** in the extension
 - MemoryLane's own website
 
-The filtering happens in the extension, before anything is sent.
+The filtering happens in the extension, before anything is sent. The server checks the address rules again for every automatic save, so an outdated extension can't store these pages either. The popup's **Auto-saved today** list shows what was saved automatically, with one-click removal.
 
 ## YouTube videos
 

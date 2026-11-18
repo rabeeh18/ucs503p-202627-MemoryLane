@@ -21,6 +21,7 @@ from backend.models import (
 from backend.embeddings import is_model_loaded, get_model
 from backend.ingest import IngestError, ingest_page, resolve_canonical_url
 from backend.solr_client import get_solr_client
+from backend.page_filter import auto_capture_refusal
 from backend.retrieval import forget_user_sites, hybrid_search, knn_score_to_cosine
 from backend.summarizer import summarize, detect_detail_level, is_gemini_available
 from backend.url_utils import normalize_url, generate_page_id
@@ -141,6 +142,14 @@ def health_check():
 @limiter.limit("60/minute")
 def save_memory(request: Request, memory: MemoryInput, user_id: str = Depends(current_user_id)):
     """Save a webpage to the caller's memory."""
+    if not memory.is_manual:
+        # The extension checks automatic saves itself; check again here, so an
+        # outdated or misbehaving extension can't store an inbox or a login page.
+        for address in filter(None, (memory.url, memory.canonical_url)):
+            reason = auto_capture_refusal(address, memory.html)
+            if reason:
+                logger.info("Automatic save refused by the page rules")
+                return MemoryResponse(status="skipped", message=reason, page=None)
     try:
         result = ingest_page(
             user_id,
