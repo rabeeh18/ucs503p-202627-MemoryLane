@@ -2302,6 +2302,7 @@
 <h2 id="browser">Browser<a class="headerlink" href="#browser" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The access token lives in memory only. The refresh token is in <code>localStorage</code>, so a reload stays signed in.</li>
+<li>The session ends only when Cognito refuses the refresh token (<code>400</code> or <code>401</code>). A refresh that's cancelled (the tab reloading mid-request), can't reach Cognito, or is throttled keeps the session and tries again next time; the website and the extension both work this way.</li>
 <li>Because a script on the page could read that refresh token, the app <strong>never renders user-supplied HTML</strong> (Svelte's <code>{@html}</code> is not used), and Caddy sends a strict <strong>Content Security Policy</strong>: scripts from the site only, connections only to the site and Cognito, no framing, no plugins.</li>
 <li>The extension stores its tokens in <code>chrome.storage.local</code>, which web pages can't read.</li>
 </ul>
