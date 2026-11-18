@@ -1,1 +1,1 @@
-{"model": "minishlab/potion-base-8M", "dims": 256, "normalize": true, "max_tokens": 512, "vocab": "vocab-7039169b5d11.txt", "table": "table-530c80bffe22.bin", "scales": "scales-9a42e12a1527.bin", "sections": "sections-e269bfb0f59f.json"}
+{"model": "minishlab/potion-base-8M", "dims": 256, "normalize": true, "max_tokens": 512, "vocab": "vocab-7039169b5d11.txt", "table": "table-530c80bffe22.bin", "scales": "scales-9a42e12a1527.bin", "sections": "sections-83791012f8cf.json"}
