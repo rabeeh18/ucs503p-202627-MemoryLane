@@ -12,6 +12,9 @@ import { writable } from 'svelte/store';
 
 export const DELETE_DELAY_MS = 6000;
 export const ERROR_TOAST_MS = 6000;
+/** How long after a tab-closing flush a reload still re-sends those deletes. */
+export const RESTORE_MS = 30000;
+const FLUSHED_KEY = 'ml.flushedDeletes';
 
 /**
  * @param {{
@@ -19,10 +22,13 @@ export const ERROR_TOAST_MS = 6000;
  *   delay?: number,
  *   setTimer?: typeof setTimeout,
  *   clearTimer?: typeof clearTimeout,
+ *   now?: () => number,
+ *   storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | null,
  * }} options
  */
 export function createDeleteQueue({
   remove, delay = DELETE_DELAY_MS, setTimer = setTimeout, clearTimer = clearTimeout, now = () => Date.now(),
+  storage = null,
 }) {
   /** Ids hidden from every list (pending or deleted). */
   const hidden = writable(new Set());
@@ -89,13 +95,64 @@ export function createDeleteQueue({
     setHidden(pageId, false);
   }
 
-  /** Send every pending delete now (used when the page is being closed). */
+  /**
+   * Send every pending delete now (used when the page is being closed). The ids
+   * are also written to `storage`, so if this is a reload the new page keeps
+   * them hidden and sends them again (see restore): a delete sent while the
+   * page unloads may not have reached the server when the list is fetched.
+   */
   function flush(opts) {
     const ids = [...pending.keys()];
+    if (ids.length && storage) {
+      const at = now();
+      const kept = readFlushed().filter((entry) => !ids.includes(entry.id));
+      writeFlushed([...kept, ...ids.map((id) => ({ id, at }))]);
+    }
     for (const pageId of ids) {
       clearTimer(pending.get(pageId).timer);
       commit(pageId, opts);
     }
+    return ids.length;
+  }
+
+  function readFlushed() {
+    try {
+      const list = JSON.parse(storage.getItem(FLUSHED_KEY) || '[]');
+      return Array.isArray(list) ? list.filter((e) => e && typeof e.id === 'string' && typeof e.at === 'number') : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeFlushed(list) {
+    try {
+      if (list.length) storage.setItem(FLUSHED_KEY, JSON.stringify(list));
+      else storage.removeItem(FLUSHED_KEY);
+    } catch {
+      /* storage unavailable: the reload just won't know */
+    }
+  }
+
+  /**
+   * On load: deletes the previous page sent while unloading (in the last
+   * RESTORE_MS) stay hidden and are sent again. Deleting is idempotent, and a
+   * 404 counts as done, so a delete that already arrived costs one request.
+   */
+  async function restore() {
+    if (!storage) return 0;
+    const fresh = readFlushed().filter((entry) => now() - entry.at < RESTORE_MS);
+    writeFlushed([]);
+    const ids = [...new Set(fresh.map((entry) => entry.id))];
+    for (const id of ids) setHidden(id, true);
+    await Promise.all(ids.map(async (id) => {
+      try {
+        await remove(id);
+        committedAt.set(id, now());
+        committed.update((n) => n + 1);
+      } catch {
+        setHidden(id, false);
+      }
+    }));
     return ids.length;
   }
 
@@ -132,7 +189,7 @@ export function createDeleteQueue({
   }
 
   return {
-    hidden, toasts, committed, schedule, undo, flush, dismissToast, notify, reconcile, notInTotal,
+    hidden, toasts, committed, schedule, undo, flush, restore, dismissToast, notify, reconcile, notInTotal,
     isPending: (id) => pending.has(id),
   };
 }

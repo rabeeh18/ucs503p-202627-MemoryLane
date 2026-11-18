@@ -128,9 +128,12 @@ class SolrClient:
         response.raise_for_status()
         return response.json()
 
-    def _update(self, body) -> None:
+    def _update(self, body, *, visible_now: bool = False) -> None:
+        # visible_now: a soft commit, so the change shows in the very next read
+        # (cheap; used for one-page deletes). Otherwise Solr commits within 1 s.
+        params = "softCommit=true" if visible_now else f"commitWithin={COMMIT_WITHIN_MS}"
         response = self.client.post(
-            f"{self.base_url}/update?commitWithin={COMMIT_WITHIN_MS}",
+            f"{self.base_url}/update?{params}",
             json=body,
             headers={"Content-Type": "application/json"},
         )
@@ -159,9 +162,13 @@ class SolrClient:
         self._update({"delete": {"query": stale}})
 
     def delete_page(self, page_id: str, user_id: str) -> None:
-        """Delete every chunk of one of the user's pages."""
+        """Delete every chunk of one of the user's pages, visible to the next read.
+
+        Without that, a list fetched straight after (the website reloading while
+        the delete is sent) could still show the page.
+        """
         query = self._owned_delete_query(user_id, f'page_id:"{_escape_phrase(page_id)}"')
-        self._update({"delete": {"query": query}})
+        self._update({"delete": {"query": query}}, visible_now=True)
 
     def delete_user(self, user_id: str) -> None:
         """Delete every chunk owned by user_id."""
@@ -335,6 +342,18 @@ class SolrClient:
             "rows": 0,
         })
         return data.get("response", {}).get("numFound", 0)
+
+    def existing_page_ids(self, user_id: str, page_ids: list[str]) -> set[str]:
+        """Those of `page_ids` that are among the user's saved pages."""
+        if not page_ids:
+            return set()
+        data = self._select({
+            "q": "*:*",
+            "fq": [user_filter(user_id), "chunk_id:0", page_ids_filter(page_ids)],
+            "fl": "page_id",
+            "rows": len(page_ids),
+        })
+        return {d.get("page_id") for d in data.get("response", {}).get("docs", []) if d.get("page_id")}
 
     def list_pages(self, user_id: str, limit: int = 20, offset: int = 0) -> tuple[int, list[dict]]:
         """The user's pages (one doc per page, chunk 0), newest first: (total, docs)."""

@@ -14,7 +14,7 @@ Use the bin icon on a row in the library, home page or search results (or `Shift
 
 - The page disappears at once and a toast offers **Undo** for 6 seconds.
 - After that, it's deleted from the server.
-- If you close the tab during those 6 seconds, the delete is sent straight away.
+- If you close or reload the tab during those 6 seconds, the delete is sent straight away, and a reloaded page keeps it hidden.
 - If the server can't delete it, the page comes back with an error message.
 
 ```mermaid

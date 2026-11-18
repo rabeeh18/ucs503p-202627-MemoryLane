@@ -1,7 +1,7 @@
 // Backend calls. Every request carries the Cognito access token; a 401 refreshes
 // the token once and retries, and a second 401 signs the user out locally,
 // which takes them back to the sign-in screen.
-import { expireSession, getAccessToken } from './auth.js';
+import { expireSession, getAccessToken, SessionUnavailableError } from './auth.js';
 import { rememberError } from './report.js';
 
 const API_BASE = (import.meta.env.VITE_API_BASE || '/api').replace(/\/$/, '');
@@ -52,13 +52,23 @@ async function send(path, { method = 'GET', body, signal, token, keepalive = fal
  * @param {string} path
  * @param {{ method?: string, body?: unknown, signal?: AbortSignal, raw?: boolean, keepalive?: boolean, timeoutMs?: number }} [opts]
  */
+/** getAccessToken, with "Cognito unreachable" reported as a network error (status 0), not a sign-out. */
+async function accessToken(opts) {
+  try {
+    return await getAccessToken(opts);
+  } catch (err) {
+    if (err instanceof SessionUnavailableError) throw new ApiError(err.message, 0);
+    throw err;
+  }
+}
+
 async function request(path, opts = {}) {
-  let token = await getAccessToken();
+  let token = await accessToken();
   if (!token) throw new ApiError('Signed out', 401);
 
   let response = await send(path, { ...opts, token });
   if (response.status === 401) {
-    token = await getAccessToken({ force: true });
+    token = await accessToken({ force: true });
     if (token) response = await send(path, { ...opts, token });
     if (!token || response.status === 401) {
       expireSession();

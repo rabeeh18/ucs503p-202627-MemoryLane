@@ -106,8 +106,29 @@ async function tokenRequest(body) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ client_id: CLIENT_ID, ...body }),
   });
-  if (!response.ok) throw new Error(`Token request failed (${response.status})`);
+  if (!response.ok) {
+    const error = new Error(`Token request failed (${response.status})`);
+    error.status = response.status;
+    throw error;
+  }
   return response.json();
+}
+
+/** Thrown when the session couldn't be refreshed *for now* (offline, cancelled, throttled). */
+export class SessionUnavailableError extends Error {
+  constructor() {
+    super("Couldn't reach the sign-in service. Try again.");
+    this.name = 'SessionUnavailableError';
+  }
+}
+
+/**
+ * Cognito answers 400 (invalid_grant) or 401 when a refresh token is expired,
+ * revoked or wrong: only then is the session really over. A cancelled request
+ * (the tab reloading mid-refresh), a network error, 429 or 5xx is not.
+ */
+export function refreshRejected(status) {
+  return status === 400 || status === 401;
 }
 
 function acceptTokens(tokens, refreshToken) {
@@ -151,19 +172,26 @@ async function refresh() {
     clearSession();
     return null;
   }
+  let tokens;
   try {
-    const tokens = await tokenRequest({ grant_type: 'refresh_token', refresh_token: stored.refreshToken });
-    acceptTokens(tokens, stored.refreshToken);
-    return access.token;
-  } catch {
-    clearSession();
-    return null;
+    tokens = await tokenRequest({ grant_type: 'refresh_token', refresh_token: stored.refreshToken });
+  } catch (err) {
+    if (refreshRejected(err?.status)) {
+      clearSession();
+      return null;
+    }
+    // Keep the stored session: the next request (or reload) tries again.
+    throw new SessionUnavailableError();
   }
+  // With refresh-token rotation on, Cognito sends a new one; otherwise keep ours.
+  acceptTokens(tokens, tokens.refresh_token || stored.refreshToken);
+  return access.token;
 }
 
 /**
  * A valid access token, refreshing when under 60 s remain. Returns null (and
- * signs out locally) if there's no session or the refresh fails.
+ * signs out locally) if there's no session or Cognito refuses the refresh
+ * token; throws SessionUnavailableError if Cognito couldn't be reached.
  * @param {{ force?: boolean }} [opts]
  */
 export async function getAccessToken({ force = false } = {}) {

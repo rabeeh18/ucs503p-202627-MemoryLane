@@ -19,6 +19,7 @@ Missing, expired or invalid tokens get `401`. The user is always the token's sub
 | `GET` | `/health` | Public status of Solr, the embedding model and Gemini |
 | `POST` | `/memory` | Save (or update) a page |
 | `GET` | `/memory/status` | Is this URL saved? |
+| `POST` | `/memory/existing` | Which of these pages are still saved? |
 | `DELETE` | `/memory/{page_id}` | Delete a page |
 | `GET` | `/memory/{page_id}/related` | Pages closest in meaning to this one |
 | `GET` | `/memories` | Saved pages, newest first |

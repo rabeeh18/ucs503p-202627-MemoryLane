@@ -67,7 +67,7 @@ All of this happens in one function, `ingest_page` (`backend/ingest.py`). It is 
 4. **YouTube**: use the transcript, description and details the extension fetched in your browser instead of the page (YouTube blocks the server; see [YouTube Videos](../user-guide/youtube.md)). A video without captions is saved from its description.
 5. **Other pages**: extract the main text from the HTML with trafilatura. If that fails, use the extension's text.
 6. Reject the page with `422` if it has fewer than 50 words, and a new page with `403` once the account has reached its page limit (5,000 by default).
-7. If the page is already stored with the same content hash and embedding model, return `unchanged` and do nothing.
+7. If the page is already stored with the same content hash and embedding model, return `unchanged` and do nothing. An **automatic** save of a page that's already stored also returns `unchanged`, even if the text changed a little, so it never moves the page's save date; only a manual save updates a saved page.
 8. Chunk, embed, compute the page vector and description.
 9. Upsert the chunks as `{page_id}::{n}`, then delete any higher-numbered chunks left from an older, longer version.
 

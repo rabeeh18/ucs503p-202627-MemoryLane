@@ -57,7 +57,7 @@ The video is then saved from these (a video without a transcript, from its descr
 }
 ```
 
-`status` is `saved`, `unchanged` (same text as before) or `skipped` (e.g. a YouTube video that can't be saved). An address that isn't `http` or `https` (such as `javascript:` or `file:`) gets `400`. A page with fewer than 50 words gets `422`. Titles over 500 characters are shortened. A new page once the account has `MAX_PAGES_PER_USER` pages (5,000 by default) gets `403`; saved pages still update.
+`status` is `saved`, `unchanged` (same text as before, or an automatic save of a page that's already saved: only a manual save updates a saved page) or `skipped` (e.g. a YouTube video that can't be saved). An address that isn't `http` or `https` (such as `javascript:` or `file:`) gets `400`. A page with fewer than 50 words gets `422`. Titles over 500 characters are shortened. A new page once the account has `MAX_PAGES_PER_USER` pages (5,000 by default) gets `403`; saved pages still update.
 
 The canonical URL is used only when it's on the same site and isn't a parent of the page. Single-page apps such as Reddit keep the first page's canonical while the address changes, so the extension also drops a canonical that doesn't describe the current page (see [Capturing Web Content](../how-it-works/ingestion.md)).
 
@@ -75,7 +75,19 @@ Whether you've saved this URL, normalised the same way as a save. Rate limit: 12
 
 ## `DELETE /memory/{page_id}`
 
-Delete one of your pages. Returns `204`, or `404` if it isn't yours. Rate limit: 60/minute.
+Delete one of your pages. Returns `204`, or `404` if it isn't yours. The delete is soft-committed, so the very next list or search no longer shows the page. Rate limit: 60/minute.
+
+---
+
+## `POST /memory/existing`
+
+Which of up to 50 page ids are still in your library. The extension uses it to drop pages you deleted on the website from its **Auto-saved today** list. Ids that aren't yours, or aren't page ids, are left out. Rate limit: 120/minute.
+
+```json
+{ "ids": ["3f9c...", "a1b2..."] }
+```
+
+The response has the same shape, listing only the ids that still exist.
 
 ---
 

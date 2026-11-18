@@ -65,7 +65,9 @@ The server checks the address rules (and `noindex`) again for every automatic sa
 
 ### Auto-saved today
 
-The popup lists the last few pages automatic capture saved in the past day. Each has **Remove**, which deletes it, and **Never this site**, which deletes it and excludes its site, so a page you didn't want is gone in one click.
+The popup lists the last few pages automatic capture saved in the past day. Each has **Remove**, which deletes it, and **Never this site**, which deletes it and excludes its site, so a page you didn't want is gone in one click. Pages you've since deleted on the website drop off the list when you open the popup.
+
+Automatic capture never touches a page that's already in your library: it keeps the date you saved it, and it doesn't appear in this list. To update a saved page, press **Remember this page**.
 
 ### Excluded sites
 

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { get } from 'svelte/store';
-import { createDeleteQueue, DELETE_DELAY_MS, ERROR_TOAST_MS } from './deletes.js';
+import { createDeleteQueue, DELETE_DELAY_MS, ERROR_TOAST_MS, RESTORE_MS } from './deletes.js';
 
 describe('delayed delete with undo', () => {
   let remove;
@@ -149,5 +149,44 @@ describe('pages saved again after a delete (ML-009) and the library count (ML-01
     await deleteAndConfirm('p1');                   // confirmed at 2000
     expect(queue.notInTotal('p1', 1500)).toBe(true);  // total fetched before the delete
     expect(queue.notInTotal('p1', 2500)).toBe(false); // total fetched after: already left out
+  });
+});
+
+describe('deletes sent while the page unloads (reload)', () => {
+  let remove;
+  beforeEach(() => { remove = vi.fn().mockResolvedValue(null); });
+
+  it('a reload keeps hiding the deletes the closing page flushed, and re-sends them', async () => {
+    const store = new Map();
+    const storage = {
+      getItem: (k) => (store.has(k) ? store.get(k) : null),
+      setItem: (k, v) => store.set(k, v),
+      removeItem: (k) => store.delete(k),
+    };
+    const closing = createDeleteQueue({ remove, storage });
+    closing.schedule('p1');
+    closing.flush({ keepalive: true });
+    expect(remove).toHaveBeenCalledWith('p1', { keepalive: true });
+
+    const remove2 = vi.fn().mockResolvedValue(null);
+    const reloaded = createDeleteQueue({ remove: remove2, storage });
+    const restoring = reloaded.restore();
+    expect(get(reloaded.hidden).has('p1')).toBe(true);
+    // A list fetched before the re-sent delete finishes still hides it.
+    reloaded.reconcile(['p1'], Date.now());
+    expect(get(reloaded.hidden).has('p1')).toBe(true);
+    expect(await restoring).toBe(1);
+    expect(remove2).toHaveBeenCalledWith('p1');
+    expect(get(reloaded.hidden).has('p1')).toBe(true);
+    expect(store.size).toBe(0);
+  });
+
+  it('ignores flushed deletes older than RESTORE_MS', async () => {
+    const store = new Map([['ml.flushedDeletes', JSON.stringify([{ id: 'old', at: Date.now() - RESTORE_MS - 1 }])]]);
+    const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+    const queue = createDeleteQueue({ remove, storage });
+    expect(await queue.restore()).toBe(0);
+    expect(get(queue.hidden).has('old')).toBe(false);
+    expect(remove).not.toHaveBeenCalled();
   });
 });

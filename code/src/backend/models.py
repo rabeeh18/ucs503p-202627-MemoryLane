@@ -45,6 +45,14 @@ class MemoryStatusResponse(BaseModel):
     saved: bool
     page: Optional[PageInfo] = None
 
+class ExistingPagesInput(BaseModel):
+    """Page ids the extension remembers (its "Auto-saved today" list)."""
+    ids: List[str] = Field(max_length=50)
+
+class ExistingPagesResponse(BaseModel):
+    """Those of the ids that are still in the caller's library."""
+    ids: List[str]
+
 class MemoriesResponse(BaseModel):
     total: int
     pages: List[PageInfo]

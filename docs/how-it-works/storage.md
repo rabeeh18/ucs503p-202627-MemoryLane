@@ -98,6 +98,7 @@ erDiagram
 ## Writes
 
 - Saves use `commitWithin` (1 s) rather than explicit commits.
+- Deleting one page uses a soft commit instead, so a list fetched straight afterwards (the website reloading while the delete is sent) no longer shows it.
 - A re-saved page is upserted chunk by chunk, then any leftover higher-numbered chunks are deleted, so there are never duplicates.
 - Deleting a page deletes by `user_id` **and** `page_id`; deleting an account's data deletes by `user_id`.
 

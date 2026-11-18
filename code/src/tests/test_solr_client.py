@@ -274,3 +274,20 @@ def test_bm25_retries_as_plain_text_when_solr_rejects_the_syntax():
     docs = client.bm25_search('"what (', "user-a")
     assert [d["page_id"] for d in docs] == ["p"]
     assert calls == ['"what (', r'\"what \(']
+
+
+def test_delete_page_is_visible_to_the_next_read():
+    solr = _client()
+    solr.delete_page("p1", USER)
+    url = solr.client.post.call_args.args[0]
+    assert "softCommit=true" in url and "commitWithin" not in url
+
+
+def test_existing_page_ids_filters_by_owner_and_ids():
+    solr = _client()
+    solr.client.get.return_value.json.return_value = {"response": {"docs": [{"page_id": "p1"}]}}
+    assert solr.existing_page_ids(USER, ["p1", "p2"]) == {"p1"}
+    params = solr.client.get.call_args.kwargs["params"]
+    assert FILTER in params["fq"] and "chunk_id:0" in params["fq"]
+    assert "{!terms f=page_id}p1,p2" in params["fq"]
+    assert solr.existing_page_ids(USER, []) == set()

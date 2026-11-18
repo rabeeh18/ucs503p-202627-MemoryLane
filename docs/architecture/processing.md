@@ -17,6 +17,7 @@ trafilatura on html (fallback: content) → tidy
 < 50 words? → 422
       ↓
 Same content_hash and embedding_model as stored? → "unchanged"
+Automatic save of a page already stored? → "unchanged"
       ↓
 Chunk → embed "title + chunk" → page vector = normalised mean
       ↓

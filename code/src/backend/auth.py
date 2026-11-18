@@ -59,10 +59,20 @@ class InvalidToken(Exception):
     pass
 
 
+class KeysUnavailable(Exception):
+    """Cognito's signing keys couldn't be fetched: the token may well be fine."""
+
+
 def verify_access_token(token: str) -> str:
-    """Verify a Cognito access token and return its `sub`. Raises InvalidToken."""
+    """Verify a Cognito access token and return its `sub`. Raises InvalidToken,
+    or KeysUnavailable when the signing keys can't be fetched right now."""
     try:
         signing_key = _get_jwks_client().get_signing_key_from_jwt(token)
+    except jwt.PyJWKClientConnectionError as e:
+        raise KeysUnavailable(type(e).__name__) from None
+    except Exception as e:
+        raise InvalidToken(type(e).__name__) from None
+    try:
         claims = jwt.decode(
             token,
             signing_key.key,
@@ -101,6 +111,10 @@ def current_user_id(
         # Never log the token itself.
         logger.info(f"Rejected access token ({e})")
         raise _unauthorized("Invalid or expired token")
+    except KeysUnavailable as e:
+        # A 401 would sign the user out; this is a "try again" (503).
+        logger.warning(f"Couldn't fetch Cognito's signing keys ({e})")
+        raise HTTPException(status_code=503, detail="Couldn't check your sign-in. Try again in a moment.")
     try:
         # Google and email + password sign-ins with the same verified email share a library.
         user_id = accounts.library_for(user_id, credentials.credentials)

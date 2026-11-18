@@ -23,7 +23,12 @@ function send(path, { method = "GET", body, token }) {
 }
 
 export async function apiFetch(path, opts = {}) {
-    let token = await getAccessToken();
+    let token;
+    try {
+        token = await getAccessToken();
+    } catch (_err) {
+        throw new ApiError("Couldn't reach MemoryLane. Check your connection.", 0); // still signed in
+    }
     if (!token) throw new ApiError("signed-out", 401);
 
     let response;

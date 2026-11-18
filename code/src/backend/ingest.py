@@ -184,7 +184,7 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
                 solr: SolrClient | None = None, timestamp: str | None = None,
                 fetch_youtube: bool = True, force: bool = False,
                 description: str | None = None, max_pages: int | None = None,
-                youtube: dict | None = None) -> IngestResult:
+                youtube: dict | None = None, keep_existing: bool = False) -> IngestResult:
     """Clean, chunk, embed and store one page for one user.
 
     Used by the API, the re-index script and the evaluation scripts. `solr`
@@ -194,7 +194,9 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
     backfills), and `description` keeps an existing description instead of
     deriving one. `max_pages` refuses a new page (403) once the user has that
     many. `youtube` is a video's transcript and details as the extension fetched
-    them (see youtube_utils.process_youtube_video). Raises IngestError for pages
+    them (see youtube_utils.process_youtube_video). `keep_existing=True` (automatic
+    saves) returns "unchanged" for a page that is already stored instead of
+    rewriting it; only a manual save updates a saved page. Raises IngestError for pages
     that can't be stored.
     """
     if not is_valid_user_id(user_id):
@@ -237,10 +239,13 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
         # 4. Unchanged content (and same embedding model) needs no work
         content_hash = hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
         existing = solr.get_page_head(page_id, user_id)
-        if not force and existing and existing.get("content_hash") == content_hash \
-                and existing.get("embedding_model") == EMBEDDING_MODEL \
-                and "description" in existing:
-            # (Pages stored before `description` existed are re-ingested once to gain it.)
+        unchanged = existing and existing.get("content_hash") == content_hash \
+            and existing.get("embedding_model") == EMBEDDING_MODEL \
+            and "description" in existing
+        # (Pages stored before `description` existed are re-ingested once to gain it.)
+        if not force and existing and (unchanged or keep_existing):
+            # keep_existing: an automatic save of a page that's already saved
+            # leaves it alone (its date and text), even if the page changed a bit.
             logger.info(f"Unchanged page {page_id}")
             return IngestResult(
                 "unchanged", "Memory already stored", page_id,

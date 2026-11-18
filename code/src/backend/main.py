@@ -16,7 +16,7 @@ from backend.models import (
     MemoryInput, SearchInput, MemoryResponse, PageInfo, MemoryStatusResponse,
     MemoriesResponse, SearchResponse, SearchResultItem, DebugSearchResultItem,
     HealthResponse, SummarizeInput, SummarizeResponse, RelatedPage, RelatedResponse,
-    ReportInput, ReportResponse,
+    ReportInput, ReportResponse, ExistingPagesInput, ExistingPagesResponse,
 )
 from backend.embeddings import is_model_loaded, get_model
 from backend.ingest import IngestError, ingest_page, resolve_canonical_url
@@ -168,6 +168,7 @@ def save_memory(request: Request, memory: MemoryInput, user_id: str = Depends(cu
             is_manual=memory.is_manual,
             youtube=memory.youtube.model_dump() if memory.youtube else None,
             max_pages=MAX_PAGES_PER_USER,
+            keep_existing=not memory.is_manual,
         )
     except IngestError as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail)
@@ -203,6 +204,16 @@ def memory_status(
     if head is None:
         return MemoryStatusResponse(saved=False)
     return MemoryStatusResponse(saved=True, page=_page_info(head))
+
+
+@app.post("/memory/existing", response_model=ExistingPagesResponse)
+@limiter.limit("120/minute")
+def existing_pages(request: Request, body: ExistingPagesInput, user_id: str = Depends(current_user_id)):
+    """Which of these page ids are still in the caller's library (the extension
+    drops pages deleted on the website from its "Auto-saved today" list)."""
+    ids = list(dict.fromkeys(i.strip() for i in body.ids if _PAGE_ID_RE.match(i.strip())))
+    found = get_solr_client().existing_page_ids(user_id, ids)
+    return ExistingPagesResponse(ids=[i for i in ids if i in found])
 
 
 @app.delete("/memory/{page_id}", status_code=204)

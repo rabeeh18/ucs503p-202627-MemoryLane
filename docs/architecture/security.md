@@ -86,6 +86,7 @@ The extension follows the same flow through `chrome.identity.launchWebAuthFlow`,
 ## Browser
 
 - The access token lives in memory only. The refresh token is in `localStorage`, so a reload stays signed in.
+- The session ends only when Cognito refuses the refresh token (`400` or `401`). A refresh that's cancelled (the tab reloading mid-request), can't reach Cognito, or is throttled keeps the session and tries again next time; the website and the extension both work this way.
 - Because a script on the page could read that refresh token, the app **never renders user-supplied HTML** (Svelte's `{@html}` is not used), and Caddy sends a strict **Content Security Policy**: scripts from the site only, connections only to the site and Cognito, no framing, no plugins.
 - The extension stores its tokens in `chrome.storage.local`, which web pages can't read.
 

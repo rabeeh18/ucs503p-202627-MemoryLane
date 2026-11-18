@@ -96,12 +96,15 @@
     color: var(--text-3);
   }
 
-  /* Shown on row hover and when it (or the row) has keyboard focus. */
+  /* Shown on row hover and when it (or the row) has keyboard focus. Centred on
+     the title line (14px padding + half its 28px line - half its own 36px),
+     next to the date, rather than on the whole row. */
   .delete {
     flex: none;
+    align-self: flex-start;
     width: 36px;
     height: 36px;
-    margin-left: 8px;
+    margin: 10px 0 0 8px;
     display: inline-flex;
     align-items: center;
     justify-content: center;

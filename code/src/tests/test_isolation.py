@@ -28,6 +28,9 @@ class FakeSolr:
         return len({d["page_id"] for d in self._mine(user_id)
                     if page_ids is None or d["page_id"] in page_ids})
 
+    def existing_page_ids(self, user_id, page_ids):
+        return {d["page_id"] for d in self._mine(user_id) if d["page_id"] in page_ids}
+
     def ping(self):
         return True
 
@@ -264,3 +267,30 @@ def test_related_for_another_users_page_is_404(env):
     fake, as_user = env
     b_ids = _seed_library(fake, B, "b", offset=10)
     assert as_user(A).get(f"/memory/{b_ids[0]}/related").status_code == 404
+
+
+def test_existing_lists_only_own_saved_pages(env):
+    fake, as_user = env
+    page_a = _save(as_user(A), url="https://a.example/kept")
+    gone = _save(as_user(A), url="https://a.example/gone")
+    page_b = _save(as_user(B), url="https://b.example/other")
+    client = as_user(A)
+    assert client.delete(f"/memory/{gone['id']}").status_code == 204
+    body = {"ids": [page_a["id"], gone["id"], page_b["id"], "not-an-id", page_a["id"]]}
+    assert client.post("/memory/existing", json=body).json() == {"ids": [page_a["id"]]}
+    assert client.post("/memory/existing", json={"ids": ["a" * 32] * 51}).status_code == 422
+
+
+def test_automatic_save_leaves_an_already_saved_page_alone(env):
+    fake, as_user = env
+    client = as_user(A)
+    first = client.post("/memory", json={"url": URL, "title": "Original", "content": TEXT, "is_manual": True}).json()
+    changed = TEXT + " A new paragraph appeared on the page since it was saved. " * 3
+    auto = client.post("/memory", json={"url": URL, "title": "Changed", "content": changed, "is_manual": False}).json()
+    assert auto["status"] == "unchanged"
+    assert auto["page"]["timestamp"] == first["page"]["timestamp"]
+    assert fake.get_page_head(first["page"]["id"], A)["title"] == "Original"
+    # A manual save still updates it.
+    manual = client.post("/memory", json={"url": URL, "title": "Changed", "content": changed, "is_manual": True}).json()
+    assert manual["status"] == "saved"
+    assert fake.get_page_head(first["page"]["id"], A)["title"] == "Changed"

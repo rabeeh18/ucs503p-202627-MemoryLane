@@ -200,7 +200,13 @@ async function popupState() {
         status: null,
         statusError: "",
     };
-    if (!state.signedIn || !state.saveable) {
+    if (!state.signedIn) {
+        return state;
+    }
+    // Checked alongside the page's status, so the popup waits for one round trip.
+    const autoSavesChecked = stillSaved(state.autoSaves).then((list) => { state.autoSaves = list; });
+    if (!state.saveable) {
+        await autoSavesChecked;
         return state;
     }
     try {
@@ -218,6 +224,7 @@ async function popupState() {
                 : "Couldn't check this page. Try again.";
         }
     }
+    await autoSavesChecked; // stillSaved never throws
     return state;
 }
 
@@ -286,6 +293,27 @@ async function rememberAutoSave(page, tab) {
         .filter((s) => Date.now() - s.at < AUTO_SAVES_SHOWN_MS)
         .slice(0, AUTO_SAVES_KEPT);
     await chrome.storage.local.set({ autoSaves: next, lastAutoSave: { title: entry.title, url: entry.url, at: entry.at } });
+}
+
+/**
+ * The list lives only in the extension, so it doesn't hear about pages deleted
+ * on the website: ask the server which are still saved and forget the rest.
+ * If the server can't be reached, show the list as it is.
+ */
+async function stillSaved(entries) {
+    if (!entries.length) return entries;
+    try {
+        const { ids } = await apiFetch("/memory/existing", { method: "POST", body: { ids: entries.map((s) => s.id) } });
+        const kept = new Set(ids);
+        const gone = entries.filter((s) => !kept.has(s.id)).map((s) => s.id);
+        if (gone.length) {
+            const { autoSaves = [] } = await chrome.storage.local.get({ autoSaves: [] });
+            await chrome.storage.local.set({ autoSaves: autoSaves.filter((s) => !gone.includes(s.id)) });
+        }
+        return entries.filter((s) => kept.has(s.id));
+    } catch (_err) {
+        return entries;
+    }
 }
 
 async function forgetAutoSave(id) {

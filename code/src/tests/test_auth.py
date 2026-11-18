@@ -176,3 +176,16 @@ def test_delete_all_also_forgets_sign_in_links(client, linking):
         token = _token()
         assert client.delete("/me/data", headers={"Authorization": f"Bearer {token}"}).status_code == 204
     assert linking._db().execute("SELECT COUNT(*) FROM sign_ins").fetchone()[0] == 0
+
+
+def test_signing_keys_unreachable_is_503_not_a_sign_out():
+    # A 401 makes the website and extension sign out; Cognito's keys being
+    # unreachable says nothing about the token, so it's "try again" (503).
+    limiter.reset()
+    app.dependency_overrides.clear()
+    jwks = MagicMock()
+    jwks.get_signing_key_from_jwt.side_effect = jwt.PyJWKClientConnectionError("timed out")
+    with patch("backend.auth._get_jwks_client", return_value=jwks), \
+         patch("backend.main.get_solr_client", return_value=MagicMock()), \
+         patch("backend.main.get_model"), TestClient(app) as test_client:
+        assert _get(test_client, _token()).status_code == 503
