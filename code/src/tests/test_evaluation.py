@@ -137,3 +137,27 @@ def test_compare_shows_deltas_and_rank_changes():
     assert "better      a    #4 -> #1" in text
     assert "worse       b    #1 -> #2" in text
     assert "  c " not in text
+
+
+def test_scifact_metrics_on_a_known_ranking():
+    from evaluation import scifact_evaluate as sf
+    ranked = ["x", "a", "y", "b"]
+    relevant = {"a", "b"}
+    assert sf.first_hit_rank(ranked, relevant) == 2
+    assert sf.hit_at_k(ranked, relevant, 1) == 0.0 and sf.hit_at_k(ranked, relevant, 3) == 1.0
+    assert sf.mrr_at_k(ranked, relevant) == 0.5
+    assert sf.recall_at_k(ranked, relevant) == 1.0
+    assert sf.average_precision_at_k(ranked, relevant) == (1 / 2 + 2 / 4) / 2
+    assert sf.ndcg_at_k(["a", "b"], relevant) == 1.0
+    assert sf.mrr_at_k(["x"], relevant) == 0.0 and sf.first_hit_rank([], relevant) is None
+
+
+def test_scifact_summary_rates_latency_and_interval():
+    from evaluation import scifact_evaluate as sf
+    rows = [dict({m: 1.0 for m in sf.QUALITY}, returned=10, latency_ms=10.0),
+            dict({m: 0.0 for m in sf.QUALITY}, returned=0, latency_ms=30.0)]
+    report = sf.summarise(rows)
+    assert report["hit@1"] == 0.5 and report["empty_rate"] == 0.5 and report["avg_results"] == 5.0
+    assert report["latency_ms_p50"] == 20.0 and report["latency_ms_mean"] == 20.0
+    low, high = report["ci95"]["hit@1"]
+    assert 0.0 <= low <= 0.5 <= high <= 1.0

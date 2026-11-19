@@ -41,7 +41,7 @@ Changing the model means re-embedding every page.
 | `DEFAULT_CANDIDATE_POOL` | `50` | Chunks fetched from BM25 and from KNN |
 | `RRF_K` | `60` | Reciprocal Rank Fusion constant |
 | `BM25_WEIGHT`, `VECTOR_WEIGHT` | `1.0`, `1.0` | Weights of the two rankings |
-| `PAGE_SECOND_CHUNK_WEIGHT` | `0.3` | How much a page's second-best chunk adds |
+| `PAGE_SECOND_CHUNK_WEIGHT` | `0` | How much a page's second-best chunk adds. Keep it at 0: any bonus lets longer pages outrank better matches ([Results](../evaluation/results.md#scoring-a-page-by-its-best-chunk)) |
 | `MIN_VECTOR_SIMILARITY` | `0.55` | Pages need at least this cosine similarity, unless they hold most of the query's words |
 | `KEYWORD_FULL_MATCH` | `0.75` | Share of the query's words a keyword match must hold to be kept whatever its similarity |
 | `QUERY_INTENT_ENABLED` | `true` | Rank pages from a site, time or URL named in the query higher ([how](../architecture/retrieval.md#site-time-and-url-in-the-query)) |

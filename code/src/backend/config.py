@@ -14,7 +14,11 @@ DEFAULT_CANDIDATE_POOL = int(os.getenv('DEFAULT_CANDIDATE_POOL', '50'))
 RRF_K = int(os.getenv('RRF_K', '60'))
 BM25_WEIGHT = float(os.getenv('BM25_WEIGHT', '1.0'))
 VECTOR_WEIGHT = float(os.getenv('VECTOR_WEIGHT', '1.0'))
-PAGE_SECOND_CHUNK_WEIGHT = float(os.getenv('PAGE_SECOND_CHUNK_WEIGHT', '0.3'))
+# How much a page's second-best chunk adds to its score. Off (0) since November
+# 2026: with RRF the scores of neighbouring ranks are very close, so any bonus
+# outweighs them and longer pages beat better-matching ones (SciFact MRR@10
+# 0.60 at 0.3, 0.79 at 0; see docs/evaluation/results.md).
+PAGE_SECOND_CHUNK_WEIGHT = float(os.getenv('PAGE_SECOND_CHUNK_WEIGHT', '0.0'))
 # Pages with no BM25 match need at least this cosine similarity on some chunk.
 MIN_VECTOR_SIMILARITY = float(os.getenv('MIN_VECTOR_SIMILARITY', '0.55'))
 # Pages that matched only some of the query's words by keyword (BM25) need

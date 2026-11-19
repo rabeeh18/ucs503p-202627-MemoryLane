@@ -106,7 +106,8 @@ def group_by_webpage(candidates: list[dict], fused_scores: dict[str, float],
     """Group chunks by page_id.
 
     Page score = best chunk score + second_chunk_weight * second-best chunk score
-    (0 if the page has only one candidate chunk). The best chunk supplies the
+    (0 if the page has only one candidate chunk). The weight is 0 by default, so
+    a page is scored by its best chunk. The best chunk supplies the
     result's metadata and its text (used for the snippet).
 
     Returns list of webpage-level results with:

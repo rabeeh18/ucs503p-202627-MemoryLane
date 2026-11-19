@@ -31,23 +31,58 @@ python -m evaluation.scifact_ingest      # index the 1,000 documents
 python -m evaluation.scifact_evaluate    # writes evaluation/scifact_report.json
 ```
 
+It doesn't need the live server. A throwaway Solr container works just as well, and it keeps the benchmark off the production machine:
+
+```bash
+docker run -d --name ml-eval-solr -p 127.0.0.1:8983:8983 solr:9.7
+docker exec ml-eval-solr solr create -c memorylane_eval -d _default
+CORE_NAME=memorylane_eval ./scripts/setup_solr.sh     # on Windows: scripts/setup_solr.ps1
+python -m evaluation.scifact_ingest --solr-base http://localhost:8983/solr
+python -m evaluation.scifact_evaluate --solr-base http://localhost:8983/solr
+docker rm -f ml-eval-solr                              # when done
+```
+
+Indexing takes about two minutes on a laptop, and the evaluation about three.
+
 ## Configurations compared
 
 | Configuration | What it uses |
 | --- | --- |
-| **BM25 only** | Lexical retrieval |
-| **Vector only** | Dense retrieval |
-| **Hybrid** | The production pipeline: both, fused |
+| **Hybrid** | The live search: both retrievers, fused |
+| **BM25 only** | Keyword retrieval alone |
+| **Vector only** | Meaning (embedding) retrieval alone |
+| **Hybrid, no relevance floor** | The live search with `MIN_VECTOR_SIMILARITY` at 0, so weak vector-only matches are kept |
+| **Hybrid, no second-chunk bonus** | The live search with `PAGE_SECOND_CHUNK_WEIGHT` at 0, so a page is scored by its best chunk alone |
 
-The single-method runs set the other method's weight to 0 (`BM25_WEIGHT` or `VECTOR_WEIGHT`), which turns that retriever off completely: it isn't queried and none of its results take part. Until November 2026 a zero weight only zeroed its score, so its pages could still fill empty result slots in a "BM25 only" or "vector only" run. Numbers measured before then (the [Results](results.md) table) may be slightly affected.
+Each configuration is a setting patched for that run only. The single-method runs set the other method's weight to 0 (`BM25_WEIGHT` or `VECTOR_WEIGHT`), which turns that retriever off completely: it isn't queried and none of its results take part. Until November 2026 a zero weight only zeroed its score, so its pages could still fill empty result slots. Numbers measured before then (the earlier table in [Results](results.md)) may be slightly affected.
 
 ## Metrics
 
-- **MRR@10**: how early the first relevant result appears
-- **Recall@10**: how much of the relevant set is in the top ten
-- **nDCG@10**: how well the relevant results are ordered
+All use binary relevance (an abstract is either a right answer or not), the top 10 results, and URLs compared after normalisation.
 
-Relevant URLs are compared after normalisation.
+**Quality**
+
+| Metric | In plain words |
+| --- | --- |
+| **Hit@1, Hit@3, Hit@10** | Share of claims with a right abstract in the first 1, 3 or 10 results |
+| **MRR@10** | How high the first right result is, on average (1 = always first, 0.5 = second on average) |
+| **Recall@10** | Share of all right abstracts that appear in the top ten |
+| **nDCG@10** | How well the right results are ordered, with the top positions counting most |
+| **MAP@10** | Average precision at each right result, so it rewards finding *all* of them early |
+
+**Behaviour and speed**
+
+| Metric | In plain words |
+| --- | --- |
+| **Empty rate** | Share of claims that got no results at all (what the relevance floor could cause) |
+| **Average results** | Results returned per claim, at most 10 |
+| **Latency p50, p95, mean** | Search time per claim inside the backend process, in ms: the middle case, the slowest 5%, and the average. Network and sign-in checks aren't included. |
+
+**Confidence**
+
+With 100 claims, a few lucky or unlucky ones move the averages. For Hit@1 and MRR@10 the report gives a **95% bootstrap interval**: the claims are resampled with replacement 2,000 times (fixed seed), and the middle 95% of the resulting averages is the range. When two configurations' ranges don't overlap, the difference isn't luck.
+
+Before any timing, every claim is searched once untimed, so the first configuration isn't slowed by cold caches. Each configuration also starts with an empty query-embedding cache. The report (`evaluation/scifact_report.json`) holds the settings used, every configuration's metrics, and the rank of the first right result for every claim.
 
 ## Second evaluation: your own library
 

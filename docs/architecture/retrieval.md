@@ -52,7 +52,7 @@ sequenceDiagram
     end
     S-->>A: Ranked chunk lists
     A->>A: Reciprocal Rank Fusion
-    A->>A: Group chunks into pages (best + 0.3 × second)
+    A->>A: Group chunks into pages (best chunk's score)
     opt Keyword matches without a similarity
         A->>S: One KNN restricted to those pages
     end
@@ -107,10 +107,10 @@ With `RERANK_ENABLED=true`, the top 20 fused chunks are re-scored by a cross-enc
 Users see pages, not chunks. Chunks are grouped by `page_id`, and each page scores:
 
 \[
-S_{\mathrm{page}} = s_{\mathrm{best}} + 0.3 \cdot s_{\mathrm{second}}
+S_{\mathrm{page}} = s_{\mathrm{best}} + w \cdot s_{\mathrm{second}}, \qquad w = \texttt{PAGE\_SECOND\_CHUNK\_WEIGHT} = 0
 \]
 
-so a page with two good passages beats a page with one, without long pages winning just by having many chunks.
+so a page is ranked by its best-matching passage. Until November 2026 \(w\) was 0.3, so that a page with two good passages would beat a page with one. With Reciprocal Rank Fusion, though, neighbouring ranks score almost the same (1/61 against 1/62), so the bonus outweighed them and longer pages beat better matches. On SciFact, setting \(w\) to 0 raised MRR@10 from 0.60 to 0.79 (see [Results](../evaluation/results.md#scoring-a-page-by-its-best-chunk)).
 
 ## Relevance floor
 
