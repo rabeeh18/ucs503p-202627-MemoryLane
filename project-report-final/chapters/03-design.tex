@@ -1,0 +1,171 @@
+% ==================================================
+% CHAPTER 3: SYSTEM DESIGN
+% ==================================================
+
+\chapter{System Design}
+\label{ch:design}
+
+\section{Architecture Overview}
+
+MemoryLane has three client-facing parts and one server
+(Figure~\ref{fig:architecture}). The \textbf{Chrome extension} captures
+pages; the \textbf{web app} is where users search and manage their library;
+and the \textbf{FastAPI backend} processes pages, runs searches and talks to
+\textbf{Apache Solr}, which holds both the text index and the vectors. All
+browser traffic enters through \textbf{Caddy}, which terminates HTTPS,
+serves the built web app and proxies \texttt{/api/*} to the backend.
+
+\begin{figure}[H]
+\centering
+\input{figures/arch}
+\caption{Architecture of the deployed system. Dashed boxes are external services.}
+\label{fig:architecture}
+\end{figure}
+
+The backend is a single process (one Uvicorn worker) that loads the
+embedding model once and shares it between requests. Solr is the only
+store for pages; two small SQLite databases hold sign-in links and problem
+reports. The design keeps the number of moving parts small enough to run on
+one server, a decision recorded in ADR~0004.
+
+\section{Data Flow}
+
+\subsection{Context Diagram (Level 0)}
+
+\begin{figure}[H]
+\centering
+\input{figures/dfd0}
+\caption{Context data-flow diagram}
+\label{fig:dfd0}
+\end{figure}
+
+\subsection{Level 1}
+
+\begin{figure}[H]
+\centering
+\input{figures/dfd1}
+\caption{Level-1 data-flow diagram}
+\label{fig:dfd1}
+\end{figure}
+
+Every flow that touches D1 carries the verified library id of the caller;
+there is no flow by which a client can name another user's id.
+
+\section{Data Model}
+
+\subsection{Pages and Chunks in Solr}
+
+A saved page is stored as $n$ \emph{chunk documents} in one Solr core
+(\texttt{memorylane\_v2}). Page-level fields are repeated on every chunk so
+that a search hit needs no second lookup; chunk~0 additionally carries the
+page vector. Table~\ref{tab:schema} lists the fields.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.25\textwidth} p{0.2\textwidth} L}
+\toprule
+\textrm{\textbf{Field}} & \textbf{Type} & \textbf{Purpose} \\
+\midrule
+id & string & \texttt{\{page\_id\}::\{chunk\_id\}}, so re-saving overwrites in place \\
+user\_id & string & Owner's library id; on every query as a filter \\
+page\_id & string & \texttt{sha256(user\_id|normalised URL)[:32]} \\
+url, domain & string & Normalised address and host \\
+title & text\_en & Page title (weighted $\times 2$ in BM25) \\
+text & text\_en & The chunk's passage (stemmed, stop-words removed) \\
+description & stored & Meta description or first sentences; snippet fallback \\
+chunk\_id, total\_chunks & int & Position of the chunk, chunks in the page \\
+timestamp & date & When the page was saved \\
+content\_hash & string & SHA-256 of the cleaned text; skips unchanged re-saves \\
+embedding\_model & string & Model that produced the vectors; a change forces re-embedding \\
+embedding & vector(384) & Chunk vector, cosine, HNSW index \\
+page\_embedding & vector(384) & Mean of the chunk vectors (chunk~0 only) \\
+\bottomrule
+\end{tabularx}
+\caption{Solr schema (\texttt{schema v2})}
+\label{tab:schema}
+\end{table}
+
+Automatic field creation is turned off, so a field must be added by a
+script before code that writes it is deployed.
+
+\subsection{Relational Data}
+
+Two SQLite databases live in a Docker volume next to Solr's data:
+
+\begin{itemize}
+  \item \texttt{accounts.db}: which Cognito sign-ins (\texttt{sub}) share a
+  library, the verified email that links them, when each was last checked
+  with Cognito, and libraries waiting to be merged after a late
+  verification.
+  \item \texttt{reports.db}: problem reports and their email delivery
+  state, so that a report is never lost when email is temporarily failing
+  (ADR~0007).
+\end{itemize}
+
+\section{Interface Design}
+
+\subsection{REST API}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.11\textwidth} >{\ttfamily}p{0.27\textwidth} L r}
+\toprule
+\textrm{\textbf{Method}} & \textrm{\textbf{Endpoint}} & \textbf{Purpose} & \textbf{Limit} \\
+\midrule
+GET & /health & Public status of Solr, model, Gemini & -- \\
+POST & /memory & Save or update a page & 60/min \\
+GET & /memory/status & Is this URL saved? & 120/min \\
+POST & /memory/existing & Which of these pages still exist? & 120/min \\
+DELETE & /memory/\{id\} & Delete one page & 60/min \\
+GET & /memory/\{id\}/related & Pages closest in meaning & 120/min \\
+GET & /memories & Library, newest first & 60/min \\
+POST & /search & Hybrid search & 60/min \\
+POST & /summarize & Summary of one page & 20/min \\
+DELETE & /me/data & Delete all the caller's data & 5/min \\
+POST & /reports & Report a problem & 5/hour \\
+\bottomrule
+\end{tabularx}
+\caption{API endpoints. All except \texttt{/health} need a Cognito access token.}
+\label{tab:api}
+\end{table}
+
+\subsection{User Interface}
+
+The web app is deliberately quiet: a dark theme, one search box, and results
+that show the title, site, save time and a highlighted snippet. Every action
+has a keyboard path (\texttt{/} to search, arrows to move, \texttt{S} to
+summarise, \texttt{Shift+Del} to delete with undo). The extension popup
+shows whether the current page is saved, one primary button, and the day's
+automatic saves with one-click removal.
+
+\section{Design Decisions}
+
+Table~\ref{tab:adrs} lists the architecture decision records kept with the
+code. Each record states the alternatives that were rejected and the cost of
+the choice.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.06\textwidth} p{0.36\textwidth} L}
+\toprule
+\textrm{\textbf{\#}} & \textbf{Decision} & \textbf{Main reason} \\
+\midrule
+0001 & One Solr core for keyword and vector search & One system for BM25, KNN and filters; no second database to keep in sync \\
+0002 & Fuse rankings with Reciprocal Rank Fusion & Rank-based, so no score normalisation and no outlier effects \\
+0003 & Drop weak matches with a relevance floor & KNN always returns neighbours, however unrelated \\
+0004 & Run everything on one EC2 instance & Cost and simplicity at this scale \\
+0005 & Link sign-ins by verified email & One library per person, without trusting the browser \\
+0006 & Fetch YouTube captions in the browser & YouTube blocks requests from servers \\
+0007 & Store problem reports before emailing & A report survives an email outage \\
+0008 & Keep summaries on demand and optional & Search never waits on an external model \\
+0009 & Remove the library map & Costly, fragile and rarely useful \\
+0010 & Remove ``Export my data'' & Little use; deleting data is the stronger right \\
+0011 & Auto-capture keeps only pages that read like content & Rules on content and reading, not an endless site list \\
+\bottomrule
+\end{tabularx}
+\caption{Architecture decision records}
+\label{tab:adrs}
+\end{table}

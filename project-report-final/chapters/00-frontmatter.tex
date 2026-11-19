@@ -1,0 +1,68 @@
+% ==================================================
+% ABSTRACT
+% ==================================================
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+People read a great deal on the web but find it hard to return to a page
+later, because browser history and bookmarks can only be searched by title
+and address, and those are exactly the details people forget.
+\textbf{MemoryLane} is a personal memory for the web: pages are saved from
+the browser, with one click or automatically, and found again later by
+describing what they were about.
+
+This report describes the final, deployed version of MemoryLane. A Chrome
+extension (Manifest V3) captures pages and YouTube transcripts; a FastAPI
+backend cleans each page with trafilatura, splits it into 150-word
+overlapping passages and embeds them with \texttt{bge-small-en-v1.5}; and
+Apache Solr stores the passages for both keyword (BM25) and vector (KNN)
+retrieval. Every search runs the two retrievers together and combines them
+with Reciprocal Rank Fusion, understands site, time and address hints in the
+query (``the reddit post from last week''), drops weak matches with a
+relevance floor, and returns pages with readable snippets and optional
+Gemini summaries. The system is multi-user, with Amazon Cognito sign-in
+(PKCE), per-user isolation enforced in the data-access layer, and linking of
+Google and email accounts by verified email. It runs on one AWS EC2 instance
+with Docker Compose and Caddy at \url{https://memorylane.site}.
+
+Since the mid-semester prototype the retrieval pipeline was rebuilt and
+evaluated again on the SciFact benchmark with seven quality metrics, latency
+and bootstrap confidence intervals. The evaluation found a ranking defect
+(a page-level bonus that favoured long pages); removing it raised the share
+of claims answered by the first result from 0.44 to 0.71 and MRR@10 from
+0.60 to 0.79, ahead of the prototype's 0.75. The code base is covered by 551
+automated tests, documented in a 48-page documentation site with eleven
+architecture decision records, and its automatic capture keeps only pages a
+user has actually read and that look like content, never email, banking or
+private applications.
+
+\vspace{1em}
+\noindent\textbf{Keywords:} personal information management, hybrid
+retrieval, BM25, dense retrieval, Reciprocal Rank Fusion, browser extension,
+software engineering
+
+% ==================================================
+% ACKNOWLEDGEMENT
+% ==================================================
+
+\chapter*{Acknowledgement}
+\addcontentsline{toc}{chapter}{Acknowledgement}
+
+We thank our supervisor, Dr.\ Raghav B.\ Venkataramaiyer, for the guidance
+and feedback given throughout the semester, and the Computer Science and Engineering Department
+of Thapar Institute of Engineering and Technology for the opportunity to
+build and deploy a complete software system as part of UCS503 Software
+Engineering.
+
+We are also grateful to the authors and maintainers of the open-source
+projects MemoryLane is built on, in particular Apache Solr, FastAPI,
+Sentence Transformers, the BGE embedding models, trafilatura, Svelte,
+Model2Vec and Material for MkDocs, and to the creators of the SciFact
+dataset used in our evaluation.
+
+\vspace{2cm}
+\begin{flushright}
+Rabeeh Ahmad (\texttt{1024030716}) \\
+Ishan Singhania (\texttt{1024030719})
+\end{flushright}

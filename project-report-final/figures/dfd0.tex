@@ -1,0 +1,15 @@
+\begin{tikzpicture}
+  \node[proc, minimum size=28mm] (ml) at (0,0) {\textbf{0}\\[0.5mm]MemoryLane};
+  \node[entity] (user) at (-5.4, 0)   {Reader};
+  \node[entity] (cog)  at (5.0, 2.0)  {Amazon Cognito};
+  \node[entity] (gem)  at (5.0, 0)    {Google Gemini};
+  \node[entity] (ses)  at (5.0,-2.3)  {Maintainer\\\scriptsize (email via SES)};
+  \node[entity] (yt)   at (0,  -3.3)  {YouTube};
+
+  \draw[flow] ([yshift=3mm]user.east) -- node[lbl, above] {pages, queries, deletes} ([yshift=3mm]ml.west);
+  \draw[flow] ([yshift=-3mm]ml.west) -- node[lbl, below] {results, snippets, summaries} ([yshift=-3mm]user.east);
+  \draw[flow, <->] (ml) -- node[lbl, above, sloped, pos=0.45] {tokens, verified email} (cog.west);
+  \draw[flow, <->] (ml) -- node[lbl, above, pos=0.45] {page text, summary} (gem.west);
+  \draw[flow] (ml) -- node[lbl, below, sloped, pos=0.45] {problem reports} (ses.west);
+  \draw[flow] (yt) -- node[lbl, left] {captions, via the user's browser} (ml);
+\end{tikzpicture}

@@ -1,0 +1,81 @@
+% ==================================================
+% CHAPTER 9: CONCLUSION
+% ==================================================
+
+\chapter{Conclusion}
+\label{ch:conclusion}
+
+\section{Summary}
+
+MemoryLane turns the pages a person reads into a memory they can search by
+describing what they remember. Over the semester it grew from a local,
+single-user prototype into a deployed, multi-user product: a Chrome extension
+that saves pages and videos, with automatic capture that keeps only what was
+read and looks like content; a cleaning, chunking and embedding pipeline; a
+hybrid search that fuses BM25 and vector retrieval by rank, understands sites
+and times in queries, filters weak matches and shows readable snippets; and a
+web app with a library, undoable deletes, summaries and voice search, all
+behind Cognito sign-in with isolation enforced in the data layer, and running
+at \texttt{memorylane.site}.
+
+\section{Achievements}
+
+\begin{enumerate}
+  \item \textbf{Retrieval quality}: on SciFact the live search puts the right
+  abstract first for 71\% of claims and in the top ten for 93\%, with MRR@10
+  0.786, ahead of the prototype on every metric.
+  \item \textbf{Measurement that changed the product}: the expanded
+  evaluation found a ranking defect that raised Hit@1 from 0.44 to 0.71 once
+  fixed, a gain confirmed by non-overlapping confidence intervals.
+  \item \textbf{Speed}: about 76\,ms per search at the median on modest
+  hardware, with no GPU.
+  \item \textbf{Security and privacy by construction}: per-user isolation in
+  the Solr client, PKCE sign-in, verified-email account linking, privacy-safe
+  logs, and automatic capture that refuses private pages twice.
+  \item \textbf{Engineering discipline}: 551 automated tests, regression
+  tests for every post-launch bug, eleven decision records, and a 48-page
+  documentation site with its own meaning-based search.
+\end{enumerate}
+
+\section{Limitations}
+
+\begin{itemize}
+  \item \textbf{Benchmark scope}: SciFact is a scientific benchmark, and the
+  personal-library evaluation used small query sets; neither fully
+  represents everyday browsing.
+  \item \textbf{Single server}: one instance is a single point of failure
+  and caps throughput; the embedding model runs on the CPU in one process.
+  \item \textbf{Capture coverage}: pages that render little text, videos
+  without captions and content behind logins are saved poorly or not at all.
+  \item \textbf{Server-side storage}: page text is stored on the server, and
+  summaries send a page to an external model when asked; users must trust
+  the operator.
+  \item \textbf{Chrome only}: the extension targets Chromium browsers and is
+  installed unpacked rather than from a store.
+\end{itemize}
+
+\section{Future Work}
+
+\begin{enumerate}
+  \item \textbf{Larger and broader evaluation}: more BEIR datasets and a
+  larger personal query set, run automatically after every retrieval change.
+  \item \textbf{Learned reranking}: enable the existing cross-encoder stage
+  where memory allows, and measure it.
+  \item \textbf{Summary fallback}: a second, cheaper model or an extractive
+  summary when Gemini is unavailable.
+  \item \textbf{Import}: bring in existing bookmarks and browser history.
+  \item \textbf{Account features}: password change and signing out of every
+  device from an account page.
+  \item \textbf{Local-first mode}: on-device embedding and storage for users
+  who do not want page text on a server.
+  \item \textbf{Store distribution}: publish the extension in the Chrome Web
+  Store, and port it to Firefox.
+\end{enumerate}
+
+\section{Final Remarks}
+
+The prototype showed that content-based search over one's own reading was
+possible. The final product shows that it can be made dependable, private
+and fast enough to use every day, and that careful measurement matters as
+much as new features: the largest single improvement of the semester came
+from evaluating the system honestly and fixing what the numbers revealed.

@@ -1,0 +1,365 @@
+% ==================================================
+% CHAPTER 4: IMPLEMENTATION
+% ==================================================
+
+\chapter{Implementation}
+\label{ch:implementation}
+
+\section{Code Base}
+
+The repository holds the backend, the web app, the extension, the tests, the
+evaluation scripts and the documentation (Table~\ref{tab:codebase}).
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{p{0.24\textwidth} L r}
+\toprule
+\textbf{Part} & \textbf{Technology} & \textbf{Size} \\
+\midrule
+Backend & Python 3.12, FastAPI, Sentence Transformers, trafilatura & 23 modules, 4{,}000 lines \\
+Web app & Svelte, Vite, JavaScript & 21 components, 3{,}800 lines \\
+Extension & Chrome Manifest V3, JavaScript & 14 scripts, 1{,}900 lines \\
+Tests & pytest, Vitest & 29 files, 551 tests \\
+Search & Apache Solr 9.7 & 1 core, schema v2 \\
+Deployment & Docker Compose, Caddy & 3 services \\
+Documentation & MkDocs Material, Mermaid & 48 pages, 11 ADRs \\
+\bottomrule
+\end{tabularx}
+\caption{Code base at the end of the semester}
+\label{tab:codebase}
+\end{table}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.25\textwidth} L}
+\toprule
+\textrm{\textbf{Module}} & \textbf{Responsibility} \\
+\midrule
+main.py & API endpoints, rate limits, log filtering, automatic-save re-check \\
+auth.py, accounts.py & Token verification; linking sign-ins by verified email \\
+library\_moves.py & Background merge of a library into the linked one \\
+ingest.py & The save pipeline, under a per-user write lock \\
+cleaning.py, chunking.py & Main-content extraction; overlapping chunks \\
+embeddings.py & Model loading, batched passage and cached query embedding \\
+retrieval.py & BM25 + KNN, fusion, page grouping, relevance floor \\
+query\_intent.py & Site words, time phrases and URLs in queries \\
+snippets.py & Sentence snippets for each result \\
+solr\_client.py & All Solr access, with the user filter built in \\
+page\_filter.py & Rules for pages automatic capture must refuse \\
+summarizer.py & On-demand Gemini summaries with a time limit \\
+reports.py & Stored problem reports and the email sender \\
+youtube\_utils.py & Validated video ids and transcript processing \\
+\bottomrule
+\end{tabularx}
+\caption{Main backend modules}
+\label{tab:modules}
+\end{table}
+
+\section{Browser Extension}
+
+The extension is a Manifest V3 extension \cite{chromemv3} with a popup, a
+background service worker and scripts injected into pages only when needed.
+It signs in through Cognito with \texttt{chrome.identity} and keeps its
+tokens in \texttt{chrome.storage.local}, which web pages cannot read.
+
+\subsection{Saving a Page}
+
+\textbf{Remember this page} injects a content script that returns the page's
+HTML, its visible text and its canonical URL. Single-page applications such
+as Reddit and YouTube change the address without reloading and keep a stale
+canonical tag, so a canonical URL is sent only when it describes the current
+page (same host and path, and matching parameters). The popup confirms the
+save and offers \textbf{Undo}.
+
+\subsection{YouTube}
+
+YouTube refuses transcript requests from servers. For a video, the
+extension therefore fetches the caption track, title, channel, length and
+description \emph{inside the user's own tab}, and sends them with the save
+(ADR~0006). A video without captions is saved from its description.
+
+\subsection{Automatic Capture}
+
+Automatic capture is off by default and explained before it is turned on.
+Rather than trying to list every site that should not be saved, it keeps a
+page only if it passes three tests (Figure~\ref{fig:capture}):
+
+\begin{enumerate}
+  \item \textbf{The address is not private}: not email, banking, social
+  media, a private application (documents, chat, cloud consoles, college
+  portals), a local address, an account area, or a link carrying a secret.
+  \item \textbf{The user read it}: the page was visible for 30 seconds, or
+  scrolled at least halfway after 5 seconds. Pages bounced off are never
+  saved.
+  \item \textbf{It reads like content}: at least 150 readable words, not
+  mostly links, no visible password field, no large editor or form, and not
+  marked \texttt{noindex}.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=5mm]
+  \node[stepbox] (load) {Page finishes loading};
+  \node[decision, below=5mm of load] (d1) {Auto-capture on, signed in,\\ site not excluded?};
+  \node[decision, below=5mm of d1] (d2) {Address not private?};
+  \node[decision, below=5mm of d2] (d3) {Read: 30\,s in view or\\ scrolled halfway?};
+  \node[stepbox, below=5mm of d3] (ex) {Extract HTML, text, signals\\ (or the video's captions)};
+  \node[decision, below=5mm of ex] (d4) {Reads like content?};
+  \node[stepbox, below=5mm of d4] (post) {\texttt{POST /api/memory}};
+  \node[decision, below=5mm of post] (d5) {Server re-checks\\ address and \texttt{noindex}};
+  \node[stepbox, below=5mm of d5, fill=green!8] (ok) {Stored, and listed in\\ ``Auto-saved today''};
+  \node[box, right=16mm of d3, fill=red!6] (skip) {Not saved};
+  \foreach \a/\b in {load/d1, d1/d2, d2/d3, d3/ex, ex/d4, d4/post, post/d5, d5/ok}
+    \draw[flow] (\a) -- (\b);
+  \foreach \d in {d1,d2,d3,d4,d5}
+    \draw[flow] (\d.east) -| node[lbl, pos=0.15, above] {no} (skip);
+\end{tikzpicture}
+\caption{The automatic-capture decision path}
+\label{fig:capture}
+\end{figure}
+
+The same address rules are applied again by the server to every automatic
+save, so even an outdated or faulty extension cannot store an inbox or a
+login page. An automatic save never rewrites a page that is already in the
+library; only a manual save updates one. The popup lists the day's automatic
+saves with \textbf{Remove} and \textbf{Never this site}, and drops entries the
+user has since deleted on the website.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.52\textwidth}
+  \centering
+  \screenshot[\textwidth]{figures/extension-popup.png}{extension popup}
+  \caption{Popup after a save, with ``Auto-saved today''}
+\end{subfigure}\hfill
+\begin{subfigure}[b]{0.44\textwidth}
+  \centering
+  \screenshot[\textwidth]{figures/excluded-sites.png}{excluded sites page}
+  \caption{Excluded sites (options page)}
+\end{subfigure}
+\caption{The Chrome extension}
+\label{fig:extension}
+\end{figure}
+
+\section{Ingestion Pipeline}
+
+All saves, from the API, the re-index scripts and the evaluation, go through
+one function, \texttt{ingest\_page} (Figure~\ref{fig:ingest}). Writes for one
+user run under that user's lock, so two saves cannot race on the page
+limit or leave duplicate chunks.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=4mm]
+  \node[stepbox] (a) {Verified token $\rightarrow$ library id};
+  \node[stepbox, below=of a] (b) {Canonical URL $\rightarrow$ normalise $\rightarrow$ \texttt{page\_id}};
+  \node[stepbox, below=of b] (c) {Clean HTML with trafilatura\\ (or use the video transcript)};
+  \node[decision, below=of c] (d) {$\geq 50$ words?};
+  \node[decision, below=of d] (e) {Same hash and model\\ (or automatic save of\\ a saved page)?};
+  \node[stepbox, below=of e] (f) {Chunk: 150 words, 30 overlap};
+  \node[stepbox, below=of f] (g) {Embed ``title + chunk''\\ (\texttt{bge-small-en-v1.5}, 384-d)};
+  \node[stepbox, below=of g] (h) {Upsert chunks, delete leftovers};
+  \node[box, right=14mm of d, fill=red!6] (r) {422 Not enough text};
+  \node[box, right=14mm of e, fill=yellow!12] (u) {\texttt{unchanged}};
+  \foreach \x/\y in {a/b,b/c,c/d,d/e,e/f,f/g,g/h} \draw[flow] (\x) -- (\y);
+  \draw[flow] (d) -- node[lbl, above] {no} (r);
+  \draw[flow] (e) -- node[lbl, above] {yes} (u);
+\end{tikzpicture}
+\caption{The ingestion pipeline}
+\label{fig:ingest}
+\end{figure}
+
+\subsection{URL Normalisation and Identity}
+
+The same page can have many addresses. Normalisation lower-cases the scheme
+and host, removes \texttt{www.}, fragments, trailing slashes and tracking
+parameters (\texttt{utm\_*}, \texttt{fbclid}, \texttt{gclid}, \texttt{ref}),
+and sorts the remaining parameters. The page id is
+
+\[
+\texttt{page\_id} = \mathrm{SHA256}(\texttt{user\_id} \,\|\, \texttt{"|"} \,\|\, \textit{normalised URL})_{[0:32]},
+\]
+
+so the same page saved twice updates one entry, and two users' copies of a
+page can never collide.
+
+\subsection{Cleaning and Chunking}
+
+trafilatura \cite{barbaresi2021trafilatura} extracts the main text of the
+HTML and drops navigation, footers and banners; if it finds too little, the
+extension's visible text is used. Citation markers and junk lines are then
+removed. The text is split into paragraphs and sentences and packed into
+chunks of at most 150 words, each starting with about 30 words from the end
+of the previous chunk, so an idea is never cut in half at a boundary. A
+short final chunk merges into the one before.
+
+\subsection{Embeddings}
+
+Each chunk is embedded as ``title + chunk'' with \texttt{BAAI/bge-small-en-v1.5}
+\cite{xiao2023bge} through Sentence Transformers \cite{reimers2019sbert}:
+384-dimensional, L2-normalised vectors, computed in batches of 32 on the CPU.
+Queries are embedded with BGE's retrieval instruction in front, and the last
+1{,}024 query vectors are cached. A content hash and the model name are
+stored with each page, so an unchanged page costs one lookup to re-save, and
+a model change re-embeds pages the next time they are saved.
+
+\section{Hybrid Retrieval}
+
+Figure~\ref{fig:search} shows one search from query to results.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=5mm and 6mm]
+  \node[stepbox, minimum width=40mm] (q) {Query};
+  \node[box, below left=7mm and -6mm of q, minimum width=30mm] (bm) {BM25 (edismax)\\\scriptsize \texttt{title\^{}2 text}, top 50};
+  \node[box, below=7mm of q, minimum width=30mm] (knn) {Embed $\rightarrow$ KNN\\\scriptsize HNSW, top 50};
+  \node[box, below right=7mm and -6mm of q, minimum width=30mm] (int) {Site / time / URL?\\\scriptsize extra BM25 + KNN};
+  \node[stepbox, below=20mm of q] (rrf) {Reciprocal Rank Fusion};
+  \node[stepbox, below=of rrf] (grp) {Group chunks into pages};
+  \node[stepbox, below=of grp] (floor) {Relevance floor + keyword coverage};
+  \node[stepbox, below=of floor] (snip) {Sentence snippets};
+  \node[stepbox, below=of snip, fill=green!8] (res) {Up to 10 pages};
+  \foreach \s in {bm,knn,int} { \draw[flow] (q) -- (\s); \draw[flow] (\s) -- (rrf); }
+  \foreach \x/\y in {rrf/grp,grp/floor,floor/snip,snip/res} \draw[flow] (\x) -- (\y);
+  \node[font=\scriptsize, align=left, right=4mm of int, text width=26mm] {all searches are\\ pre-filtered to the\\ caller's library};
+\end{tikzpicture}
+\caption{The search pipeline}
+\label{fig:search}
+\end{figure}
+
+\subsection{Lexical and Semantic Retrieval}
+
+BM25 \cite{robertson2009bm25} runs through Solr's edismax parser over
+\texttt{title\^{}2 text}, with a phrase boost so pages containing the query as
+a phrase rank higher, and with field syntax in user input disabled. The
+query vector is searched with Solr's HNSW KNN \cite{solr}, using the user
+filter as a \emph{pre-filter} so all 50 neighbours belong to the caller. The
+two run concurrently.
+
+\subsection{Site, Time and URL in the Query}
+
+People often remember \emph{where} or \emph{when} they saw something. The
+query-intent module recognises:
+
+\begin{itemize}
+  \item \textbf{site words}: names derived from the domains the user has
+  actually saved (\texttt{en.wikipedia.org} $\rightarrow$ \textit{wikipedia},
+  \texttt{docs.nvidia.com} $\rightarrow$ \textit{nvidia}), joined words
+  (\textit{rotten tomatoes}) and a few nicknames (\textit{yt}, \textit{gh});
+  \item \textbf{time phrases}: \textit{yesterday}, \textit{3 weeks ago},
+  \textit{last month}, \textit{in march}, \textit{31 august}, \textit{recently};
+  \item \textbf{a URL or domain} as the whole query.
+\end{itemize}
+
+When one is found, the rest of the query is searched again within those
+domains and dates, and the extra lists join the fusion as boosts rather than
+filters, so a better page from elsewhere still wins.
+
+\subsection{Reciprocal Rank Fusion}
+
+BM25 scores and cosine similarities live on different scales. The prototype
+min-max normalised and averaged them, which lets one outlier shift every
+other score. The final system fuses \emph{ranks} with Reciprocal Rank Fusion
+\cite{cormack2009rrf} (ADR~0002):
+
+\[
+\mathrm{RRF}(d) \;=\; \sum_{\ell \,\in\, \text{lists}} \frac{w_\ell}{k + r_\ell(d)},
+\qquad k = 60,\; w_\ell = 1,
+\]
+
+where $r_\ell(d)$ is the rank of chunk $d$ in list $\ell$, and a chunk
+missing from a list gets nothing from it. Chunks found by both retrievers
+rise to the top.
+
+\subsection{Page Grouping and the Relevance Floor}
+
+Users see pages, not chunks. Each page is scored by its best chunk,
+$S_{\text{page}} = s_{\text{best}}$; Section~\ref{sec:bonus} explains why an
+earlier bonus for a second matching chunk was removed. KNN always returns
+neighbours, however unrelated, so a page found only by meaning is kept only
+if its best cosine similarity is at least $0.55$ (ADR~0003). A page found by
+keywords must hold at least 75\% of the query's words, or else meet the same
+similarity bar: BM25 accepts a page that shares any single word, and for
+``greatest football player of all time'' that would otherwise admit the
+Nintendo article (``the greatest games of all time'').
+
+\subsection{Snippets}
+
+For each result, two or three consecutive readable sentences around the
+sentence with the most query terms are shown, with the terms highlighted.
+When no sentence shares a term (a search by meaning), the first readable
+sentences are compared with the query by embedding instead.
+
+\section{Summaries}
+
+\textbf{Summarise} on a result asks Google Gemini \cite{gemini} for a short
+summary of that page, adapted to the query, with a 20-second limit. Summaries
+are on demand only, so search never waits on an external model, and the
+system works fully without a Gemini key (ADR~0008).
+
+\section{Web Application}
+
+The web app is a Svelte \cite{svelte} single-page application served by
+Caddy. Figure~\ref{fig:webapp} shows its main screens.
+
+\begin{figure}[H]
+\centering
+\screenshot[0.92\textwidth]{figures/landing.png}{landing page}
+\caption{Landing page at \texttt{memorylane.site}}
+\label{fig:landing}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{\textwidth}
+  \centering
+  \screenshot[0.92\textwidth]{figures/search-results.png}{search results}
+  \caption{A search naming a site (``nvidia docs on cuda graphs''): the matching
+  snippet with query words highlighted, and the page's summary opened}
+\end{subfigure}
+
+\vspace{4mm}
+\begin{subfigure}[b]{\textwidth}
+  \centering
+  \screenshot[0.7\textwidth]{figures/library.png}{library}
+  \caption{The library, newest first (a delete button appears on each row on hover)}
+\end{subfigure}
+\caption{The web application}
+\label{fig:webapp}
+\end{figure}
+
+Deleting is optimistic: the page disappears at once and a toast offers
+\textbf{Undo} for six seconds before the request is sent. If the tab is
+closed or reloaded in that window, the delete is sent immediately and the
+reloaded page keeps it hidden. Voice search uses the browser's speech
+recognition to fill the search box.
+
+\section{Problem Reports}
+
+\textbf{Report a problem}, on the website and in the extension, shows the
+user exactly what will be sent (message, app version, page, browser, last
+error) and stores the report in SQLite before a background sender emails it
+through Amazon SES with retries (ADR~0007).
+
+\section{Documentation Site}
+
+The documentation is a 48-page MkDocs Material \cite{mkdocsmaterial} site
+published on GitHub Pages, with a user guide, architecture and data-flow
+diagrams, the API reference, the evaluation, the decision records and a
+glossary. Its search box finds sections \emph{by meaning} as well as by
+keywords, using the same idea as MemoryLane itself at a smaller scale: at
+build time every section is embedded with the static model Model2Vec
+\texttt{potion-base-8M} \cite{model2vec}, and in the browser a query is
+tokenised, averaged into a vector and compared with all sections in a few
+milliseconds, with no neural network running. The results are fused with the
+keyword results by RRF. The files (about 8\,MB) load only when the search box
+is first focused.
+
+\begin{figure}[H]
+\centering
+\screenshot[0.85\textwidth]{figures/docs-home.png}{documentation site}
+\caption{The documentation site}
+\label{fig:docs}
+\end{figure}
