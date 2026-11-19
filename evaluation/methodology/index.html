@@ -2225,6 +2225,15 @@
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>python<span class="w"> </span>-m<span class="w"> </span>evaluation.scifact_ingest<span class="w">      </span><span class="c1"># index the 1,000 documents</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>python<span class="w"> </span>-m<span class="w"> </span>evaluation.scifact_evaluate<span class="w">    </span><span class="c1"># writes evaluation/scifact_report.json</span>
 </span></code></pre></div>
+<p>It doesn't need the live server. A throwaway Solr container works just as well, and it keeps the benchmark off the production machine:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>--name<span class="w"> </span>ml-eval-solr<span class="w"> </span>-p<span class="w"> </span><span class="m">127</span>.0.0.1:8983:8983<span class="w"> </span>solr:9.7
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>ml-eval-solr<span class="w"> </span>solr<span class="w"> </span>create<span class="w"> </span>-c<span class="w"> </span>memorylane_eval<span class="w"> </span>-d<span class="w"> </span>_default
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nv">CORE_NAME</span><span class="o">=</span>memorylane_eval<span class="w"> </span>./scripts/setup_solr.sh<span class="w">     </span><span class="c1"># on Windows: scripts/setup_solr.ps1</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>python<span class="w"> </span>-m<span class="w"> </span>evaluation.scifact_ingest<span class="w"> </span>--solr-base<span class="w"> </span>http://localhost:8983/solr
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>python<span class="w"> </span>-m<span class="w"> </span>evaluation.scifact_evaluate<span class="w"> </span>--solr-base<span class="w"> </span>http://localhost:8983/solr
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>docker<span class="w"> </span>rm<span class="w"> </span>-f<span class="w"> </span>ml-eval-solr<span class="w">                              </span><span class="c1"># when done</span>
+</span></code></pre></div>
+<p>Indexing takes about two minutes on a laptop, and the evaluation about three.</p>
 <h2 id="configurations-compared">Configurations compared<a class="headerlink" href="#configurations-compared" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2235,27 +2244,87 @@
 </thead>
 <tbody>
 <tr>
+<td><strong>Hybrid</strong></td>
+<td>The live search: both retrievers, fused</td>
+</tr>
+<tr>
 <td><strong><abbr title="Best Matching 25: a keyword ranking that scores pages by how often they use the query's words, favouring rare words and short passages">BM25</abbr> only</strong></td>
-<td>Lexical retrieval</td>
+<td>Keyword retrieval alone</td>
 </tr>
 <tr>
 <td><strong>Vector only</strong></td>
-<td>Dense retrieval</td>
+<td>Meaning (<abbr title="a list of 384 numbers that represents the meaning of a passage; similar meanings give nearby embeddings">embedding</abbr>) retrieval alone</td>
 </tr>
 <tr>
-<td><strong>Hybrid</strong></td>
-<td>The production pipeline: both, fused</td>
+<td><strong>Hybrid, no <abbr title="the rule that drops results which are neither a strong keyword match nor close enough in meaning">relevance floor</abbr></strong></td>
+<td>The live search with <code>MIN_VECTOR_SIMILARITY</code> at 0, so weak vector-only matches are kept</td>
+</tr>
+<tr>
+<td><strong>Hybrid, no second-<abbr title="a passage of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunk</abbr> bonus</strong></td>
+<td>The live search with <code>PAGE_SECOND_CHUNK_WEIGHT</code> at 0, so a page is scored by its best <abbr title="a passage of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunk</abbr> alone</td>
 </tr>
 </tbody>
 </table>
-<p>The single-method runs set the other method's weight to 0 (<code>BM25_WEIGHT</code> or <code>VECTOR_WEIGHT</code>), which turns that retriever off completely: it isn't queried and none of its results take part. Until November 2026 a zero weight only zeroed its score, so its pages could still fill empty result slots in a "<abbr title="Best Matching 25: a keyword ranking that scores pages by how often they use the query's words, favouring rare words and short passages">BM25</abbr> only" or "vector only" run. Numbers measured before then (the <a href="../results/">Results</a> table) may be slightly affected.</p>
+<p>Each configuration is a setting patched for that run only. The single-method runs set the other method's weight to 0 (<code>BM25_WEIGHT</code> or <code>VECTOR_WEIGHT</code>), which turns that retriever off completely: it isn't queried and none of its results take part. Until November 2026 a zero weight only zeroed its score, so its pages could still fill empty result slots. Numbers measured before then (the earlier table in <a href="../results/">Results</a>) may be slightly affected.</p>
 <h2 id="metrics">Metrics<a class="headerlink" href="#metrics" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong><abbr title="Mean Reciprocal Rank: the average of 1 / (rank of the first relevant result); 1.0 means it was always first">MRR</abbr>@10</strong>: how early the first relevant result appears</li>
-<li><strong>Recall@10</strong>: how much of the relevant set is in the top ten</li>
-<li><strong><abbr title="normalised Discounted Cumulative Gain: a 0 to 1 score for how well a ranking puts relevant results near the top">nDCG</abbr>@10</strong>: how well the relevant results are ordered</li>
-</ul>
-<p>Relevant URLs are compared after normalisation.</p>
+<p>All use binary relevance (an abstract is either a right answer or not), the top 10 results, and URLs compared after normalisation.</p>
+<p><strong>Quality</strong></p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>In plain words</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Hit@1, Hit@3, Hit@10</strong></td>
+<td>Share of claims with a right abstract in the first 1, 3 or 10 results</td>
+</tr>
+<tr>
+<td><strong><abbr title="Mean Reciprocal Rank: the average of 1 / (rank of the first relevant result); 1.0 means it was always first">MRR</abbr>@10</strong></td>
+<td>How high the first right result is, on average (1 = always first, 0.5 = second on average)</td>
+</tr>
+<tr>
+<td><strong>Recall@10</strong></td>
+<td>Share of all right abstracts that appear in the top ten</td>
+</tr>
+<tr>
+<td><strong><abbr title="normalised Discounted Cumulative Gain: a 0 to 1 score for how well a ranking puts relevant results near the top">nDCG</abbr>@10</strong></td>
+<td>How well the right results are ordered, with the top positions counting most</td>
+</tr>
+<tr>
+<td><strong>MAP@10</strong></td>
+<td>Average precision at each right result, so it rewards finding <em>all</em> of them early</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Behaviour and speed</strong></p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>In plain words</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Empty rate</strong></td>
+<td>Share of claims that got no results at all (what the <abbr title="the rule that drops results which are neither a strong keyword match nor close enough in meaning">relevance floor</abbr> could cause)</td>
+</tr>
+<tr>
+<td><strong>Average results</strong></td>
+<td>Results returned per claim, at most 10</td>
+</tr>
+<tr>
+<td><strong>Latency p50, p95, mean</strong></td>
+<td>Search time per claim inside the backend process, in ms: the middle case, the slowest 5%, and the average. Network and sign-in checks aren't included.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Confidence</strong></p>
+<p>With 100 claims, a few lucky or unlucky ones move the averages. For Hit@1 and <abbr title="Mean Reciprocal Rank: the average of 1 / (rank of the first relevant result); 1.0 means it was always first">MRR</abbr>@10 the report gives a <strong>95% bootstrap interval</strong>: the claims are resampled with replacement 2,000 times (fixed seed), and the middle 95% of the resulting averages is the range. When two configurations' ranges don't overlap, the difference isn't luck.</p>
+<p>Before any timing, every claim is searched once untimed, so the first configuration isn't slowed by cold caches. Each configuration also starts with an empty query-<abbr title="a list of 384 numbers that represents the meaning of a passage; similar meanings give nearby embeddings">embedding</abbr> cache. The report (<code>evaluation/scifact_report.json</code>) holds the settings used, every configuration's metrics, and the rank of the first right result for every claim.</p>
 <h2 id="second-evaluation-your-own-library">Second evaluation: your own library<a class="headerlink" href="#second-evaluation-your-own-library" title="Permanent link">&para;</a></h2>
 <p>SciFact measures scientific claims, not how people look for pages they've read. The second evaluation runs on a real library, with queries written by its owner: for each page, how they would actually search for it.</p>
 <p>Each query has a <strong>category</strong>, so a change shows up where it should:</p>
@@ -2292,31 +2361,31 @@
 </table>
 <p><code>evaluation/evaluate.py</code> reports Recall@1/3/5/10 and <abbr title="Mean Reciprocal Rank: the average of 1 / (rank of the first relevant result); 1.0 means it was always first">MRR</abbr> overall and per category, the rank of the expected page for every query, and the queries where it wasn't first. Queries whose expected URL isn't one of the user's saved pages are listed and left out of the metrics. That usually means a URL copied from the browser rather than the one MemoryLane stored, and no ranking change could ever find it.</p>
 <p>On the server, with the eval file going in on stdin and the report coming out on stdout (nothing is written inside the container):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span>code/src
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># 1. Your user id (page counts per user)</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>evaluation.generate_eval<span class="w"> </span>--core<span class="w"> </span>memorylane_v2<span class="w"> </span>--list-users
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="c1"># 2. A starting set: a random sample of your pages, queries left empty</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>evaluation.generate_eval<span class="w"> </span>--core<span class="w"> </span>memorylane_v2<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span>--user-id<span class="w"> </span>&lt;user<span class="w"> </span>id&gt;<span class="w"> </span>--starter<span class="w"> </span>--limit<span class="w"> </span><span class="m">50</span><span class="w"> </span>--out<span class="w"> </span>-<span class="w"> </span>&gt;<span class="w"> </span>evaluation/personal.json
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># 3. Fill in each query and category, delete pages you don't remember, then:</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>evaluation.evaluate<span class="w"> </span>--core<span class="w"> </span>memorylane_v2<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">    </span>--user-id<span class="w"> </span>&lt;user<span class="w"> </span>id&gt;<span class="w"> </span>--eval-file<span class="w"> </span>-<span class="w"> </span>--out<span class="w"> </span>-<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span>&lt;<span class="w"> </span>evaluation/personal.json<span class="w"> </span>&gt;<span class="w"> </span>evaluation/personal_baseline.json
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="c1"># 4. After a search change, run step 3 again into personal_report.json and compare</span>
-</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>python3<span class="w"> </span>evaluation/compare.py<span class="w"> </span>evaluation/personal_baseline.json<span class="w"> </span>evaluation/personal_report.json
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">cd</span><span class="w"> </span>code/src
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># 1. Your user id (page counts per user)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>evaluation.generate_eval<span class="w"> </span>--core<span class="w"> </span>memorylane_v2<span class="w"> </span>--list-users
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># 2. A starting set: a random sample of your pages, queries left empty</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>evaluation.generate_eval<span class="w"> </span>--core<span class="w"> </span>memorylane_v2<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span>--user-id<span class="w"> </span>&lt;user<span class="w"> </span>id&gt;<span class="w"> </span>--starter<span class="w"> </span>--limit<span class="w"> </span><span class="m">50</span><span class="w"> </span>--out<span class="w"> </span>-<span class="w"> </span>&gt;<span class="w"> </span>evaluation/personal.json
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1"># 3. Fill in each query and category, delete pages you don't remember, then:</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>evaluation.evaluate<span class="w"> </span>--core<span class="w"> </span>memorylane_v2<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">    </span>--user-id<span class="w"> </span>&lt;user<span class="w"> </span>id&gt;<span class="w"> </span>--eval-file<span class="w"> </span>-<span class="w"> </span>--out<span class="w"> </span>-<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="w">    </span>&lt;<span class="w"> </span>evaluation/personal.json<span class="w"> </span>&gt;<span class="w"> </span>evaluation/personal_baseline.json
+</span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>
+</span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="c1"># 4. After a search change, run step 3 again into personal_report.json and compare</span>
+</span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>python3<span class="w"> </span>evaluation/compare.py<span class="w"> </span>evaluation/personal_baseline.json<span class="w"> </span>evaluation/personal_report.json
 </span></code></pre></div>
 <p><code>compare.py</code> needs only the standard library, so it runs on the host. It prints each metric with its change, and every query whose rank went up or down.</p>
 <p>A feature behind a setting can be compared without deploying old code, since <code>docker compose exec -e</code> overrides it for that one run. For example, search with and without <a href="../../architecture/retrieval/#site-time-and-url-in-the-query">site, time and URL handling</a>:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>-e<span class="w"> </span><span class="nv">QUERY_INTENT_ENABLED</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>evaluation.evaluate<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">    </span>--core<span class="w"> </span>memorylane_v2<span class="w"> </span>--user-id<span class="w"> </span>&lt;user<span class="w"> </span>id&gt;<span class="w"> </span>--eval-file<span class="w"> </span>-<span class="w"> </span>--out<span class="w"> </span>-<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">    </span>&lt;<span class="w"> </span>evaluation/personal.json<span class="w"> </span>&gt;<span class="w"> </span>evaluation/personal_off.json
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>evaluation.evaluate<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span>--core<span class="w"> </span>memorylane_v2<span class="w"> </span>--user-id<span class="w"> </span>&lt;user<span class="w"> </span>id&gt;<span class="w"> </span>--eval-file<span class="w"> </span>-<span class="w"> </span>--out<span class="w"> </span>-<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span>&lt;<span class="w"> </span>evaluation/personal.json<span class="w"> </span>&gt;<span class="w"> </span>evaluation/personal_on.json
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>python3<span class="w"> </span>evaluation/compare.py<span class="w"> </span>evaluation/personal_off.json<span class="w"> </span>evaluation/personal_on.json
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>-e<span class="w"> </span><span class="nv">QUERY_INTENT_ENABLED</span><span class="o">=</span><span class="nb">false</span><span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>evaluation.evaluate<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">    </span>--core<span class="w"> </span>memorylane_v2<span class="w"> </span>--user-id<span class="w"> </span>&lt;user<span class="w"> </span>id&gt;<span class="w"> </span>--eval-file<span class="w"> </span>-<span class="w"> </span>--out<span class="w"> </span>-<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">    </span>&lt;<span class="w"> </span>evaluation/personal.json<span class="w"> </span>&gt;<span class="w"> </span>evaluation/personal_off.json
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-T<span class="w"> </span>backend<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>evaluation.evaluate<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">    </span>--core<span class="w"> </span>memorylane_v2<span class="w"> </span>--user-id<span class="w"> </span>&lt;user<span class="w"> </span>id&gt;<span class="w"> </span>--eval-file<span class="w"> </span>-<span class="w"> </span>--out<span class="w"> </span>-<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">    </span>&lt;<span class="w"> </span>evaluation/personal.json<span class="w"> </span>&gt;<span class="w"> </span>evaluation/personal_on.json
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>python3<span class="w"> </span>evaluation/compare.py<span class="w"> </span>evaluation/personal_off.json<span class="w"> </span>evaluation/personal_on.json
 </span></code></pre></div>
 <h3 id="results-on-a-development-library">Results on a development library<a class="headerlink" href="#results-on-a-development-library" title="Permanent link">&para;</a></h3>
 <p>Tested on a copy of an early real library: 31 browsed pages from about a dozen sites, among about 1,000 SciFact pages as distractors, with queries written by hand.</p>
