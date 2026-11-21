@@ -83,6 +83,26 @@ WEBPAGE CONTENT:
 SUMMARY:"""
 
 
+def _response_text(response) -> str:
+    """The model's answer as one string.
+
+    Newer Gemini models return an answer in several parts, which can break in
+    the middle of a word ("humor" + "ously"). The SDK's `response.text` joins
+    parts with a newline, which split words in the summary, so the parts are
+    joined here with nothing in between. Thought parts (reasoning) are skipped.
+    """
+    try:
+        parts = response.candidates[0].content.parts
+    except (AttributeError, IndexError, TypeError):
+        parts = None
+    if not parts:
+        return response.text
+    return "".join(
+        part.text for part in parts
+        if getattr(part, "text", "") and not getattr(part, "thought", False)
+    )
+
+
 def summarize(query: str, content: str, detail_level: str = None) -> str | None:
     """Summarize content using Gemini.
     
@@ -105,7 +125,7 @@ def summarize(query: str, content: str, detail_level: str = None) -> str | None:
     
     try:
         response = model.generate_content(prompt, request_options={"timeout": SUMMARY_TIMEOUT_SECONDS})
-        summary = response.text.strip()
+        summary = _response_text(response).strip()
         logger.info(f"Generated {detail_level} summary ({len(summary)} chars)")
         return summary
     except Exception as e:
