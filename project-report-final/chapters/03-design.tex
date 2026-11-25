@@ -5,51 +5,102 @@
 \chapter{System Design}
 \label{ch:design}
 
-\section{Architecture Overview}
+\section{Architecture: Component Diagram}
 
-MemoryLane has three client-facing parts and one server
-(Figure~\ref{fig:architecture}). The \textbf{Chrome extension} captures
-pages; the \textbf{web app} is where users search and manage their library;
-and the \textbf{FastAPI backend} processes pages, runs searches and talks to
-\textbf{Apache Solr}, which holds both the text index and the vectors. All
-browser traffic enters through \textbf{Caddy}, which terminates HTTPS,
-serves the built web app and proxies \texttt{/api/*} to the backend.
-
-\begin{figure}[H]
-\centering
-\input{figures/arch}
-\caption{Architecture of the deployed system. Dashed boxes are external services.}
-\label{fig:architecture}
-\end{figure}
-
-The backend is a single process (one Uvicorn worker) that loads the
-embedding model once and shares it between requests. Solr is the only
-store for pages; two small SQLite databases hold sign-in links and problem
-reports. The design keeps the number of moving parts small enough to run on
-one server, a decision recorded in ADR~0004.
-
-\section{Data Flow}
-
-\subsection{Context Diagram (Level 0)}
+Figure~\ref{fig:components} shows the system as UML components. The
+\textbf{Chrome extension} captures pages and the \textbf{web app} is where
+users search and manage their library; both require the HTTPS interface that
+\textbf{Caddy} provides, which serves the built web app and forwards
+\texttt{/api} to the \textbf{FastAPI backend}. The backend requires Solr's
+HTTP API, SQL access to two small SQLite databases, and three external
+interfaces. It is one process that loads the embedding model once (ADR~0004).
 
 \begin{figure}[H]
 \centering
-\input{figures/dfd0}
-\caption{Context data-flow diagram}
-\label{fig:dfd0}
+\input{figures/components}
+\caption{UML component diagram. A ball is a provided interface, a socket a required one.}
+\label{fig:components}
 \end{figure}
 
-\subsection{Level 1}
+\section{Class Diagrams}
+
+Figure~\ref{fig:class-backend} shows the core of the backend: the save
+pipeline (\texttt{ingest}), the search (\texttt{retrieval}) and the only class
+that talks to Solr. Figure~\ref{fig:class-client} shows the client side of
+deleting and signing in. Python and JavaScript modules are drawn as classes
+with the stereotype $\ll$module$\gg$.
 
 \begin{figure}[H]
 \centering
-\input{figures/dfd1}
-\caption{Level-1 data-flow diagram}
-\label{fig:dfd1}
+\input{figures/class-backend}
+\caption{Class diagram: backend save and search}
+\label{fig:class-backend}
 \end{figure}
 
-Every flow that touches D1 carries the verified library id of the caller;
-there is no flow by which a client can name another user's id.
+\begin{figure}[H]
+\centering
+\input{figures/class-client}
+\caption{Class diagram: web app deletes and sessions}
+\label{fig:class-client}
+\end{figure}
+
+\section{Sequence Diagrams}
+
+Figures~\ref{fig:seq-save} and~\ref{fig:seq-search} show the two main
+interactions; signing in is shown in Figure~\ref{fig:seq-signin}
+(Chapter~\ref{ch:security}).
+
+\begin{figure}[H]
+\centering
+\input{figures/seq-save}
+\caption{Sequence diagram: saving a page}
+\label{fig:seq-save}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\input{figures/seq-search}
+\caption{Sequence diagram: a search}
+\label{fig:seq-search}
+\end{figure}
+
+\section{Collaboration Diagrams}
+
+Collaboration (communication) diagrams show the same kind of interaction as
+links between objects, with numbered messages.
+
+\begin{figure}[H]
+\centering
+\input{figures/collab-search}
+\caption{Collaboration diagram: a search inside the backend}
+\label{fig:collab-search}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\input{figures/collab-delete}
+\caption{Collaboration diagram: deleting a page with undo}
+\label{fig:collab-delete}
+\end{figure}
+
+\section{State Chart Diagrams}
+
+\begin{figure}[H]
+\centering
+\input{figures/state-page}
+\caption{State chart: a page in the web app (delete with undo)}
+\label{fig:state-page}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\input{figures/state-session}
+\caption{State chart: a sign-in session in the web app}
+\label{fig:state-session}
+\end{figure}
+
+A session ends only when Cognito refuses the refresh token; a refresh that is
+cancelled by a reload, or cannot reach Cognito, keeps the user signed in.
 
 \section{Data Model}
 
@@ -62,7 +113,7 @@ page vector. Table~\ref{tab:schema} lists the fields.
 
 \begin{table}[H]
 \centering
-\small
+\footnotesize
 \begin{tabularx}{\textwidth}{>{\ttfamily}p{0.25\textwidth} p{0.2\textwidth} L}
 \toprule
 \textrm{\textbf{Field}} & \textbf{Type} & \textbf{Purpose} \\
@@ -103,13 +154,11 @@ Two SQLite databases live in a Docker volume next to Solr's data:
   (ADR~0007).
 \end{itemize}
 
-\section{Interface Design}
-
-\subsection{REST API}
+\section{REST API}
 
 \begin{table}[H]
 \centering
-\small
+\footnotesize
 \begin{tabularx}{\textwidth}{>{\ttfamily}p{0.11\textwidth} >{\ttfamily}p{0.27\textwidth} L r}
 \toprule
 \textrm{\textbf{Method}} & \textrm{\textbf{Endpoint}} & \textbf{Purpose} & \textbf{Limit} \\
@@ -131,39 +180,29 @@ POST & /reports & Report a problem & 5/hour \\
 \label{tab:api}
 \end{table}
 
-\subsection{User Interface}
-
-The web app is deliberately quiet: a dark theme, one search box, and results
-that show the title, site, save time and a highlighted snippet. Every action
-has a keyboard path (\texttt{/} to search, arrows to move, \texttt{S} to
-summarise, \texttt{Shift+Del} to delete with undo). The extension popup
-shows whether the current page is saved, one primary button, and the day's
-automatic saves with one-click removal.
-
 \section{Design Decisions}
 
 Table~\ref{tab:adrs} lists the architecture decision records kept with the
-code. Each record states the alternatives that were rejected and the cost of
-the choice.
+code; each also records the rejected alternatives and the cost of the choice.
 
 \begin{table}[H]
 \centering
-\small
-\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.06\textwidth} p{0.36\textwidth} L}
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.05\textwidth} p{0.45\textwidth} L}
 \toprule
 \textrm{\textbf{\#}} & \textbf{Decision} & \textbf{Main reason} \\
 \midrule
-0001 & One Solr core for keyword and vector search & One system for BM25, KNN and filters; no second database to keep in sync \\
-0002 & Fuse rankings with Reciprocal Rank Fusion & Rank-based, so no score normalisation and no outlier effects \\
-0003 & Drop weak matches with a relevance floor & KNN always returns neighbours, however unrelated \\
+0001 & One Solr core for keyword and vector search & No second database to keep in sync \\
+0002 & Fuse rankings with Reciprocal Rank Fusion & No score normalisation, no outlier effects \\
+0003 & Drop weak matches with a relevance floor & KNN always returns neighbours \\
 0004 & Run everything on one EC2 instance & Cost and simplicity at this scale \\
-0005 & Link sign-ins by verified email & One library per person, without trusting the browser \\
-0006 & Fetch YouTube captions in the browser & YouTube blocks requests from servers \\
-0007 & Store problem reports before emailing & A report survives an email outage \\
-0008 & Keep summaries on demand and optional & Search never waits on an external model \\
-0009 & Remove the library map & Costly, fragile and rarely useful \\
-0010 & Remove ``Export my data'' & Little use; deleting data is the stronger right \\
-0011 & Auto-capture keeps only pages that read like content & Rules on content and reading, not an endless site list \\
+0005 & Link sign-ins by verified email & One library per person, safely \\
+0006 & Fetch YouTube captions in the browser & YouTube blocks servers \\
+0007 & Store problem reports before emailing & Survives an email outage \\
+0008 & Keep summaries on demand and optional & Search never waits on Gemini \\
+0009 & Remove the library map & Costly, fragile, rarely useful \\
+0010 & Remove ``Export my data'' & Little use; deletion is the stronger right \\
+0011 & Auto-capture keeps only pages that read like content & Rules, not an endless site list \\
 \bottomrule
 \end{tabularx}
 \caption{Architecture decision records}

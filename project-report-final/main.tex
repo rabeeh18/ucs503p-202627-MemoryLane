@@ -19,7 +19,7 @@
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,shapes.geometric,shapes.misc,fit,backgrounds,calc,shadows,patterns}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,shapes.misc,shapes.multipart,fit,backgrounds,calc,shadows,patterns}
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
 
@@ -93,6 +93,55 @@
   group/.style={draw, rounded corners=4pt, inner sep=7pt, thick},
   grouplabel/.style={font=\small\bfseries, anchor=north west},
 }
+
+% ---- UML styles -------------------------------------------------------------
+\tikzset{
+  % class: name / attributes / operations
+  umlclass/.style={rectangle split, rectangle split parts=3, draw, fill=white,
+    font=\scriptsize, align=left, text width=#1, inner sep=2.5pt,
+    rectangle split part fill={gray!12,white,white}},
+  umlclass/.default=40mm,
+  % sequence diagrams
+  lifehead/.style={draw, fill=gray!10, font=\scriptsize, align=center,
+    minimum height=7mm, inner sep=2pt, text width=19mm},
+  life/.style={densely dashed, gray},
+  msg/.style={->, >={Stealth[length=1.6mm]}},
+  ret/.style={->, densely dashed, >={Stealth[length=1.6mm, open]}},
+  mlabel/.style={font=\scriptsize, above, inner sep=1pt},
+  act/.style={draw, fill=white, minimum width=1.6mm, inner sep=0pt},
+  % collaboration (communication) diagrams
+  obj/.style={draw, fill=gray!8, font=\scriptsize, align=center,
+    minimum height=8mm, inner sep=3pt},
+  cmsg/.style={font=\scriptsize, fill=white, inner sep=1pt, align=left},
+  % state charts
+  ustate/.style={draw, rounded corners=6pt, fill=gray!8, font=\scriptsize,
+    align=center, minimum height=8mm, minimum width=22mm, inner sep=3pt},
+  startdot/.style={circle, fill=black, minimum size=2.6mm, inner sep=0pt},
+  enddot/.style={circle, draw, double, double distance=1pt, fill=black,
+    minimum size=2.2mm, inner sep=0pt},
+  trans/.style={->, >={Stealth[length=1.8mm]}},
+  tlabel/.style={font=\scriptsize, fill=white, inner sep=1pt, align=center},
+  % activity / swimlane
+  action/.style={draw, rounded corners=5pt, fill=white, font=\scriptsize,
+    align=center, minimum height=7mm, text width=24mm, inner sep=2pt},
+  adecide/.style={diamond, draw, aspect=1.6, fill=white, font=\scriptsize,
+    align=center, inner sep=0.5pt},
+  % UML components
+  component/.style={draw, fill=gray!8, font=\scriptsize, align=center,
+    minimum height=11mm, inner sep=3pt,
+    append after command={\pgfextra{\let\compnode\tikzlastnode}
+      node[draw, fill=white, minimum width=2.6mm, minimum height=2mm, inner sep=0pt,
+           anchor=north east] at ([xshift=-1.2mm, yshift=-1.2mm]\compnode.north east) {}}},
+}
+% assembly connector between a requirer and a provider at point #1,
+% socket opening towards the provider; #2 = angle the socket faces, #3 = label
+\newcommand{\ballsocket}[3]{%
+  \draw[fill=white] #1 circle (1.15mm);
+  \draw #1 ++(#2+90:2mm) arc[start angle=#2+90, end angle=#2+270, radius=2mm];
+  \node[font=\tiny, fill=white, inner sep=0.5pt] at ($#1+(#2+90:4mm)$) {#3};}
+% provided interface on its own (lollipop)
+\newcommand{\lollipop}[2]{\draw[fill=white] #1 circle (1.15mm);
+  \node[font=\tiny, above=1.2mm, inner sep=0.5pt] at #1 {#2};}
 
 % Include a figure only if the screenshot exists (so the report always builds)
 \newcommand{\screenshot}[3][\textwidth]{%

@@ -5,29 +5,38 @@
 \chapter{Testing and Quality Assurance}
 \label{ch:testing}
 
-\section{Strategy}
+\section{Test Plan}
 
-Testing works at four levels \cite{pressman2014se}:
+The plan follows the outline of IEEE Std 829 \cite{pressman2014se}.
 
-\begin{enumerate}
-  \item \textbf{Unit tests} for pure logic: URL normalisation, cleaning,
-  chunking, fusion, query intent, snippets, the capture rules, the delete
-  queue and the docs-search tokenizer.
-  \item \textbf{Integration tests} of the API through FastAPI's test client,
-  with an in-memory stand-in for Solr that honours the user filter, and
-  mocked Cognito, Gemini and SMTP.
-  \item \textbf{System evaluation} against a real Solr instance with the
-  production search code (Chapter~\ref{ch:evaluation}).
-  \item \textbf{Manual verification} of the user interface in a browser,
-  and on the live site after each deployment.
-\end{enumerate}
-
-Every bug fixed after launch got a regression test that fails without the
-fix.
+\begin{table}[!htbp]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.2\textwidth} L}
+\toprule
+\textbf{Item} & \textbf{Plan} \\
+\midrule
+Objective & Show that every functional requirement (Table~\ref{tab:fr}) works, that no user can reach another's data, and that search quality does not regress. \\
+Items under test & Backend API and pipelines; web app; extension; search quality. \\
+Features tested & Saving and updating pages, YouTube, automatic capture rules, search (keywords, meaning, site and time), snippets, summaries, library and deletes, sign-in and account linking, isolation, problem reports, logging privacy. \\
+Not tested & Third-party services themselves (Cognito, Gemini, SES are mocked); browsers other than Chrome; load beyond one server. \\
+Approach & \textbf{Unit} tests for pure logic (URLs, cleaning, chunking, fusion, query intent, snippets, capture rules, delete queue). \textbf{Integration} tests of the API through FastAPI's test client, with an in-memory Solr that honours the user filter. \textbf{System} evaluation against a real Solr core with the production search code. \textbf{Manual} checks of the user interface in a browser and on the live site after each deployment. \\
+Environment & Python 3.12 with pytest; Node with Vitest and \texttt{svelte-check}; Solr 9.7 in Docker for the evaluation; Chrome for manual checks. \\
+Entry criteria & The change builds; the docs build in strict mode; required Solr fields exist. \\
+Pass / exit criteria & All automated tests pass; type check clean; SciFact Hit@1 and MRR@10 not below the previous run beyond its confidence interval; manual smoke test of save, search, delete and sign-in passes on the live site. \\
+Regression rule & Every bug fixed gets a test that fails without the fix. \\
+Deliverables & Test results, the SciFact report (\texttt{scifact\_report.json}), the defect table (Table~\ref{tab:bugs}). \\
+Schedule & Unit and integration tests on every change; the evaluation before each retrieval change is merged; manual checks after each deployment. \\
+Risks & Mocks can hide real-service behaviour (mitigated by live checks); 100 claims give wide intervals (reported with every result). \\
+\bottomrule
+\end{tabularx}
+\caption{Test plan}
+\label{tab:testplan}
+\end{table}
 
 \section{Automated Test Suites}
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \small
 \begin{tabularx}{\textwidth}{p{0.36\textwidth} L r}
@@ -82,7 +91,7 @@ Real use surfaced defects that unit tests alone had missed. A structured bug
 audit in November and later reports were triaged, fixed with regression
 tests, and documented. Table~\ref{tab:bugs} lists representative ones.
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \small
 \begin{tabularx}{\textwidth}{p{0.27\textwidth} L L}

@@ -7,30 +7,9 @@
 
 \section{Code Base}
 
-The repository holds the backend, the web app, the extension, the tests, the
-evaluation scripts and the documentation (Table~\ref{tab:codebase}).
+The repository holds the backend (23 Python modules, about 4{,}000 lines), the web app (21 Svelte components), the Chrome extension, 551 tests, the evaluation scripts and the documentation. Table~\ref{tab:modules} lists the main backend modules.
 
-\begin{table}[H]
-\centering
-\small
-\begin{tabularx}{\textwidth}{p{0.24\textwidth} L r}
-\toprule
-\textbf{Part} & \textbf{Technology} & \textbf{Size} \\
-\midrule
-Backend & Python 3.12, FastAPI, Sentence Transformers, trafilatura & 23 modules, 4{,}000 lines \\
-Web app & Svelte, Vite, JavaScript & 21 components, 3{,}800 lines \\
-Extension & Chrome Manifest V3, JavaScript & 14 scripts, 1{,}900 lines \\
-Tests & pytest, Vitest & 29 files, 551 tests \\
-Search & Apache Solr 9.7 & 1 core, schema v2 \\
-Deployment & Docker Compose, Caddy & 3 services \\
-Documentation & MkDocs Material, Mermaid & 48 pages, 11 ADRs \\
-\bottomrule
-\end{tabularx}
-\caption{Code base at the end of the semester}
-\label{tab:codebase}
-\end{table}
-
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \small
 \begin{tabularx}{\textwidth}{>{\ttfamily}p{0.25\textwidth} L}
@@ -84,7 +63,7 @@ description \emph{inside the user's own tab}, and sends them with the save
 
 Automatic capture is off by default and explained before it is turned on.
 Rather than trying to list every site that should not be saved, it keeps a
-page only if it passes three tests (Figure~\ref{fig:capture}):
+page only if it passes three tests (swimlane diagram, Figure~\ref{fig:swimlane}):
 
 \begin{enumerate}
   \item \textbf{The address is not private}: not email, banking, social
@@ -98,28 +77,6 @@ page only if it passes three tests (Figure~\ref{fig:capture}):
   marked \texttt{noindex}.
 \end{enumerate}
 
-\begin{figure}[H]
-\centering
-\begin{tikzpicture}[node distance=5mm]
-  \node[stepbox] (load) {Page finishes loading};
-  \node[decision, below=5mm of load] (d1) {Auto-capture on, signed in,\\ site not excluded?};
-  \node[decision, below=5mm of d1] (d2) {Address not private?};
-  \node[decision, below=5mm of d2] (d3) {Read: 30\,s in view or\\ scrolled halfway?};
-  \node[stepbox, below=5mm of d3] (ex) {Extract HTML, text, signals\\ (or the video's captions)};
-  \node[decision, below=5mm of ex] (d4) {Reads like content?};
-  \node[stepbox, below=5mm of d4] (post) {\texttt{POST /api/memory}};
-  \node[decision, below=5mm of post] (d5) {Server re-checks\\ address and \texttt{noindex}};
-  \node[stepbox, below=5mm of d5, fill=green!8] (ok) {Stored, and listed in\\ ``Auto-saved today''};
-  \node[box, right=16mm of d3, fill=red!6] (skip) {Not saved};
-  \foreach \a/\b in {load/d1, d1/d2, d2/d3, d3/ex, ex/d4, d4/post, post/d5, d5/ok}
-    \draw[flow] (\a) -- (\b);
-  \foreach \d in {d1,d2,d3,d4,d5}
-    \draw[flow] (\d.east) -| node[lbl, pos=0.15, above] {no} (skip);
-\end{tikzpicture}
-\caption{The automatic-capture decision path}
-\label{fig:capture}
-\end{figure}
-
 The same address rules are applied again by the server to every automatic
 save, so even an outdated or faulty extension cannot store an inbox or a
 login page. An automatic save never rewrites a page that is already in the
@@ -127,7 +84,7 @@ library; only a manual save updates one. The popup lists the day's automatic
 saves with \textbf{Remove} and \textbf{Never this site}, and drops entries the
 user has since deleted on the website.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \begin{subfigure}[b]{0.52\textwidth}
   \centering
@@ -146,30 +103,9 @@ user has since deleted on the website.
 \section{Ingestion Pipeline}
 
 All saves, from the API, the re-index scripts and the evaluation, go through
-one function, \texttt{ingest\_page} (Figure~\ref{fig:ingest}). Writes for one
+one function, \texttt{ingest\_page} (Figure~\ref{fig:seq-save}). Writes for one
 user run under that user's lock, so two saves cannot race on the page
 limit or leave duplicate chunks.
-
-\begin{figure}[H]
-\centering
-\begin{tikzpicture}[node distance=4mm]
-  \node[stepbox] (a) {Verified token $\rightarrow$ library id};
-  \node[stepbox, below=of a] (b) {Canonical URL $\rightarrow$ normalise $\rightarrow$ \texttt{page\_id}};
-  \node[stepbox, below=of b] (c) {Clean HTML with trafilatura\\ (or use the video transcript)};
-  \node[decision, below=of c] (d) {$\geq 50$ words?};
-  \node[decision, below=of d] (e) {Same hash and model\\ (or automatic save of\\ a saved page)?};
-  \node[stepbox, below=of e] (f) {Chunk: 150 words, 30 overlap};
-  \node[stepbox, below=of f] (g) {Embed ``title + chunk''\\ (\texttt{bge-small-en-v1.5}, 384-d)};
-  \node[stepbox, below=of g] (h) {Upsert chunks, delete leftovers};
-  \node[box, right=14mm of d, fill=red!6] (r) {422 Not enough text};
-  \node[box, right=14mm of e, fill=yellow!12] (u) {\texttt{unchanged}};
-  \foreach \x/\y in {a/b,b/c,c/d,d/e,e/f,f/g,g/h} \draw[flow] (\x) -- (\y);
-  \draw[flow] (d) -- node[lbl, above] {no} (r);
-  \draw[flow] (e) -- node[lbl, above] {yes} (u);
-\end{tikzpicture}
-\caption{The ingestion pipeline}
-\label{fig:ingest}
-\end{figure}
 
 \subsection{URL Normalisation and Identity}
 
@@ -207,27 +143,7 @@ a model change re-embeds pages the next time they are saved.
 
 \section{Hybrid Retrieval}
 
-Figure~\ref{fig:search} shows one search from query to results.
-
-\begin{figure}[H]
-\centering
-\begin{tikzpicture}[node distance=5mm and 6mm]
-  \node[stepbox, minimum width=40mm] (q) {Query};
-  \node[box, below left=7mm and -6mm of q, minimum width=30mm] (bm) {BM25 (edismax)\\\scriptsize \texttt{title\^{}2 text}, top 50};
-  \node[box, below=7mm of q, minimum width=30mm] (knn) {Embed $\rightarrow$ KNN\\\scriptsize HNSW, top 50};
-  \node[box, below right=7mm and -6mm of q, minimum width=30mm] (int) {Site / time / URL?\\\scriptsize extra BM25 + KNN};
-  \node[stepbox, below=20mm of q] (rrf) {Reciprocal Rank Fusion};
-  \node[stepbox, below=of rrf] (grp) {Group chunks into pages};
-  \node[stepbox, below=of grp] (floor) {Relevance floor + keyword coverage};
-  \node[stepbox, below=of floor] (snip) {Sentence snippets};
-  \node[stepbox, below=of snip, fill=green!8] (res) {Up to 10 pages};
-  \foreach \s in {bm,knn,int} { \draw[flow] (q) -- (\s); \draw[flow] (\s) -- (rrf); }
-  \foreach \x/\y in {rrf/grp,grp/floor,floor/snip,snip/res} \draw[flow] (\x) -- (\y);
-  \node[font=\scriptsize, align=left, right=4mm of int, text width=26mm] {all searches are\\ pre-filtered to the\\ caller's library};
-\end{tikzpicture}
-\caption{The search pipeline}
-\label{fig:search}
-\end{figure}
+Figures~\ref{fig:seq-search} and~\ref{fig:collab-search} show one search from query to results, and Figure~\ref{fig:dfd2} its data flow.
 
 \subsection{Lexical and Semantic Retrieval}
 
@@ -304,14 +220,7 @@ system works fully without a Gemini key (ADR~0008).
 The web app is a Svelte \cite{svelte} single-page application served by
 Caddy. Figure~\ref{fig:webapp} shows its main screens.
 
-\begin{figure}[H]
-\centering
-\screenshot[0.92\textwidth]{figures/landing.png}{landing page}
-\caption{Landing page at \texttt{memorylane.site}}
-\label{fig:landing}
-\end{figure}
-
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \begin{subfigure}[b]{\textwidth}
   \centering
@@ -356,10 +265,3 @@ tokenised, averaged into a vector and compared with all sections in a few
 milliseconds, with no neural network running. The results are fused with the
 keyword results by RRF. The files (about 8\,MB) load only when the search box
 is first focused.
-
-\begin{figure}[H]
-\centering
-\screenshot[0.85\textwidth]{figures/docs-home.png}{documentation site}
-\caption{The documentation site}
-\label{fig:docs}
-\end{figure}

@@ -1,41 +1,8 @@
 % ==================================================
-% APPENDICES
+% APPENDIX
 % ==================================================
 
-\chapter{Search Configuration}
-\label{app:config}
-
-The search can be tuned without code changes through environment variables.
-Table~\ref{tab:config} lists the retrieval and processing settings and the
-values used in the live system and in the evaluation.
-
-\begin{table}[H]
-\centering
-\small
-\begin{tabularx}{\textwidth}{>{\ttfamily\raggedright\arraybackslash}p{0.33\textwidth} >{\ttfamily\raggedright\arraybackslash}p{0.23\textwidth} L}
-\toprule
-\textrm{\textbf{Setting}} & \textrm{\textbf{Value}} & \textbf{Meaning} \\
-\midrule
-EMBEDDING\_MODEL & bge-small-en-v1.5 & Sentence Transformers model (384-d) \\
-DEFAULT\_CANDIDATE\_POOL & 50 & Chunks fetched from BM25 and from KNN \\
-RRF\_K & 60 & Reciprocal Rank Fusion constant \\
-BM25\_WEIGHT, VECTOR\_WEIGHT & 1.0, 1.0 & Weights of the two rankings \\
-PAGE\_SECOND\_CHUNK\_WEIGHT & 0 & Bonus for a page's second chunk (off) \\
-MIN\_VECTOR\_SIMILARITY & 0.55 & Cosine needed by meaning-only matches \\
-KEYWORD\_FULL\_MATCH & 0.75 & Share of query words that keeps a keyword match \\
-QUERY\_INTENT\_ENABLED & true & Site, time and URL understanding \\
-RERANK\_ENABLED & false & Optional cross-encoder reranker \\
-CHUNK\_MAX\_WORDS & 150 & Largest chunk \\
-CHUNK\_OVERLAP\_WORDS & 30 & Words carried into the next chunk \\
-CHUNK\_MIN\_WORDS & 40 & A shorter tail merges into the previous chunk \\
-MAX\_PAGES\_PER\_USER & 5000 & Saved pages per account \\
-\bottomrule
-\end{tabularx}
-\caption{Retrieval and processing settings}
-\label{tab:config}
-\end{table}
-
-\chapter{Reproducing the Evaluation}
+\chapter{Reproducing the Evaluation and Project Resources}
 \label{app:reproduce}
 
 The SciFact evaluation runs on any machine with Docker and the project's
@@ -53,12 +20,12 @@ docker rm -f ml-eval-solr
 Indexing takes about two minutes and the five-configuration evaluation about
 three. The report, \texttt{evaluation/scifact\_report.json}, records the
 settings used, every metric with its confidence interval, and the rank of
-the first relevant result for each claim.
+the first relevant result for each claim. Retrieval settings such as
+\texttt{RRF\_K}, \texttt{MIN\_VECTOR\_SIMILARITY} and
+\texttt{PAGE\_SECOND\_CHUNK\_WEIGHT} are environment variables, so a
+configuration can be tried without code changes.
 
-\chapter{Project Resources}
-\label{app:resources}
-
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \small
 \begin{tabularx}{\textwidth}{p{0.25\textwidth} L}

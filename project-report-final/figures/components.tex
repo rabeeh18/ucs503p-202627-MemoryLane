@@ -1,0 +1,59 @@
+\begin{tikzpicture}[>={Stealth[length=1.8mm]}]
+  \tikzset{comp2/.style={component, text width=#1, minimum height=12mm}, comp2/.default=21mm}
+  % ---- components ------------------------------------------------------------
+  \node[comp2] (web) at (0, 0.95)  {$\ll$component$\gg$\\\textbf{Web app}\\Svelte SPA};
+  \node[comp2] (ext) at (0,-0.95)  {$\ll$component$\gg$\\\textbf{Extension}\\Chrome MV3};
+  \node[comp2=17mm, minimum height=30mm] (caddy) at (3.55,0) {$\ll$component$\gg$\\\textbf{Caddy}\\[1mm]TLS, static files, reverse proxy};
+  \node[comp2=30mm, minimum height=30mm] (api) at (7.45,0)
+    {$\ll$component$\gg$\\\textbf{FastAPI backend}\\[1mm]auth $\cdot$ accounts\\ingest $\cdot$ retrieval\\snippets $\cdot$ summaries\\reports $\cdot$ embeddings};
+  \node[comp2] (solr) at (11.65, 0.95) {$\ll$component$\gg$\\\textbf{Apache Solr}\\core \texttt{memorylane\_v2}};
+  \node[comp2] (sql)  at (11.65,-0.95) {$\ll$component$\gg$\\\textbf{SQLite}\\accounts, reports};
+  \node[comp2, dashed] (cog) at (3.55,-3.35) {$\ll$external$\gg$\\\textbf{Amazon Cognito}};
+  \node[comp2, dashed] (gem) at (7.45,-3.35) {$\ll$external$\gg$\\\textbf{Google Gemini}};
+  \node[comp2, dashed] (ses) at (11.15,-3.35) {$\ll$external$\gg$\\\textbf{Amazon SES}};
+
+  % ---- deployment groupings --------------------------------------------------
+  \begin{scope}[on background layer]
+    \node[group, dashed, fit=(web)(ext), inner sep=5pt] (bro) {};
+    \node[group, dashed, fit=(caddy)(api)(solr)(sql), inner sep=5pt] (srv) {};
+  \end{scope}
+  \node[font=\scriptsize\bfseries, anchor=south] at (bro.north) {$\ll$device$\gg$ Browser};
+  \node[font=\scriptsize\bfseries, anchor=south] at (srv.north) {$\ll$node$\gg$ AWS EC2 (Docker Compose)};
+
+  % ---- assembly connectors (ball = provided, socket = required) --------------
+  % HTTPS: provided by Caddy, required by the web app and the extension
+  \coordinate (p1) at (2.15,0);
+  \draw (web.east) -- ++(0.25,0) |- ($(p1)+(-0.2,0)$);
+  \draw (ext.east) -- ++(0.25,0) |- ($(p1)+(-0.2,0)$);
+  \draw (caddy.west |- p1) -- ($(p1)+(0.115,0)$);
+  \ballsocket{(p1)}{0}{HTTPS}
+  % REST API: provided by the backend, required by Caddy
+  \coordinate (p2) at (5.15,0);
+  \draw (caddy.east |- p2) -- ($(p2)+(-0.2,0)$);
+  \draw (api.west |- p2) -- ($(p2)+(0.115,0)$);
+  \ballsocket{(p2)}{0}{REST /api}
+  % Solr HTTP and SQL: provided by the stores, required by the backend
+  \coordinate (p3) at (9.9, 0.95);
+  \draw (api.east |- p3) -- ($(p3)+(-0.2,0)$);
+  \draw (solr.west) -- ($(p3)+(0.115,0)$);
+  \ballsocket{(p3)}{0}{Solr HTTP}
+  \coordinate (p4) at (9.9,-0.95);
+  \draw (api.east |- p4) -- ($(p4)+(-0.2,0)$);
+  \draw (sql.west) -- ($(p4)+(0.115,0)$);
+  \ballsocket{(p4)}{0}{SQL}
+  % external interfaces required by the backend (socket faces down)
+  \coordinate (p5) at (7.45,-2.15);
+  \draw (api.south) -- ($(p5)+(0,0.2)$);
+  \draw (gem.north) -- ($(p5)+(0,-0.115)$);
+  \ballsocket{(p5)}{-90}{Gemini API}
+  \coordinate (p6) at (11.15,-2.15);
+  \draw ([xshift=10mm]api.south) |- ($(p6)+(0,0.55)$) -- ($(p6)+(0,0.2)$);
+  \draw (ses.north) -- ($(p6)+(0,-0.115)$);
+  \ballsocket{(p6)}{-90}{SMTP}
+  \coordinate (p7) at (3.55,-2.15);
+  \draw ([xshift=-10mm]api.south) |- ($(p7)+(0,0.55)$) -- ($(p7)+(0,0.2)$);
+  \draw (cog.north) -- ($(p7)+(0,-0.115)$);
+  \ballsocket{(p7)}{-90}{OAuth 2.0, JWKS}
+  % the browser clients also use Cognito directly (sign-in)
+  \draw[->, densely dashed] (bro.south) |- node[font=\tiny, pos=0.75, below] {$\ll$use$\gg$ sign-in} (cog.west);
+\end{tikzpicture}

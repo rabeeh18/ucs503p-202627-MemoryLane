@@ -1,0 +1,35 @@
+\begin{tikzpicture}[>={Stealth[length=2mm]}]
+  % top row
+  \node[umlclass=30mm, anchor=north] (error) at (-5.55,0) {%
+    \centering$\ll$exception$\gg$\\\textbf{IngestError}
+    \nodepart{second}+ status\_code: int\\+ detail: str
+    \nodepart{third}+ \_\_init\_\_(status\_code,\\ \quad detail)};
+  \node[umlclass=58mm, anchor=north] (ingest) at (-0.2,0) {%
+    \centering$\ll$module$\gg$\\\textbf{ingest}
+    \nodepart{second}-- \_user\_write\_lock(user\_id): RLock
+    \nodepart{third}+ ingest\_page(user\_id, url, title, text,\\ \quad html, canonical\_url, is\_manual,\\ \quad keep\_existing, youtube): IngestResult\\
+      + resolve\_canonical\_url(url, canonical): str\\+ page\_vector(embeddings): list};
+  \node[umlclass=48mm, anchor=north] (retrieval) at (5.65,0) {%
+    \centering$\ll$module$\gg$\\\textbf{retrieval}
+    \nodepart{second}RRF\_K, MIN\_VECTOR\_SIMILARITY
+    \nodepart{third}+ hybrid\_search(query, user\_id, top\_k)\\+ rrf\_fuse\_lists(lists, k): dict\\+ group\_by\_webpage(chunks, scores)\\+ apply\_relevance\_floor(pages)};
+  % bottom row
+  \node[umlclass=30mm, anchor=north] (result) at (-5.55,-4.75) {%
+    \centering$\ll$dataclass$\gg$\\\textbf{IngestResult}
+    \nodepart{second}+ status: str\\+ message: str\\+ page\_id: str\\+ url, title, domain: str\\+ timestamp: str\\+ chunks: int
+    \nodepart{third}\textit{(none)}};
+  \node[umlclass=58mm, anchor=north] (solr) at (-0.2,-4.75) {%
+    \textbf{SolrClient}
+    \nodepart{second}+ base\_url: str\\+ client: httpx.Client
+    \nodepart{third}+ upsert\_page\_chunks(page\_id, docs, user\_id)\\+ delete\_page(page\_id, user\_id)\\+ bm25\_search(query, user\_id, rows): list\\+ knn\_search(vector, user\_id, k): list\\+ get\_page\_head(page\_id, user\_id): dict\\+ list\_pages(user\_id, limit, offset)\\+ existing\_page\_ids(user\_id, ids): set\\-- \_update(body, visible\_now)};
+  \node[umlclass=48mm, anchor=north] (intent) at (5.65,-4.75) {%
+    \centering$\ll$dataclass$\gg$\\\textbf{QueryIntent}
+    \nodepart{second}+ text: str\\+ domains: set[str]\\+ saved\_from, saved\_until: datetime\\+ saved\_near: datetime\\+ url: str
+    \nodepart{third}+ active(): bool};
+
+  \draw[->, densely dashed] (ingest.west |- error) -- node[font=\tiny, above] {$\ll$raise$\gg$} (error.east);
+  \draw[->, densely dashed] (ingest.south west) -- node[font=\tiny, above, sloped] {$\ll$create$\gg$} (result.north east);
+  \draw[->, densely dashed] (ingest.south) -- node[font=\tiny, right] {$\ll$use$\gg$} (solr.north);
+  \draw[->, densely dashed] (retrieval.south west) -- node[font=\tiny, above, sloped] {$\ll$use$\gg$} (solr.north east);
+  \draw[->, densely dashed] (retrieval.south) -- node[font=\tiny, right] {$\ll$use$\gg$} (intent.north);
+\end{tikzpicture}

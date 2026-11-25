@@ -1,0 +1,27 @@
+\begin{tikzpicture}[proc/.append style={minimum size=17mm, font=\scriptsize}]
+  \newcommand{\dstore}[2]{\makebox[6.6mm][l]{#1}#2}
+  \node[entity] (user) at (-6.4, 0) {Reader};
+
+  \node[proc] (p31) at (-3.5, 0)   {\textbf{3.1}\\Read site,\\time, URL};
+  \node[proc] (p32) at (-0.6, 1.45) {\textbf{3.2}\\Keyword\\search};
+  \node[proc] (p33) at (-0.6,-1.45) {\textbf{3.3}\\Embed and\\vector search};
+  \node[proc] (p34) at (2.2, 0)    {\textbf{3.4}\\Fuse ranks,\\group pages};
+  \node[proc] (p35) at (4.9, 0)    {\textbf{3.5}\\Relevance\\floor};
+  \node[proc] (p36) at (4.9,-2.6)  {\textbf{3.6}\\Snippets};
+
+  \node[store, minimum width=31mm] (d1a) at (-0.6, 3.15) {\dstore{D1}{Solr index}};
+  \node[store, minimum width=31mm] (d1b) at (-0.6,-3.15) {\dstore{D1}{Solr index}};
+
+  \draw[flow] (user) -- node[lbl, above] {query} (p31);
+  \draw[flow] (d1a.west) -| node[lbl, pos=0.75, left] {user's sites} (p31.north);
+  \draw[flow] (p31) -- node[lbl, sloped, above] {text, filters} (p32);
+  \draw[flow] (p31) -- node[lbl, sloped, below] {query} (p33);
+  \draw[flow] (d1a) -- node[lbl, right] {BM25 hits} (p32);
+  \draw[flow] (d1b) -- node[lbl, right] {nearest chunks} (p33);
+  \draw[flow] (p32) -- node[lbl, sloped, above] {ranked list} (p34);
+  \draw[flow] (p33) -- node[lbl, sloped, below] {ranked list} (p34);
+  \draw[flow] (p34) -- node[lbl, above] {pages} (p35);
+  \draw[flow] (d1a.east) -- node[lbl, sloped, above] {similarities} (p35.north);
+  \draw[flow] (p35) -- node[lbl, right] {kept pages} (p36);
+  \draw[flow] (p36.south) -- ++(0,-1.25) -| node[lbl, pos=0.25, below] {results with snippets} (user.south);
+\end{tikzpicture}

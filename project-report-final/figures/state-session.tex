@@ -1,0 +1,17 @@
+\begin{tikzpicture}[>={Stealth[length=1.8mm]}]
+  \node[startdot] (s) at (-2.0,0) {};
+  \node[ustate] (out) at (0, 0)    {Signed out};
+  \node[ustate] (sin) at (5.2, 2.3) {Signing in\\\tiny at Cognito};
+  \node[ustate] (in)  at (10.4, 0)  {Signed in\\\tiny access token valid};
+  \node[ustate] (ref) at (5.2,-2.3) {Refreshing\\\tiny token request};
+
+  \draw[trans] (s) -- node[tlabel, above=1mm, pos=0.55] {[no session]} (out);
+  \draw[trans] (s) |- node[tlabel, pos=0.8, above] {[refresh token stored]} (10.4,3.35) -- (in.north);
+  \draw[trans] (out.north east) -- node[tlabel, sloped, above] {sign in / PKCE redirect} (sin.west);
+  \draw[trans] (sin.south west) to[bend left=25] node[tlabel, sloped, below] {error or state mismatch} (out.east);
+  \draw[trans] (sin.east) -- node[tlabel, sloped, above] {code exchanged / store tokens} (in.north west);
+  \draw[trans] (in.west) -- node[tlabel, above] {sign out / clear session} (out.east |- in.west);
+  \draw[trans] (in.south) |- node[tlabel, pos=0.75, below] {token near expiry, or reload} (ref.east);
+  \draw[trans] (ref.north east) -- node[tlabel, sloped, above, pos=0.42] {new tokens, or unreachable\\/ keep session} (in.south west);
+  \draw[trans] (ref.west) -| node[tlabel, pos=0.25, below] {400 or 401 / clear session} (out.south);
+\end{tikzpicture}

@@ -12,7 +12,7 @@ MemoryLane runs on a single AWS EC2 \texttt{c7i-flex.large} instance (2 vCPU,
 domain \texttt{memorylane.site}. Three Docker Compose services make up the
 system (Figure~\ref{fig:deployment}).
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
 \begin{tikzpicture}[node distance=6mm and 10mm]
   \tikzset{vol/.style={db, minimum width=17mm, minimum height=8mm, font=\scriptsize, fill=white}}
@@ -79,11 +79,3 @@ snapshots of the instance's volume.
   \texttt{gh-deploy} command in strict mode, and the CI workflow checks the
   build on every change.
 \end{itemize}
-
-\section{Distribution of the Extension}
-
-The extension is downloaded from the website as a zip built from the
-deployed code and loaded unpacked in Chrome. Its version is bumped with
-every change (2.4.2 at the time of writing), so users can see whether they
-are up to date; the server's own checks protect against outdated
-extensions in the meantime.

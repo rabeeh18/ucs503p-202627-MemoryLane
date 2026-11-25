@@ -1,0 +1,58 @@
+\begin{tikzpicture}[>={Stealth[length=1.8mm]}, action/.append style={text width=27mm}]
+  % lanes: x edges and headers
+  \foreach \x in {0,3.1,7.0,10.8,13.6} \draw[gray!60] (\x,0.55) -- (\x,-15.5);
+  \draw[gray!60] (0,0.55) -- (13.6,0.55);
+  \draw[gray!60] (0,-0.05) -- (13.6,-0.05);
+  \draw[gray!60] (0,-15.5) -- (13.6,-15.5);
+  \foreach \x/\t in {1.55/Reader, 5.05/Chrome extension, 8.9/FastAPI backend, 12.2/Apache Solr}
+    \node[font=\small\bfseries] at (\x,0.25) {\t};
+
+  % flow-final node (circle with a cross)
+  \newcommand{\flowfinal}[1]{%
+    \draw[fill=white] #1 circle (1.6mm);
+    \draw #1 ++(45:1.6mm) -- ++(225:3.2mm);
+    \draw #1 ++(135:1.6mm) -- ++(-45:3.2mm);}
+
+  % ---- nodes ----------------------------------------------------------------
+  \node[startdot] (start) at (1.55,-0.55) {};
+  \node[action] (a1) at (1.55,-1.35) {Open a page in Chrome};
+  \node[action] (a2) at (4.75,-2.55) {Check: auto-capture on, signed in, site not excluded, address not private};
+  \node[adecide] (d1) at (4.75,-4.05) {eligible?};
+  \node[action] (a3) at (4.75,-5.35) {Watch the reading: 30\,s in view, or scrolled halfway};
+  \node[action] (a0) at (1.55,-5.35) {Read the page};
+  \node[adecide] (d2) at (4.75,-6.65) {read?};
+  \node[action] (a4) at (4.75,-7.9) {Extract HTML, text and content signals};
+  \node[adecide] (d3) at (4.75,-9.2) {content?};
+  \node[action] (a5) at (8.9,-10.4) {Verify token; re-check address and \texttt{noindex}};
+  \node[adecide] (d4) at (8.9,-11.65) {allowed?};
+  \node[action] (a6) at (8.9,-12.9) {Clean, chunk, embed (an existing page is kept)};
+  \node[action] (a7) at (12.2,-12.9) {Store chunks and vectors};
+  \node[action] (a8) at (4.75,-14.2) {Add to ``Auto-saved today''};
+  \node[action] (a9) at (1.55,-14.2) {See it in the popup; may Remove it};
+  \node[enddot] (end) at (1.55,-15.1) {};
+
+  % ---- flows ----------------------------------------------------------------
+  \draw[->] (start) -- (a1);
+  \draw[->] (a1.south) |- (a2.west);
+  \draw[->] (a2) -- (d1);
+  \draw[->] (d1) -- node[tlabel, right] {yes} (a3);
+  \draw[->, densely dashed] (a0) -- node[tlabel, above] {scrolls} (a3);
+  \draw[->] (a3) -- (d2);
+  \draw[->] (d2) -- node[tlabel, right] {yes} (a4);
+  \draw[->] (a4) -- (d3);
+  \draw[->] (d3.south) |- node[tlabel, pos=0.25, left] {yes} (a5.west);
+  \draw[->] (a5) -- (d4);
+  \draw[->] (d4) -- node[tlabel, right] {yes} (a6);
+  \draw[->] (a6) -- (a7);
+  \draw[->] (a7.south) |- node[tlabel, pos=0.75, above] {saved} (a8.east);
+  \draw[->] (a8) -- (a9);
+  \draw[->] (a9) -- (end);
+
+  % "no" branches end the flow
+  \foreach \d in {d1,d2,d3} {
+    \draw[->] (\d.east) -- node[tlabel, above] {no} ++(1.25,0) coordinate (f\d);
+    \flowfinal{($(f\d)+(0.16,0)$)}
+  }
+  \draw[->] (d4.east) -- node[tlabel, above] {no} ++(1.25,0) coordinate (fd4);
+  \flowfinal{($(fd4)+(0.16,0)$)}
+\end{tikzpicture}

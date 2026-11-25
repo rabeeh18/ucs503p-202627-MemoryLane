@@ -1,0 +1,27 @@
+\begin{tikzpicture}[>={Stealth[length=2mm]}]
+  \node[umlclass=50mm] (queue) at (0,0) {%
+    \textbf{DeleteQueue}
+    \nodepart{second}+ hidden: Store\textless Set\textless id\textgreater\textgreater\\+ toasts: Store\textless Toast[]\textgreater\\-- pending: Map\textless id, timer\textgreater\\-- committedAt: Map\textless id, time\textgreater
+    \nodepart{third}+ schedule(pageId)\\+ undo(pageId)\\+ flush(\{keepalive\}): int\\+ restore(): Promise\textless int\textgreater\\+ reconcile(ids, fetchedAt)\\+ notInTotal(id, fetchedAt): bool};
+  \node[umlclass=46mm, anchor=north west] (api) at (3.4,1.6) {%
+    \centering$\ll$module$\gg$\\\textbf{api}
+    \nodepart{second}\textit{API\_BASE, TIMEOUT\_MS}
+    \nodepart{third}+ search(query, signal)\\+ listMemories(limit, offset)\\+ fetchSummary(\{query, id\})\\+ deletePage(id, \{keepalive\})\\+ deleteAllData()};
+  \node[umlclass=30mm, anchor=north west] (apierr) at (9.1,1.6) {%
+    \textbf{ApiError}
+    \nodepart{second}+ message: str\\+ status: int
+    \nodepart{third}\textit{extends Error}};
+  \node[umlclass=46mm, anchor=north west] (auth) at (3.4,-2.2) {%
+    \centering$\ll$module$\gg$\\\textbf{auth}
+    \nodepart{second}+ session: Store\textless\{email\}\textgreater\\-- access: \{token, expiresAt\}
+    \nodepart{third}+ signIn(\{provider, signUp\})\\+ handleCallback()\\+ getAccessToken(\{force\}): token\\+ signOut()\\+ refreshRejected(status): bool};
+  \node[umlclass=30mm, anchor=north west] (sesserr) at (9.1,-2.2) {%
+    \textbf{SessionUnavail-\\ableError}
+    \nodepart{second}\textit{(none)}
+    \nodepart{third}\textit{extends Error}};
+
+  \draw[->, densely dashed] (queue.east |- api.west) -- node[font=\tiny, above] {$\ll$use$\gg$} (api.west);
+  \draw[->, densely dashed] (api.south) -- node[font=\tiny, right] {$\ll$use$\gg$} (auth.north);
+  \draw[->, densely dashed] (api.east |- apierr.west) -- node[font=\tiny, above] {$\ll$throw$\gg$} (apierr.west);
+  \draw[->, densely dashed] (auth.east |- sesserr.west) -- node[font=\tiny, above] {$\ll$throw$\gg$} (sesserr.west);
+\end{tikzpicture}

@@ -1,0 +1,18 @@
+\begin{tikzpicture}[>={Stealth[length=1.8mm]}]
+  \node[startdot] (s) at (-2.1,0) {};
+  \node[ustate] (shown)    at (0,0)     {Shown};
+  \node[ustate] (pending)  at (5.4,0)   {Pending delete\\\tiny hidden, Undo toast};
+  \node[ustate] (deleting) at (5.4,-2.9) {Deleting\\\tiny request sent};
+  \node[ustate] (deleted)  at (10.6,-2.9) {Deleted};
+  \node[enddot] (e) at (10.6,-4.6) {};
+
+  \draw[trans] (s) -- node[tlabel, above] {listed} (shown);
+  \draw[trans] (shown) -- node[tlabel, above=1mm] {delete / hide, show toast} (pending);
+  \draw[trans] (pending.north) to[bend right=25] node[tlabel, above] {undo / show again} (shown.north);
+  \draw[trans] (pending) -- node[tlabel, right] {6\,s elapsed, or tab closed / send DELETE} (deleting);
+  \draw[trans] (deleting) -- node[tlabel, above] {204 or 404} (deleted);
+  \draw[trans] (deleting.west) to[bend left=20] node[tlabel, sloped, below] {request failed / error toast} (shown.south);
+  \draw[trans] (deleting.south west) .. controls ++(-0.4,-1.1) and ++(0.4,-1.1) .. node[tlabel, below] {reload [flushed $<$ 30\,s] / stay hidden, re-send} (deleting.south east);
+  \draw[trans] (deleted) -- node[tlabel, right] {tab closed} (e);
+  \draw[trans] (deleted.north) |- node[tlabel, pos=0.75, above] {same URL saved again [list fetched after delete]} ($(shown.north)+(0.4,1.55)$) -- ($(shown.north)+(0.4,0)$);
+\end{tikzpicture}

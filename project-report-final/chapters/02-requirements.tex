@@ -1,25 +1,16 @@
 % ==================================================
-% CHAPTER 2: REQUIREMENTS AND PROCESS
+% CHAPTER 2: REQUIREMENTS ANALYSIS
 % ==================================================
 
-\chapter{Requirements and Development Process}
+\chapter{Requirements Analysis}
 \label{ch:requirements}
-
-\section{Stakeholders and Users}
-
-\begin{itemize}
-  \item \textbf{Readers} (students, developers, researchers): save pages and
-  find them again. They are the primary users.
-  \item \textbf{The maintainer}: deploys and operates the service, and
-  receives problem reports.
-  \item \textbf{External services}: Amazon Cognito (identity), Google Gemini
-  (summaries) and Amazon SES (report email). MemoryLane depends on them but
-  must keep working, with reduced features, when they fail.
-\end{itemize}
 
 \section{Use Cases}
 
-Figure~\ref{fig:usecases} shows the use cases of the final system.
+Two kinds of people use MemoryLane. \textbf{Readers} (students, developers,
+researchers) save pages and find them again; the \textbf{maintainer} operates
+the service and receives problem reports. Figure~\ref{fig:usecases} shows
+their use cases.
 
 \begin{figure}[H]
 \centering
@@ -68,60 +59,209 @@ Figure~\ref{fig:usecases} shows the use cases of the final system.
 \label{fig:usecases}
 \end{figure}
 
-\section{Functional Requirements}
+\section{Activity and Swimlane Diagram}
 
-\begin{longtable}{>{\ttfamily}p{0.09\textwidth} p{0.6\textwidth} p{0.18\textwidth}}
+Figure~\ref{fig:swimlane} follows an automatic capture through the four
+parties involved. Each lane shows who does the work; a decision that says
+``no'' ends the flow there (flow-final node), so a page that fails any test
+is never sent or stored.
+
+\begin{figure}[H]
+\centering
+\input{figures/swimlane}
+\caption{Swimlane activity diagram: automatic capture of a page}
+\label{fig:swimlane}
+\end{figure}
+
+\section{Data Flow Diagrams}
+
+\subsection{Level 0: Context Diagram}
+
+\begin{figure}[H]
+\centering
+\input{figures/dfd0}
+\caption{DFD level 0 (context diagram)}
+\label{fig:dfd0}
+\end{figure}
+
+\subsection{Level 1}
+
+\begin{figure}[H]
+\centering
+\input{figures/dfd1}
+\caption{DFD level 1}
+\label{fig:dfd1}
+\end{figure}
+
+Every flow that touches D1 carries the verified library id of the caller;
+there is no flow by which a client can name another user's id.
+
+\subsection{Level 2: Search (Process 3)}
+
+\begin{figure}[H]
+\centering
+\input{figures/dfd2}
+\caption{DFD level 2 of process 3, Search. D1 is drawn twice to avoid crossing lines.}
+\label{fig:dfd2}
+\end{figure}
+
+\section{Software Requirements Specification}
+
+This section follows the structure of IEEE Std 830-1998.
+
+\subsection{Introduction}
+
+\paragraph{Purpose.} This specification defines what MemoryLane must do and
+how well, for its developers, its evaluators and its maintainer.
+
+\paragraph{Scope.} MemoryLane is a web service, a web application and a
+Chrome extension that save the text of web pages a user reads and let the
+user find them again by describing them. It does not crawl the web, share
+pages between users, or store pages from other browsers.
+
+\paragraph{Definitions.} \emph{Page}: a saved web page or video.
+\emph{Chunk}: a passage of about 150 words. \emph{Library}: all pages of one
+person. \emph{Automatic capture}: saving without a click. BM25, KNN, RRF and
+PKCE are defined in Chapters~\ref{ch:implementation} and~\ref{ch:security}.
+
+\paragraph{References.} The project proposal, the mid-semester report, the
+documentation site, and the standards and sources in the bibliography.
+
+\subsection{Overall Description}
+
+\paragraph{Product perspective.} A new, self-contained system that depends
+on Amazon Cognito for identity, Google Gemini for summaries and Amazon SES for
+email (Figure~\ref{fig:components}).
+
+\paragraph{Product functions.} Save pages manually or automatically; save
+YouTube videos; search by meaning and keywords, including sites and times;
+summarise a result; manage and delete the library; report problems.
+
+\paragraph{User classes.} \emph{Readers}, with ordinary browser skills, who
+use the extension and the web app; the \emph{maintainer}, who deploys with
+Docker and reads reports.
+
+\paragraph{Operating environment.} Chrome or another Chromium browser for the
+extension; any modern browser for the web app; a Linux server with Docker,
+2~vCPU and 4\,GB RAM for the service.
+
+\paragraph{Constraints.} No GPU; one server; no client secret in the browser;
+pages stored only on the server; English-language embedding model.
+
+\paragraph{Assumptions and dependencies.} Users sign in before saving;
+Cognito is reachable for first sign-ins; summaries are unavailable without a
+Gemini key, while everything else works.
+
+\subsection{Specific Requirements}
+
+\paragraph{External interfaces.} \emph{User}: the web app (search, library,
+account menu) and the extension popup and options page. \emph{Software}: a
+REST/JSON API over HTTPS (Table~\ref{tab:api}); Solr's HTTP API; Cognito
+OAuth~2.0 and JWKS; the Gemini API; SMTP. \emph{Hardware}: none beyond the
+server. \emph{Communications}: HTTPS only, with HSTS.
+
+\begin{longtable}{>{\ttfamily}p{0.09\textwidth} p{0.66\textwidth} p{0.12\textwidth}}
 \toprule
-\textrm{\textbf{ID}} & \textbf{Requirement} & \textbf{Status} \\
+\textrm{\textbf{ID}} & \textbf{Functional requirement} & \textbf{Priority} \\
 \midrule
 \endhead
-FR-01 & Users sign in with Google or email and password; a Google and an email sign-in with the same verified email share one library. & Done \\
-FR-02 & The extension saves the current page in one click, confirms it, and offers undo. & Done \\
-FR-03 & Optional automatic capture saves only pages the user has read and that look like content, and never private pages (email, banking, private apps, account areas). & Done \\
-FR-04 & Users can exclude sites from automatic capture and see and remove the day's automatic saves. & Done \\
-FR-05 & YouTube videos are saved through their captions, with description and channel. & Done \\
-FR-06 & Saving the same page again updates one entry; addresses that differ only in tracking parameters, \texttt{www.} or fragments are the same page. & Done \\
-FR-07 & Users search with a natural-language description, by typing or by voice, and get up to ten pages with snippets. & Done \\
-FR-08 & Queries that name a site, a time or a URL rank matching pages higher. & Done \\
-FR-09 & Each result can be summarised on demand. & Done \\
-FR-10 & Users browse their library newest first, delete pages with undo, and delete all their data. & Done \\
-FR-11 & Users report a problem from the website or the extension; the report is emailed to the maintainer. & Done \\
-FR-12 & A public health endpoint reports the state of Solr, the model and Gemini. & Done \\
+FR-01 & Users sign in with Google or email and password; a Google and an email sign-in with the same verified email share one library. & High \\
+FR-02 & The extension saves the current page in one click, confirms it, and offers undo. & High \\
+FR-03 & Optional automatic capture saves only pages the user has read and that look like content, and never private pages (email, banking, private apps, account areas). & High \\
+FR-04 & Users can exclude sites from automatic capture and see and remove the day's automatic saves. & Medium \\
+FR-05 & YouTube videos are saved through their captions, with description and channel. & Medium \\
+FR-06 & Saving the same page again updates one entry; addresses that differ only in tracking parameters, \texttt{www.} or fragments are the same page. & High \\
+FR-07 & Users search with a natural-language description, by typing or by voice, and get up to ten pages with snippets. & High \\
+FR-08 & Queries that name a site, a time or a URL rank matching pages higher. & Medium \\
+FR-09 & Each result can be summarised on demand. & Medium \\
+FR-10 & Users browse their library newest first, delete pages with undo, and delete all their data. & High \\
+FR-11 & Users report a problem from the website or the extension; the report is emailed to the maintainer. & Low \\
+FR-12 & A public health endpoint reports the state of Solr, the model and Gemini. & Low \\
 \bottomrule
 \caption{Functional requirements}
 \label{tab:fr}
 \end{longtable}
 
-\section{Non-Functional Requirements}
-
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \small
 \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.2\textwidth} L L}
 \toprule
-\textbf{Quality} & \textbf{Requirement} & \textbf{How it is met} \\
+\textbf{Requirement} & \textbf{Specification} & \textbf{How it is met} \\
 \midrule
-Privacy & No user can see or change another user's pages; sensitive pages are never auto-saved; logs hold no URLs or queries & User filter inside the Solr client; isolation tests; two-stage capture rules; log filters \\
-Security & Authenticated API; no secrets in the browser & Cognito PKCE, RS256 token checks, CSP, HTTPS with HSTS, rate limits \\
 Performance & Search answers in well under a second & $\approx$75\,ms median in-process search; concurrent BM25 and KNN \\
+Security & Authenticated API; no secrets in the browser; no access to others' pages & Cognito PKCE, RS256 token checks, user filter in the Solr client, CSP, HSTS, rate limits \\
+Privacy & Sensitive pages never auto-saved; logs hold no URLs or queries & Two-stage capture rules; log filters \\
 Relevance & The right page is usually first & Hit@1 0.71, MRR@10 0.79 on SciFact (Chapter~\ref{ch:evaluation}) \\
 Availability & Survives a reboot; degrades instead of failing & Restart policies, health checks; summaries and reports optional \\
 Maintainability & Changes are safe and explained & 551 tests, CI, decision records, documentation site \\
 Usability & Usable with keyboard and on phones & Keyboard shortcuts, responsive layout, voice input \\
-Cost & Runs on one small server & One \texttt{c7i-flex.large} instance \\
 \bottomrule
 \end{tabularx}
-\caption{Non-functional requirements}
+\caption{Performance, security and quality requirements}
 \label{tab:nfr}
 \end{table}
+
+\section{User Stories and Story Cards}
+
+Requirements were planned as user stories \cite{sommerville2016se}, each with
+acceptance criteria that became tests. Table~\ref{tab:stories} lists the main
+stories; Figure~\ref{fig:storycards} shows three of them as story cards, with
+priority and a relative size in story points.
+
+\begin{table}[!htbp]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.07\textwidth} L}
+\toprule
+\textrm{\textbf{ID}} & \textbf{Story} \\
+\midrule
+US-1 & As a reader, I want to save the page I'm on with one click, so that I can find it later. \\
+US-2 & As a reader, I want pages I read to be saved automatically, so that I don't have to remember to save them. \\
+US-3 & As a reader, I want my inbox, bank and private documents never to be captured, so that I can leave auto-capture on. \\
+US-4 & As a reader, I want to search by describing a page, so that I find it without its title or address. \\
+US-5 & As a reader, I want to say where or when I saw a page, so that ``the reddit post from last week'' finds it. \\
+US-6 & As a reader, I want a short summary of a result, so that I know it's the right page before opening it. \\
+US-7 & As a reader, I want to delete a page and undo a mistake, so that my library stays mine. \\
+US-8 & As a reader, I want my Google and email sign-ins to share one library, so that I see the same pages either way. \\
+US-9 & As a maintainer, I want problem reports by email with context, so that I can fix issues users hit. \\
+\bottomrule
+\end{tabularx}
+\caption{User stories}
+\label{tab:stories}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+  \tikzset{card/.style={draw, rounded corners=2pt, fill=yellow!6, text width=43mm,
+    inner sep=4pt, font=\scriptsize, align=left, minimum height=46mm, anchor=north}}
+  \newcommand{\storycard}[6]{%
+    \node[card] at (#1,0) {\textbf{#2}\hfill\textit{#3}\\[1mm]
+      #4\\[1.5mm]\textbf{Acceptance}\\#5\\[1.5mm]\textbf{Priority / size:} #6};}
+  \storycard{0}{US-3}{Capture}{As a reader, I want my inbox, bank and private documents never to be captured.}%
+    {$\bullet$ Email, banking, private apps, local and account pages refused\\
+     $\bullet$ Pages with a password field or \texttt{noindex} refused\\
+     $\bullet$ Server refuses them even from an old extension}{High / 5}
+  \storycard{4.95}{US-5}{Search}{As a reader, I want to say where or when I saw a page.}%
+    {$\bullet$ Site names come from my saved domains\\
+     $\bullet$ ``yesterday'', ``last week'', ``in march'' work\\
+     $\bullet$ Hints boost; they never hide a better page}{Medium / 8}
+  \storycard{9.9}{US-7}{Library}{As a reader, I want to delete a page and undo a mistake.}%
+    {$\bullet$ Page disappears at once; Undo for 6\,s\\
+     $\bullet$ Closing the tab still deletes\\
+     $\bullet$ A reload never shows it again}{High / 3}
+\end{tikzpicture}
+\caption{Story cards}
+\label{fig:storycards}
+\end{figure}
 
 \section{Development Process}
 
 MemoryLane was built \textbf{iteratively and incrementally}
 \cite{sommerville2016se}: each iteration delivered a working system, which
 was used, measured and then improved. Work was tracked in Git on GitHub, with
-feature branches for larger changes (for example
-\texttt{feature/library-map}) and 86 commits over four months.
+86 commits over four months (Figure~\ref{fig:timeline}).
 
 \begin{figure}[H]
 \centering
@@ -145,16 +285,9 @@ feature branches for larger changes (for example
 \end{figure}
 
 The October rebuild was planned as seven phases, each committed and tested
-separately: query-side retrieval improvements, bug fixes, a new ingestion
-pipeline and schema, authentication and multi-user scoping, a web redesign,
-an extension redesign, and deployment with Docker Compose and Caddy. After
-the system went live, real use drove the remaining work: an audit of
-reported bugs, stricter automatic capture after an inbox was captured by an
-outdated extension, and a second evaluation that uncovered a ranking defect
-(Section~\ref{sec:bonus}).
-
-Every significant choice was written down as an \textbf{architecture
-decision record} (ADR) \cite{nygard2011adr}, giving the context, the
-decision, the alternatives and the consequences (Table~\ref{tab:adrs}).
-Features that did not earn their place were removed rather than kept, and
-their removal was recorded too.
+separately: retrieval, bug fixes, a new ingestion pipeline and schema,
+multi-user authentication, a web redesign, an extension redesign, and
+deployment. Afterwards, real use drove the work: a bug audit, stricter
+automatic capture, and a second evaluation that uncovered a ranking defect
+(Section~\ref{sec:bonus}). Every significant choice was recorded as an
+architecture decision record \cite{nygard2011adr} (Table~\ref{tab:adrs}).
