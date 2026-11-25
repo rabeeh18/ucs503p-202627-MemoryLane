@@ -496,3 +496,6 @@ view_chroma.py
 __pycache__/
 
 !code/src/frontend/src/lib/
+
+# LaTeX build leftovers
+*-SAVE-ERROR
