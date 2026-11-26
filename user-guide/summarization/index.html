@@ -2148,6 +2148,7 @@
 </span></code></pre></div>
 <h2 id="what-gemini-sees">What Gemini sees<a class="headerlink" href="#what-gemini-sees" title="Permanent link">&para;</a></h2>
 <p>Only the stored text of the page you chose (long pages are truncated), and your query. Gemini is asked to summarise that text only, without adding outside knowledge.</p>
+<p>If a page contains instructions meant for the AI ("ignore your rules and …"), they are treated as page text, not commands. A summary never contains a link that isn't on the page itself, and it's shown as plain text. See <a href="../../architecture/security/#prompt-injection-summaries">Security</a> for how this works.</p>
 <h2 id="length">Length<a class="headerlink" href="#length" title="Permanent link">&para;</a></h2>
 <p>The wording of your query sets the length:</p>
 <ul>
