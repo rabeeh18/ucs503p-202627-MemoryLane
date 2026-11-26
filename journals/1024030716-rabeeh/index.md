@@ -23,3 +23,15 @@ One entry per week of the project, written from the repository's history: what I
 | 16 | 9 – 15 Nov | [Better matches and YouTube in the browser](./w16-matches-and-youtube.md) |
 | 17 | 16 – 22 Nov | [The audit, and a ranking bug the numbers found](./w17-audit-and-evaluation.md) |
 | 18 | 23 – 29 Nov | [Final report and repository documents](./w18-final-report.md) |
+
+## Forum discussions
+
+Weekly updates posted on the course forum ([TIET UCS503 Project Discussions](https://tiet-ucs503.bvraghav.com/), Project › RGB › 3C5A › Recursors):
+
+| Date | Thread | Started by | Week |
+| --- | --- | --- | --- |
+| 17 Aug | [MemoryLane: Overview of the meeting](https://tiet-ucs503.bvraghav.com/d/23-memorylane--overview-of-the-meeting/1) | Rabeeh | 4 |
+| 19–20 Aug | [Working Model Update](https://tiet-ucs503.bvraghav.com/d/45-working-model-update-memorylane/1) | Ishan | 4 |
+| 24–30 Aug | [Learnings from lab (24/8/26)](https://tiet-ucs503.bvraghav.com/d/55-learnings-from-lab-24826--memorylane-/1) | Rabeeh | 5 |
+| 30 Aug | [Version 2 Update](https://tiet-ucs503.bvraghav.com/d/58-version-2-update-memorylane/1) | Ishan | 5 |
+| 2 Sep | [Product Demo Video](https://tiet-ucs503.bvraghav.com/d/69-product-demo-video-memorylane/1) | Ishan | 6 |
