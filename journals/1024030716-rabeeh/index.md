@@ -2,7 +2,7 @@
 
 Roll No. 1024030716
 Name: Rabeeh Ahmad
-Project: MemoryLane (UCS503 Software Engineering, group 3C51, with Ishan Singhania)
+Project: MemoryLane (UCS503 Software Engineering, group 3C51, with Ishan Singhania, 1024030719)
 
 One entry per week of the project, written from the repository's history: what I worked on, the problem that mattered most, and how it was fixed.
 

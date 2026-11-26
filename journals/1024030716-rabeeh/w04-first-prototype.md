@@ -4,7 +4,7 @@
 
 ## What I did
 
-Wrote and submitted the project proposal (LaTeX). Built the first working prototype: a FastAPI backend that stored page text with embeddings in ChromaDB, and a Chrome extension (with my teammate's backend and extension code) that sent the current page to it. At the end of the week I improved the search and added a seed set of URLs with the first evaluation scripts.
+Wrote and submitted the project proposal (LaTeX). Built the first working prototype: a FastAPI backend that stored page text with embeddings in ChromaDB, and a Chrome extension (with Ishan's backend and extension code) that sent the current page to it. At the end of the week I improved the search and added a seed set of URLs with the first evaluation scripts.
 
 ## Problem
 

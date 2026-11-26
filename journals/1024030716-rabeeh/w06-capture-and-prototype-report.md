@@ -4,7 +4,7 @@
 
 ## What I did
 
-Added automatic capture to the extension, with a page filter, and improved how URLs are stored. My teammate added YouTube transcripts and voice search. I built the evaluation pipeline on a BEIR benchmark, wrote the mid-semester prototype report and updated the documentation.
+Added automatic capture to the extension, with a page filter, and improved how URLs are stored. Ishan added YouTube transcripts and voice search. I built the evaluation pipeline on a BEIR benchmark, wrote the mid-semester prototype report and updated the documentation.
 
 ## Problem
 

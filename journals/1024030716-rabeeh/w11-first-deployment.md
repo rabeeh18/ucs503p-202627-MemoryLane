@@ -4,7 +4,7 @@
 
 ## What I did
 
-Got MemoryLane running on a server for the first time. I committed our Solr configuration and pointed the extension at the server's API. My teammate deployed the web app on Vercel and fixed voice search. I also added a manual trigger to the docs workflow and put the extension zip in the docs.
+Got MemoryLane running on a server for the first time. I committed our Solr configuration and pointed the extension at the server's API. Ishan deployed the web app on Vercel and fixed voice search. I also added a manual trigger to the docs workflow and put the extension zip in the docs.
 
 ## Problem
 
