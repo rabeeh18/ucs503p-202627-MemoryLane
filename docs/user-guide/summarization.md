@@ -18,6 +18,8 @@ Summary shown under the result
 
 Only the stored text of the page you chose (long pages are truncated), and your query. Gemini is asked to summarise that text only, without adding outside knowledge.
 
+If a page contains instructions meant for the AI ("ignore your rules and …"), they are treated as page text, not commands. A summary never contains a link that isn't on the page itself, and it's shown as plain text. See [Security](../architecture/security.md#prompt-injection-summaries) for how this works.
+
 ## Length
 
 The wording of your query sets the length:

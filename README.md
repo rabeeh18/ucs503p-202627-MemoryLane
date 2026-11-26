@@ -80,7 +80,7 @@ Then load `code/src/extension` as an unpacked extension in Chrome. Step-by-step 
 ## Tests
 
 ```bash
-cd code/src && python -m pytest -q             # 419 backend tests
+cd code/src && python -m pytest -q             # 430 backend tests
 cd code/src/frontend && npm test && npm run check   # 136 frontend tests + type check
 ```
 

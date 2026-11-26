@@ -1,0 +1,185 @@
+% ==================================================
+% CHAPTER 5: TESTING AND VALIDATION
+% ==================================================
+
+\chapter{Testing and Validation}
+\label{ch:testing}
+
+\section{Test Plan}
+
+The plan follows the outline of IEEE Std 829 \cite{pressman2014se}.
+
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.19\textwidth} L}
+\toprule
+\textbf{Item} & \textbf{Plan} \\
+\midrule
+Objective & Show that every functional requirement (Table~\ref{tab:fr}) works, that no user can reach another's data, and that search quality does not regress. \\
+Version under test & \texttt{master} branch on 26~November 2026; extension 2.4.2. \\
+Scope & Backend API and pipelines, web app, extension logic, search quality. Not tested: the third-party services themselves (mocked), browsers other than Chrome, load beyond one server. \\
+Levels and types & \textbf{Unit} tests for pure logic; \textbf{integration} tests of the API through FastAPI's test client with an in-memory Solr that honours the user filter; \textbf{system} evaluation against a real Solr core (Section~\ref{sec:evaluation}); \textbf{manual} checks in the browser. Functional, security, privacy, regression and performance tests. \\
+Environment and tools & pytest (Python 3.11 in CI, 3.12 locally); Vitest and \texttt{svelte-check} on Node 20; Solr 9.7 in Docker; Chrome. \\
+Test data & Fixture pages and users inside the tests; the SciFact corpus (1{,}000 abstracts, 100 claims) for the evaluation. \\
+Entry criteria & The change builds; required Solr fields exist. \\
+Acceptance (exit) criteria & All automated tests pass; type check clean; SciFact Hit@1 and MRR@10 not below the previous run beyond its confidence interval; the save, search, delete and sign-in flows work in the browser. \\
+Regression rule & Every bug fixed gets a test that fails without the fix. \\
+Schedule & Unit and integration tests on every push (CI); the evaluation before each retrieval change; manual checks after each deployment. \\
+Risks & Mocks can hide real-service behaviour (mitigated by live checks); 100 claims give wide intervals (reported with every result). \\
+\bottomrule
+\end{tabularx}
+\caption{Test plan}
+\label{tab:testplan}
+\end{table}
+
+\section{Test Cases}
+
+Table~\ref{tab:testcases} lists twenty test cases. Each is implemented by the
+automated tests named in Table~\ref{tab:testreport}, except TC-20, which is
+manual.
+
+{\footnotesize
+\begin{longtable}{>{\ttfamily}p{0.065\textwidth} >{\ttfamily}p{0.075\textwidth} >{\raggedright\arraybackslash}p{0.2\textwidth} >{\raggedright\arraybackslash}p{0.27\textwidth} >{\raggedright\arraybackslash}p{0.245\textwidth}}
+\toprule
+\textrm{\textbf{ID}} & \textrm{\textbf{Req.}} & \textbf{Preconditions} & \textbf{Input and steps} & \textbf{Expected result} \\
+\midrule
+\endhead
+TC-01 & FR-02 FR-06 & A page is saved & Save the same page again; then save it with changed text & First: \texttt{unchanged}, nothing re-indexed. Second: re-indexed \\
+TC-02 & FR-02 & Signed in & Save a page with fewer than 50 words & \texttt{422} ``not enough text''; nothing stored \\
+TC-03 & FR-06 & Signed in & Save two Reddit posts whose pages carry the first post's canonical URL & Two different pages \\
+TC-04 & FR-03 & Signed in & Send an inbox address as an automatic save; then as a manual save & Automatic: \texttt{skipped}. Manual: saved \\
+TC-05 & FR-03 & A page saved manually & Send the same page, with changed text, as an automatic save & \texttt{unchanged}; original title and date kept \\
+TC-06 & FR-07 & Pages saved by the user & Run a hybrid search & BM25 and vector ranks fused; per-stage timings; results only from the token's user \\
+TC-07 & FR-08 & Pages from several sites & Search with a site word; parse eleven time phrases & That site's page first; each phrase gives the right date range \\
+TC-08 & FR-10 & One own page, one foreign & Delete the own page; then a missing or foreign one & \texttt{204}; then \texttt{404} \\
+TC-09 & FR-10 & A page in the list & Delete it; wait; delete another and press Undo & Hidden at once; request only after 6\,s; Undo cancels the request \\
+TC-10 & FR-10 & A delete is pending & Close or reload the tab within 6\,s & Delete sent at once; after the reload the page stays hidden and the delete is re-sent \\
+TC-11 & FR-01 QR-06 & -- & Call the API with an expired token, a wrongly signed token, and with Cognito's keys unreachable & \texttt{401}, \texttt{401}, \texttt{503} (not a sign-out) \\
+TC-12 & FR-01 & A library for a verified email & Sign in with another account with the same verified email & The same library is used \\
+TC-13 & FR-05 & Signed in & Save a video with captions fetched by the extension & Captions passed to ingestion; no cleaning; saved \\
+TC-14 & FR-09 & One own page, one foreign & Summarise the own page; then the foreign page & Summary returned; then \texttt{404} \\
+TC-15 & FR-11 & Signed in & Send a problem report; run the sender & Stored before the reply; emailed exactly once \\
+TC-16 & QR-06 & Two users with the same URL saved & User A searches for user B's page & Only A's pages are returned \\
+TC-17 & QR-07 & -- & Run a search and a first sign-in; inspect the logs & No search text or Solr/Cognito request URLs in the logs \\
+TC-18 & FR-01 & Signed in & Refresh the session while the request is cancelled, throttled (429), fails (5xx), or is refused (400/401) & Kept for the first three; signed out on refusal \\
+TC-19 & FR-12 & Server running & Call \texttt{GET /health} without a token & \texttt{200} with the status of Solr, model and Gemini \\
+TC-20 & FR-04 & Extension installed, signed in & Add a site on the Excluded sites page & The site is listed, with a confirmation (Figure~\ref{fig:extension}b) \\
+\bottomrule
+\caption{Test cases}
+\label{tab:testcases}
+\end{longtable}
+}
+
+\section{Test Reports}
+
+All test cases were executed on 26~November 2026. TC-01 to TC-19 run
+automatically; TC-20 was checked by hand in Chrome.
+
+{\footnotesize
+\begin{longtable}{>{\ttfamily}p{0.065\textwidth} >{\raggedright\arraybackslash}p{0.52\textwidth} >{\raggedright\arraybackslash}p{0.2\textwidth} p{0.08\textwidth}}
+\toprule
+\textrm{\textbf{ID}} & \textbf{Evidence (automated test)} & \textbf{Actual outcome} & \textbf{Status} \\
+\midrule
+\endhead
+TC-01 & \path{test_unchanged_page_is_not_reindexed}, \path{test_changed_page_is_reingested} & As expected & Pass \\
+TC-02 & \path{test_too_little_text_is_rejected_with_422} & As expected & Pass \\
+TC-03 & \path{test_different_reddit_posts_get_different_pages_despite_a_stale_canonical} & As expected & Pass \\
+TC-04 & \path{test_api_skips_an_automatic_save_of_an_inbox}, \path{test_api_still_saves_the_same_page_by_hand} & As expected & Pass \\
+TC-05 & \path{test_automatic_save_leaves_an_already_saved_page_alone} & As expected & Pass \\
+TC-06 & \path{test_hybrid_search_fuses_ranks_and_reports_timings}, \path{test_search_scopes_to_token_user_and_matches_contract} & As expected & Pass \\
+TC-07 & \path{test_site_word_ranks_that_sites_page_first}, \path{test_time_phrases} (11 cases) & As expected & Pass \\
+TC-08 & \path{test_delete_own_page}, \path{test_delete_missing_or_foreign_page_is_404} & As expected & Pass \\
+TC-09 & \path{deletes.test.js}: hides at once; sends only when the toast expires; undo cancels & As expected & Pass \\
+TC-10 & \path{deletes.test.js}: flush on close; a reload keeps hiding and re-sends & As expected & Pass \\
+TC-11 & \path{test_expired_token_is_401}, \path{test_bad_signature_is_401}, \path{test_signing_keys_unreachable_is_503_not_a_sign_out} & As expected & Pass \\
+TC-12 & \path{test_second_sign_in_with_same_verified_email_uses_the_first_library} & As expected & Pass \\
+TC-13 & \path{test_save_passes_the_extensions_youtube_details_to_ingest}, \path{test_youtube_transcript_skips_cleaning_and_word_minimum} & As expected & Pass \\
+TC-14 & \path{test_summarize_own_page}, \path{test_summarize_foreign_page_is_404} & As expected & Pass \\
+TC-15 & \path{test_report_is_stored_before_the_reply}, \path{test_due_reports_are_emailed_once} & As expected & Pass \\
+TC-16 & \path{test_search_never_returns_another_users_pages} & As expected & Pass \\
+TC-17 & \path{test_solr_and_cognito_requests_are_not_logged} & As expected & Pass \\
+TC-18 & \path{auth.test.js}: keeps the session when cancelled, on 429/500/503; signs out on 400/401 & As expected & Pass \\
+TC-19 & \path{test_health_contract} & As expected & Pass \\
+TC-20 & Manual check; screenshot in Figure~\ref{fig:extension}b & ``devdocs.io excluded'' & Pass \\
+\bottomrule
+\caption{Test report for the test cases}
+\label{tab:testreport}
+\end{longtable}
+}
+
+\paragraph{Totals.} Of the 20 test cases, 20 were executed and 20 passed;
+none are planned-only or blocked. The full automated suites, which include
+these, were run on the same day: \textbf{566 tests (430 backend with pytest,
+136 frontend and extension with Vitest), 566 passed, 0 failed, 0 skipped},
+and \texttt{svelte-check} reported no errors. The largest suites cover the
+extension's capture rules (76), content cleaning and chunking (50), query
+understanding (46), ingestion (45) and accounts and sign-in (45). The
+retrieval evaluation is reported in Section~\ref{sec:evaluation}.
+
+\section{Defects, Fixes and Retesting}
+
+Real use surfaced defects that unit tests alone had missed. Each was fixed
+with a regression test, and all were retested on 26~November 2026.
+
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.2\textwidth} L L >{\raggedright\arraybackslash}p{0.17\textwidth}}
+\toprule
+\textbf{Failure} & \textbf{Cause} & \textbf{Fix} & \textbf{Retest} \\
+\midrule
+An email inbox was auto-captured & An outdated extension, and a server that trusted it & Content-based rules; server re-checks every automatic save & TC-04: pass \\
+Reddit posts collapsed into one page & Single-page apps keep a stale canonical tag & Canonical used only if it matches the page & TC-03: pass \\
+Rapid reloads signed the user out & A cancelled refresh was treated as a refused token & Sign out only on refusal; unreachable keys give 503 & TC-11, TC-18: pass \\
+A deleted page came back after a reload & The list arrived before the delete was committed & Soft commit on delete; reloaded tab re-sends deletes & TC-10: pass \\
+Auto-capture re-dated a saved page & Slightly different text counted as a change & Automatic saves never rewrite a saved page & TC-05: pass \\
+Deleted pages stayed in ``Auto-saved today'' & The list lived only in the extension & Popup asks which pages still exist & Isolation test: pass \\
+Search text in server logs & The HTTP client logged Solr request URLs & Quietened those loggers & TC-17: pass \\
+Summaries split words in two & The SDK joined response parts with newlines & Join the parts directly & Summary tests: pass \\
+Longer pages outranked better matches & Second-chunk bonus larger than RRF rank gaps & Score pages by their best chunk & SciFact Hit@1 0.44 $\rightarrow$ 0.71 \\
+\bottomrule
+\end{tabularx}
+\caption{Defects, fixes and retest results}
+\label{tab:bugs}
+\end{table}
+
+\paragraph{Unresolved defect.} One SciFact abstract (617 words) is refused as
+having too little readable text after cleaning. It is not the answer to any
+evaluation claim, so the results are unaffected, but the cleaning step should
+be investigated.
+
+\section{Coverage and Acceptance}
+
+Every functional requirement is covered by at least one passing test case
+(Table~\ref{tab:trace}). Table~\ref{tab:acceptance} evaluates the quality
+targets.
+
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.1\textwidth} >{\raggedright\arraybackslash}p{0.25\textwidth} L p{0.08\textwidth}}
+\toprule
+\textrm{\textbf{Req.}} & \textbf{Target} & \textbf{Evidence} & \textbf{Status} \\
+\midrule
+FR-01--12 & All functional requirements & TC-01--TC-20 pass & Met \\
+QR-01 & Median search $<$ 200\,ms & 76\,ms measured & Met \\
+QR-02 & MRR@10 $\geq$ 0.754 & 0.786 measured & Met \\
+QR-03 & 5{,}000 pages per account & Limit enforced and tested; not load-tested at 5{,}000 & Partly \\
+QR-04 & No data lost on retries & Write lock, content hash; ingestion tests & Met \\
+QR-05 & Restart and soft failure & Restart policies; degraded health status & Met \\
+QR-06 & Authentication and isolation & TC-11, TC-16; isolation suite & Met \\
+QR-07 & Privacy of pages and logs & TC-04, TC-17 & Met \\
+QR-08 & Keyboard and phone use & Checked by hand; no automated UI tests & Partly \\
+QR-09 & Accessible controls & Labelled controls; no formal accessibility audit & Partly \\
+QR-10 & Tests on every change & 566 tests in CI & Met \\
+QR-11 & Portability & Runs on the Linux server; tests and the evaluation also run on a Windows laptop & Met \\
+\bottomrule
+\end{tabularx}
+\caption{Acceptance against the requirements}
+\label{tab:acceptance}
+\end{table}
+
+\paragraph{Gaps.} There are no automated end-to-end browser tests, no load
+test at the page limit, no formal accessibility audit and no testing in
+browsers other than Chrome. These are listed as future work.

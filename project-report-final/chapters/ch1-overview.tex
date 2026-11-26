@@ -1,0 +1,232 @@
+% ==================================================
+% CHAPTER 1: PROJECT OVERVIEW AND CONTEXT
+% ==================================================
+
+\chapter{Project Overview and Context}
+\label{ch:overview}
+
+\section{Software Bid and Selection}
+\label{sec:bid}
+
+The project was proposed in August 2026 as a \emph{personal web memory}: a
+browser companion that keeps the text of pages a person reads and lets them
+find a page again by describing it. The proposal, discussed at the first
+meeting with the supervisor on 17~August, set out the flow that the final
+system still follows: capture a page in the browser, embed and index its
+text, and answer a plain-language query with the matching page.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.22\textwidth} L}
+\toprule
+\textbf{Bid item} & \textbf{Content} \\
+\midrule
+Problem & People cannot find pages they have read: browser history and bookmarks match only titles and addresses. \\
+Proposed product & A Chrome extension, a web app and a backend that store page text and search it by meaning and by keywords. \\
+Team & Rabeeh Ahmad and Ishan Singhania (group 3C51), supervised by Dr.\ Raghav B.\ Venkataramaiyer. \\
+First milestone & A working backend that returns the right URLs within three days of approval (met on 19~August). \\
+Effort and schedule & One semester (July--November 2026), delivered in iterations reported weekly on the course forum. \\
+Resources & Open-source software; one cloud server (AWS EC2 \texttt{c7i-flex.large}); free tiers of Amazon Cognito, Amazon SES and Google Gemini. \\
+\bottomrule
+\end{tabularx}
+\caption{Summary of the software bid}
+\label{tab:bid}
+\end{table}
+
+\paragraph{Selection rationale.} The project was chosen because the problem
+is common among students like us, its value is easy to demonstrate, and it
+exercises the whole software-engineering
+cycle: requirements with privacy and security constraints, a design with
+several cooperating parts, an implementation that can be deployed and used,
+and search quality that can be \emph{measured} with standard metrics rather
+than judged by eye.
+
+\section{Problem, Purpose and Objectives}
+
+\paragraph{Problem.} Students, developers and researchers read hundreds of
+web pages a week, and much of it is useful again later. By then they usually
+remember the idea, not the title, the website or the exact words. Browser
+history records \emph{that} a page was visited and can be searched only by
+title and address; bookmarks must be made in advance; web search engines
+search the whole internet rather than the pages a person has read.
+
+\paragraph{Purpose.} MemoryLane treats the pages a person reads as a
+searchable personal memory: it stores their readable text and lets the user
+find a page by describing it in their own words, for example
+\textit{``the article about reducing database query latency''} or
+\textit{``the reddit post on rust lifetimes from last week''}.
+
+\paragraph{Objectives.}
+\begin{enumerate}
+  \item O1: Save pages manually and, optionally, automatically, without ever
+  storing private pages.
+  \item O2: Clean, chunk and embed saved pages so they can be searched by
+  meaning and by exact words.
+  \item O3: Return the right page first for most descriptive queries, with
+  readable snippets and optional summaries.
+  \item O4: Keep every user's library private, and deploy the system
+  publicly over HTTPS.
+  \item O5: Measure retrieval quality with standard metrics and use the
+  results to improve the system.
+  \item O6: Follow sound engineering practice: specified requirements,
+  recorded design decisions, automated tests and documentation.
+\end{enumerate}
+
+\paragraph{Audience.} This report is written for the course evaluators and
+supervisor, and for developers who would maintain or extend MemoryLane.
+
+\section{Scope and System Boundary}
+
+\paragraph{In scope.} Manual and automatic saving of web pages and YouTube
+videos from Chrome; cleaning, chunking, embedding and indexing; hybrid search
+with site and time hints, snippets and on-demand summaries; a library with
+deletion and undo; accounts with Google or email sign-in; problem reports;
+deployment on one server; documentation and evaluation.
+
+\paragraph{Out of scope.} Crawling the web; sharing pages between users;
+browsers other than Chromium-based ones; mobile apps; importing existing
+history or bookmarks; pages behind logins that the user's browser cannot
+read; offline use.
+
+\paragraph{Boundary.} The system consists of the extension, the web app and
+the server (Caddy, the FastAPI backend, Solr and two SQLite databases). The
+reader's browser, Amazon Cognito, Google Gemini, Amazon SES and YouTube are
+outside it and are reached only through defined interfaces
+(Section~\ref{sec:interfaces}); Figure~\ref{fig:dfd0} shows the boundary as a
+context diagram.
+
+\section{Product Perspective}
+
+MemoryLane is a new, self-contained product that complements, rather than
+replaces, existing tools:
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.2\textwidth} L L}
+\toprule
+\textbf{Existing system} & \textbf{What it does} & \textbf{What MemoryLane adds} \\
+\midrule
+Browser history & Lists visited addresses and titles & Search by the page's content and meaning \\
+Bookmarks & Saves chosen pages in folders & Saving without organising; automatic capture \\
+Web search engines & Search the whole web & Search only the pages you have read \\
+Read-later services & Keep pages to read later & Find pages already read, by description \\
+\bottomrule
+\end{tabularx}
+\caption{MemoryLane compared with existing systems}
+\label{tab:existing}
+\end{table}
+
+Its major functions are saving, searching, summarising and managing pages.
+It depends on Amazon Cognito for identity, on Google Gemini for summaries
+(optional) and on Amazon SES for report email (optional), and runs on
+Apache Solr, FastAPI and Caddy (Figure~\ref{fig:components}).
+
+\section{Stakeholders and Users}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.15\textwidth} L L L L}
+\toprule
+\textbf{Class} & \textbf{Role} & \textbf{Needs} & \textbf{Skills} & \textbf{Access} \\
+\midrule
+Reader & Saves and finds pages (primary user) & Fast, private search; no effort to save & Ordinary browser use & Own library only, after sign-in \\
+Maintainer & Deploys and operates the service & Health status, problem reports, safe updates & Docker, Linux, AWS & Server, configuration, reports (not users' pages through the app) \\
+Supervisor and evaluators & Assess the project & Clear requirements, evidence, results & Software engineering & Reports, documentation, repository \\
+External services & Identity, summaries, email & Well-formed requests & -- & Only what each interface sends \\
+\bottomrule
+\end{tabularx}
+\caption{Stakeholders and user classes}
+\label{tab:stakeholders}
+\end{table}
+
+\section{Operating Environment}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.17\textwidth} L}
+\toprule
+\textbf{Part} & \textbf{Environment} \\
+\midrule
+Extension & Google Chrome or another Chromium browser with Manifest V3 support, on any desktop OS \\
+Web app & Any modern browser on desktop or phone; voice search where the browser supports speech recognition (Chrome, Edge) \\
+Server & Linux with Docker Compose; AWS EC2 \texttt{c7i-flex.large} (2 vCPU, 4\,GB RAM, 2\,GB swap), Mumbai region; no GPU \\
+Network & HTTPS only (ports 80/443 open); ordinary home or campus connections; the server reaches Cognito, Gemini and SES over the internet \\
+\bottomrule
+\end{tabularx}
+\caption{Operating environment}
+\label{tab:environment}
+\end{table}
+
+\section{Constraints}
+
+\begin{itemize}
+  \item \textbf{Technology}: one server without a GPU, so embedding runs on
+  the CPU in one process; Solr 9 for both keyword and vector search; a Chrome
+  extension (Manifest V3), installed unpacked rather than from a store.
+  \item \textbf{Resources}: a two-person team over one semester, and
+  free-tier cloud services.
+  \item \textbf{Security policy}: no client secret in the browser; every
+  request authenticated; no user may reach another's pages.
+  \item \textbf{Privacy and legal}: page text is personal data, so it is
+  stored only on our server, kept out of logs, deletable at any time, and
+  sent to an external model only when the user asks for a summary. The
+  SciFact evaluation data is licensed CC BY-NC 2.0 and is used for evaluation
+  only. YouTube's restrictions on server requests mean captions are fetched in
+  the user's browser.
+\end{itemize}
+
+\section{Assumptions and Dependencies}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{L L}
+\toprule
+\textbf{Assumption or dependency} & \textbf{Effect if it fails} \\
+\midrule
+Users sign in before saving & Nothing is saved; the extension shows a sign-in screen \\
+Amazon Cognito is reachable & Known sign-ins keep working; a first-time sign-in gets \texttt{503} rather than a wrong library \\
+Google Gemini is configured and reachable & Summaries are unavailable; search and everything else work \\
+Amazon SES is reachable & Problem reports wait in SQLite and are retried with back-off \\
+YouTube serves captions to the user's browser & A video is saved from its description, or skipped \\
+Pages expose readable text & Pages with under 50 words are refused with a clear message \\
+The server has its Docker volumes & Without them, pages and sign-in links would be lost; EBS snapshots are the backup \\
+\bottomrule
+\end{tabularx}
+\caption{Assumptions, dependencies and the effect of their failure}
+\label{tab:assumptions}
+\end{table}
+
+\section{Terminology and Report Guide}
+
+\paragraph{Terminology.} Abbreviations are listed before this chapter. A
+\emph{page} is a saved web page or video; a \emph{chunk} is a passage of
+about 150 words; a \emph{library} is all the pages of one person. An
+\emph{embedding} is a list of 384 numbers representing what a chunk means.
+\emph{BM25} ranks chunks by the query's words, weighting rare words more;
+\emph{hybrid search} runs BM25 and embedding (KNN) search together, and
+\emph{RRF} combines their ranked lists by adding $1/(60+\text{rank})$ from
+each. \emph{HNSW} is the graph index Solr uses to find the nearest embeddings
+quickly. The \emph{relevance floor} drops results that are neither a strong
+keyword match nor close enough in meaning.
+
+\paragraph{Notation.} Requirements and tests carry identifiers used
+throughout the report: \texttt{O} objectives, \texttt{FR} functional
+requirements, \texttt{QR} quality requirements, \texttt{BR} business rules,
+\texttt{UC} use cases, \texttt{US} user stories and \texttt{TC} test cases.
+ADR numbers refer to the architecture decision records.
+
+\paragraph{Report guide.} Chapter~\ref{ch:requirements} specifies the
+requirements and models them with use cases, stories, activity diagrams and
+data-flow diagrams. Chapter~\ref{ch:design} presents the design: architecture
+and decisions, class, sequence, collaboration and state chart diagrams.
+Chapter~\ref{ch:implementation} describes the implementation and delivery:
+components, deployment, interfaces, storage, screenshots, build and release,
+documentation and the changes since the prototype.
+Chapter~\ref{ch:testing} covers the test plan, test cases, results, defects
+and coverage, and Chapter~\ref{ch:results} the evaluation results, challenges,
+limitations, individual contributions and conclusions.

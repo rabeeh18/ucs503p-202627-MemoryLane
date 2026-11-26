@@ -499,3 +499,7 @@ __pycache__/
 
 # LaTeX build leftovers
 *-SAVE-ERROR
+
+# Word build scratch
+project-report-final/docx/work/
+project-report-final/docx/build/

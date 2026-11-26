@@ -1,0 +1,158 @@
+% ==================================================
+% CHAPTER 3: SYSTEM DESIGN
+% ==================================================
+
+\chapter{System Design}
+\label{ch:design}
+
+\section{Architecture and Decisions}
+
+MemoryLane has three client-facing parts and one server
+(Figure~\ref{fig:components}). Table~\ref{tab:responsibilities} gives each
+part's responsibility and the requirements it serves.
+
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.17\textwidth} L L >{\ttfamily}p{0.15\textwidth}}
+\toprule
+\textbf{Part} & \textbf{Responsibility} & \textbf{Technology} & \textrm{\textbf{Requirements}} \\
+\midrule
+Chrome extension & Capture pages and videos; automatic capture rules; sign-in & JavaScript, Manifest V3 & FR-02--FR-05 \\
+Web app & Search, results, summaries, library, account & Svelte, Vite & FR-07--FR-10 \\
+Caddy & HTTPS, serve the web app, forward \texttt{/api} & Caddy 2 & QR-05, QR-06 \\
+FastAPI backend & Verify sign-in; save, search, summarise, report & Python, FastAPI, Sentence Transformers & FR-01--FR-12 \\
+Apache Solr & Store chunks; BM25 and vector search & Solr 9.7 & FR-07, QR-01, QR-02 \\
+SQLite & Sign-in links; problem reports & SQLite 3 & FR-01, FR-11 \\
+\bottomrule
+\end{tabularx}
+\caption{Architectural responsibilities}
+\label{tab:responsibilities}
+\end{table}
+
+The design keeps the number of moving parts small enough for one server: the
+backend is one process that loads the embedding model once, and Solr is the
+only store for pages. Every important choice was recorded as an
+architecture decision record (ADR) \cite{nygard2011adr}, with the
+alternatives that were rejected and the cost of the choice
+(Table~\ref{tab:adrs}).
+
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.05\textwidth} >{\raggedright\arraybackslash}p{0.3\textwidth} >{\raggedright\arraybackslash}p{0.25\textwidth} L}
+\toprule
+\textrm{\textbf{\#}} & \textbf{Decision} & \textbf{Alternative rejected} & \textbf{Reason and trade-off} \\
+\midrule
+0001 & One Solr core for keyword and vector search & ChromaDB plus a separate BM25 index & One store to keep consistent; Solr is heavier to run \\
+0002 & Fuse rankings with Reciprocal Rank Fusion & Min-max score averaging & No score normalisation or outlier effects; scores lose their scale \\
+0003 & Drop weak matches with a relevance floor & Always show ten results & KNN always returns neighbours; a short list may look empty \\
+0004 & Run everything on one EC2 instance & Managed services, several servers & Cost and simplicity; one point of failure \\
+0005 & Link sign-ins by verified email & One library per sign-in & One library per person; needs a Cognito lookup \\
+0006 & Fetch YouTube captions in the browser & Fetch on the server & YouTube blocks servers; depends on the user's tab \\
+0007 & Store problem reports before emailing & Send email directly & Survives an email outage; one more database \\
+0008 & Keep summaries on demand and optional & Summarise every search & Search never waits on Gemini; summaries cost a click \\
+0009 & Remove the library map & Keep and improve it & Costly, fragile, rarely used \\
+0010 & Remove ``Export my data'' & Keep it & Little use; deletion is the stronger right \\
+0011 & Auto-capture keeps only pages that read like content & A list of blocked sites & Rules generalise; some content may be skipped \\
+\bottomrule
+\end{tabularx}
+\caption{Architecture decision records}
+\label{tab:adrs}
+\end{table}
+
+\section{Class Diagrams}
+
+Figure~\ref{fig:class-backend} shows the core of the backend: the save
+pipeline (\texttt{ingest}), the search (\texttt{retrieval}) and the only class
+that talks to Solr, which adds the user filter to every request.
+Figure~\ref{fig:class-client} shows the client side of deleting and signing
+in. Python and JavaScript modules are drawn as classes with the stereotype
+$\ll$module$\gg$; dashed arrows are dependencies.
+
+\begin{figure}[H]
+\centering
+\input{figures/class-backend}
+\caption{Class diagram: backend save and search}
+\label{fig:class-backend}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\input{figures/class-client}
+\caption{Class diagram: web app deletes and sessions}
+\label{fig:class-client}
+\end{figure}
+
+\section{Sequence Diagrams}
+
+Figure~\ref{fig:seq-save} shows a manual save, including the case where the
+page has not changed; Figure~\ref{fig:seq-search} a search, with the keyword
+and vector searches running in parallel; and Figure~\ref{fig:seq-signin} a
+sign-in with PKCE followed by the first API request, which finds the library
+for the sign-in.
+
+\begin{figure}[H]
+\centering
+\input{figures/seq-save}
+\caption{Sequence diagram: saving a page}
+\label{fig:seq-save}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\input{figures/seq-search}
+\caption{Sequence diagram: a search}
+\label{fig:seq-search}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\input{figures/seq-signin}
+\caption{Sequence diagram: sign-in (authorization code with PKCE) and the first API request}
+\label{fig:seq-signin}
+\end{figure}
+
+\section{Collaboration Diagrams}
+
+Collaboration (communication) diagrams show the same kind of interaction as
+links between objects, with numbered messages. Figure~\ref{fig:collab-search}
+shows the objects inside the backend during a search;
+Figure~\ref{fig:collab-delete} shows a delete with undo, where message 2a
+(undo) and 2b (commit) are alternatives.
+
+\begin{figure}[H]
+\centering
+\input{figures/collab-search}
+\caption{Collaboration diagram: a search inside the backend}
+\label{fig:collab-search}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\input{figures/collab-delete}
+\caption{Collaboration diagram: deleting a page with undo}
+\label{fig:collab-delete}
+\end{figure}
+
+\section{State Chart Diagrams}
+
+Figure~\ref{fig:state-page} shows a page in the web app from the moment it is
+listed until it is deleted, including undo, failures and reloads.
+Figure~\ref{fig:state-session} shows a sign-in session: it ends only when
+Cognito refuses the refresh token, so a refresh that is cancelled by a reload,
+or cannot reach Cognito, keeps the user signed in.
+
+\begin{figure}[H]
+\centering
+\input{figures/state-page}
+\caption{State chart: a page in the web app (delete with undo)}
+\label{fig:state-page}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\input{figures/state-session}
+\caption{State chart: a sign-in session in the web app}
+\label{fig:state-session}
+\end{figure}

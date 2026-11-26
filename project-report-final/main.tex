@@ -57,7 +57,7 @@
 \hypersetup{hidelinks}
 \raggedbottom
 \setlength{\headheight}{15pt}
-\def\UrlBreaks{\do\/\do-\do.}
+\def\UrlBreaks{\do\/\do-\do.\do\_}
 
 \captionsetup{font=small,labelfont=bf}
 \setlist{itemsep=2pt,topsep=4pt}
@@ -202,19 +202,17 @@
 \tableofcontents
 \listoffigures
 \listoftables
+\input{chapters/00-abbreviations}
 
 \clearpage
 \pagenumbering{arabic}
 
-\input{chapters/01-introduction}
-\input{chapters/02-requirements}
-\input{chapters/03-design}
-\input{chapters/04-implementation}
-\input{chapters/05-security}
-\input{chapters/06-testing}
-\input{chapters/07-evaluation}
-\input{chapters/08-deployment}
-\input{chapters/09-conclusion}
+\input{chapters/ch1-overview}
+\input{chapters/ch2-requirements}
+\input{chapters/ch3-design}
+\input{chapters/ch4-implementation}
+\input{chapters/ch5-testing}
+\input{chapters/ch6-results}
 
 % ==================================================
 % BIBLIOGRAPHY AND APPENDICES
@@ -222,7 +220,5 @@
 
 \printbibliography[heading=bibintoc]
 
-\appendix
-\input{chapters/10-appendix}
 
 \end{document}

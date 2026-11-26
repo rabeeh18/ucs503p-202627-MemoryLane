@@ -1,0 +1,48 @@
+\begin{tikzpicture}[>={Stealth[length=1.8mm]}, action/.append style={text width=34mm}]
+  \tikzset{bar/.style={fill=black, minimum height=1.2mm, inner sep=0pt}}
+  \newcommand{\flowfinal}[1]{%
+    \draw[fill=white] #1 circle (1.6mm);
+    \draw #1 ++(45:1.6mm) -- ++(225:3.2mm);
+    \draw #1 ++(135:1.6mm) -- ++(-45:3.2mm);}
+
+  \node[startdot] (s) at (0,0) {};
+  \node[action] (a1) at (0,-0.9)  {Type or speak a query};
+  \node[action] (a2) at (0,-2.0)  {Send it with the access token};
+  \node[adecide] (d1) at (0,-3.2) {token\\valid?};
+  \node[action] (a3) at (0,-4.45) {Read site, time and URL hints in the query};
+  \node[bar, minimum width=96mm] (fork) at (0,-5.45) {};
+  \node[action] (b1) at (-3.3,-6.4) {Keyword search (BM25), top 50 chunks};
+  \node[action] (b2) at (0,-6.4)    {Embed query; vector search (KNN), top 50};
+  \node[action] (b3) at (3.3,-6.4)  {Search within the named site or time [if any]};
+  \node[bar, minimum width=96mm] (join) at (0,-7.4) {};
+  \node[action] (a4) at (0,-8.3)  {Fuse ranks (RRF); group chunks into pages};
+  \node[action] (a5) at (0,-9.4)  {Drop weak matches (relevance floor)};
+  \node[adecide] (d2) at (0,-10.6) {any page\\left?};
+  \node[action] (a6) at (0,-11.85) {Pick snippets; show up to 10 pages};
+  \node[adecide] (d3) at (0,-13.05) {summary\\wanted?};
+  \node[action] (a7) at (3.6,-13.05) {Summarise that page with Gemini};
+  \node[action] (a8) at (0,-14.3) {Open the page};
+  \node[enddot] (e) at (0,-15.1) {};
+  \node[action] (n1) at (-3.6,-10.6) {Suggest describing the idea instead};
+  \node[action] (n2) at (-3.6,-3.2) {Show the sign-in screen};
+
+  \draw[->] (s) -- (a1);
+  \draw[->] (a1) -- (a2);
+  \draw[->] (a2) -- (d1);
+  \draw[->] (d1) -- node[tlabel, right] {yes} (a3);
+  \draw[->] (d1) -- node[tlabel, above] {no} (n2);
+  \draw[->] (a3) -- (fork);
+  \foreach \b in {b1,b2,b3} { \draw[->] (fork.south -| \b) -- (\b); \draw[->] (\b) -- (join.north -| \b); }
+  \draw[->] (join) -- (a4);
+  \draw[->] (a4) -- (a5);
+  \draw[->] (a5) -- (d2);
+  \draw[->] (d2) -- node[tlabel, right] {yes} (a6);
+  \draw[->] (d2) -- node[tlabel, above] {no} (n1);
+  \draw[->] (a6) -- (d3);
+  \draw[->] (d3) -- node[tlabel, above] {yes} (a7);
+  \draw[->] (a7) |- (a8);
+  \draw[->] (d3) -- node[tlabel, right] {no} (a8);
+  \draw[->] (a8) -- (e);
+  \draw[->] (n2) -- ++(0,-0.8) coordinate (f2); \flowfinal{($(f2)+(0,-0.16)$)}
+  \draw[->] (n1) -- ++(0,-0.8) coordinate (f1); \flowfinal{($(f1)+(0,-0.16)$)}
+\end{tikzpicture}

@@ -1,0 +1,407 @@
+% ==================================================
+% CHAPTER 2: REQUIREMENTS AND ANALYSIS
+% ==================================================
+
+\chapter{Requirements and Analysis}
+\label{ch:requirements}
+
+This chapter follows the structure of an IEEE~830 software requirements
+specification: the product context is in Chapter~\ref{ch:overview}, and the
+specific requirements, their models and their traceability are below.
+
+\section{Functional Requirements}
+
+Each requirement has a unique identifier used in the use cases, stories,
+design and tests (Section~\ref{sec:trace}).
+
+{\footnotesize
+\begin{longtable}{>{\ttfamily}p{0.07\textwidth} >{\raggedright\arraybackslash}p{0.24\textwidth} >{\raggedright\arraybackslash}p{0.24\textwidth} >{\raggedright\arraybackslash}p{0.255\textwidth} p{0.045\textwidth}}
+\toprule
+\textrm{\textbf{ID}} & \textbf{Requirement} & \textbf{Inputs $\rightarrow$ outputs} & \textbf{Validation and errors} & \textbf{Pri.} \\
+\midrule
+\endhead
+FR-01 & Users sign in with Google or email; sign-ins with the same verified email share one library. & Credentials at Cognito $\rightarrow$ access and refresh tokens; library id & RS256 signature, expiry, issuer, token type, client id; \texttt{401} for a bad token, \texttt{503} if Cognito is unreachable on a first sign-in & H \\
+FR-02 & The extension saves the current page in one click, confirms it and offers undo. & URL, title, text, HTML, canonical URL $\rightarrow$ \texttt{saved}, \texttt{unchanged} or \texttt{skipped}, with the page & \texttt{http(s)} only (\texttt{400}); at least 50 words (\texttt{422}); size limits; 5{,}000 pages (\texttt{403}); \texttt{429} over the rate limit & H \\
+FR-03 & Optional automatic capture saves only pages the user has read and that look like content, never private pages. & A page in a tab and reading signals $\rightarrow$ a saved page listed in ``Auto-saved today'', or nothing & Address rules, 30\,s in view or half scrolled, content signals; the server re-checks and answers \texttt{skipped} & H \\
+FR-04 & Users can exclude sites from automatic capture and remove the day's automatic saves. & A site or page id $\rightarrow$ updated exclusion list; page deleted & Hosts normalised; a page already gone (\texttt{404}) counts as removed & M \\
+FR-05 & YouTube videos are saved through their captions, description and channel. & Video URL with captions fetched in the tab $\rightarrow$ saved video & Valid video id and exact host; size limits; videos over two hours or without text are skipped & M \\
+FR-06 & Addresses that differ only in tracking parameters, \texttt{www.} or fragments are one page; saving again updates it. & URL and canonical URL $\rightarrow$ \texttt{page\_id} & Canonical trusted only on the same site and not a parent of the page & H \\
+FR-07 & Users search with a description, typed or spoken, and get up to ten pages with snippets. & Query (up to 500 characters) $\rightarrow$ ranked pages with title, site, time and snippet & Empty query \texttt{400}; \texttt{401}; \texttt{429}; an empty list when nothing is close & H \\
+FR-08 & Queries that name a site, a time or a URL rank matching pages higher. & Query words $\rightarrow$ boosted ranking & Site words only from the user's own domains; dates in UTC; on failure, an ordinary search & M \\
+FR-09 & Each result can be summarised on demand. & Query and page id $\rightarrow$ summary text & Page must be the caller's (\texttt{404}); 20\,s limit; \texttt{502}/\texttt{503} if Gemini fails or is not configured & M \\
+FR-10 & Users browse their library newest first, delete pages with undo, and delete all their data. & Page id or ``delete all'' $\rightarrow$ library list; \texttt{204} & Owner only (\texttt{404}); 6\,s undo; on failure the page returns with an error message & H \\
+FR-11 & Users report a problem from the website or the extension; it is emailed to the maintainer. & Message and context $\rightarrow$ \texttt{202}, then an email & Length and content cleaned (\texttt{422}); 5 per hour (\texttt{429}) & L \\
+FR-12 & A public health endpoint reports the state of Solr, the model and Gemini. & -- $\rightarrow$ status of each dependency & Public; reports \texttt{degraded} instead of failing & L \\
+\bottomrule
+\caption{Functional requirements (priority: H high, M medium, L low)}
+\label{tab:fr}
+\end{longtable}
+}
+
+\section{Use Cases}
+
+\subsection{Use Case Diagram}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=3mm]
+  \newcommand{\actor}[3]{%
+    \draw[thick] (#1,#2+0.45) circle (2.2mm);
+    \draw[thick] (#1,#2+0.23) -- (#1,#2-0.4);
+    \draw[thick] (#1-0.35,#2) -- (#1+0.35,#2);
+    \draw[thick] (#1,#2-0.4) -- (#1-0.25,#2-0.8);
+    \draw[thick] (#1,#2-0.4) -- (#1+0.25,#2-0.8);
+    \node[font=\small] at (#1,#2-1.1) {#3};}
+  \actor{0}{-3.1}{Reader}
+  \actor{7.5}{-5.4}{Maintainer}
+  \tikzset{usecase/.append style={minimum width=38mm, minimum height=8mm, font=\footnotesize}}
+  \node[usecase] (signin)  at (-3.75, 0.0)  {Sign in (Google / email)};
+  \node[usecase] (save)    at (-3.75,-1.25) {Save a page};
+  \node[usecase] (auto)    at (-3.75,-2.5)  {Auto-capture pages};
+  \node[usecase] (exclude) at (-3.75,-3.75) {Exclude a site};
+  \node[usecase] (yt)      at (-3.75,-5.0)  {Save a YouTube video};
+  \node[usecase] (undo)    at (-3.75,-6.25) {Undo / remove a save};
+  \node[usecase] (search)  at (3.75, 0.0)  {Search by description};
+  \node[usecase] (voice)   at (3.75,-1.25) {Search by voice};
+  \node[usecase] (summ)    at (3.75,-2.5)  {Summarise a result};
+  \node[usecase] (lib)     at (3.75,-3.75) {Browse the library};
+  \node[usecase] (del)     at (3.75,-5.0)  {Delete a page / all data};
+  \node[usecase] (report)  at (3.75,-6.25) {Report a problem};
+  \begin{scope}[on background layer]
+    \node[group, fill=gray!4, fit=(signin)(undo), inner sep=7pt] (extbox) {};
+    \node[group, fill=gray!4, fit=(search)(report), inner sep=7pt] (webbox) {};
+  \end{scope}
+  \node[font=\small\bfseries, anchor=south] at (extbox.north) {Chrome extension};
+  \node[font=\small\bfseries, anchor=south] at (webbox.north) {Web app};
+  \foreach \u in {signin,save,auto,exclude,yt,undo}
+    \draw (-0.35,-3.1) -- (\u.east);
+  \foreach \u in {search,voice,summ,lib,del,report}
+    \draw (0.35,-3.1) -- (\u.west);
+  \draw (7.15,-5.4) -- (report.east);
+  \draw[dashed,->] (voice) -- node[lbl, right] {$\ll$extend$\gg$} (search);
+\end{tikzpicture}
+\caption{Use case diagram: system overview}
+\label{fig:usecases}
+\end{figure}
+
+The diagram shows the two actors and the twelve use cases, grouped by where
+they happen. Voice search extends search: it only fills the search box.
+
+\subsection{Use Case Templates}
+
+\newcommand{\usecase}[8]{%
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\bfseries}p{0.17\textwidth} L}
+\toprule
+\multicolumn{2}{l}{\normalsize\textbf{#1}} \\
+\midrule
+Actor & #2 \\
+Preconditions & #3 \\
+Trigger & #4 \\
+Main flow & #5 \\
+Alternative flows & #6 \\
+Postconditions & #7 \\
+Requirements & #8 \\
+\bottomrule
+\end{tabularx}
+\end{table}}
+
+\usecase{UC-1 Save a page}{Reader}{Signed in to the extension; the page is a web address.}%
+{The reader presses \textbf{Remember this page}.}%
+{1.~The extension reads the page's HTML, text and canonical URL. 2.~It sends them to \texttt{POST /memory}. 3.~The backend verifies the token, normalises the address, cleans and chunks the text, embeds it and stores it. 4.~The popup shows ``Saved just now'' with Undo.}%
+{3a.~Same text as before: \texttt{unchanged}, nothing re-processed. 3b.~Under 50 words: refused with a message. 1a.~A YouTube video: captions are fetched in the tab instead.}%
+{The page is in the reader's library and searchable within about a second.}{FR-02, FR-05, FR-06}
+
+\usecase{UC-2 Auto-capture pages}{Reader (and the extension, acting for them)}{Automatic capture is on; the reader is signed in.}%
+{A page finishes loading.}%
+{1.~The extension checks the address rules and excluded sites. 2.~It waits until the page has been read. 3.~It checks the content signals. 4.~It sends the page; the server re-checks and saves it. 5.~The page appears in ``Auto-saved today''.}%
+{1a, 2a, 3a, 4a.~Any check fails: nothing is saved. 4b.~Already saved: left unchanged. 5a.~The reader presses \textbf{Never this site}: the page is deleted and the site excluded.}%
+{Only read, content-like, non-private pages are stored.}{FR-03, FR-04}
+
+\usecase{UC-3 Search by description}{Reader}{Signed in to the web app; the library has pages.}%
+{The reader types or speaks a query and presses Enter.}%
+{1.~The web app sends \texttt{POST /search}. 2.~The backend runs keyword and vector search together, plus site and time searches if the query names them. 3.~It fuses the rankings, groups chunks into pages and drops weak matches. 4.~It returns up to ten pages with snippets.}%
+{3a.~Nothing close: an empty list and a tip to describe the idea. 4a.~The reader presses \textbf{Summarise}: a summary of that page is shown (UC-3 extended by FR-09).}%
+{Results are shown; nothing is changed.}{FR-07, FR-08, FR-09}
+
+\usecase{UC-4 Delete a page}{Reader}{Signed in; the page is in the library.}%
+{The reader presses the bin icon (or \texttt{Shift+Del}).}%
+{1.~The page disappears and ``Page deleted $\cdot$ Undo'' is shown. 2.~After 6\,s the web app sends \texttt{DELETE /memory/\{id\}}. 3.~The backend deletes every chunk of the page.}%
+{1a.~Undo within 6\,s: the page returns, nothing is sent. 2a.~The tab is closed or reloaded: the delete is sent at once and stays hidden after a reload. 3a.~The request fails: the page returns with an error message.}%
+{The page is gone from the library and from search.}{FR-10}
+
+\usecase{UC-5 Sign in}{Reader; Amazon Cognito}{The reader has a Google account or an email address.}%
+{The reader presses \textbf{Get started} or \textbf{Sign in}.}%
+{1.~The web app creates a PKCE verifier and challenge and redirects to Cognito. 2.~The reader signs in. 3.~Cognito redirects back with a code, exchanged for tokens. 4.~On the first API request the backend verifies the token and finds the library for this sign-in.}%
+{4a.~A first sign-in with a verified email already in use: it joins that library. 4b.~Cognito unreachable on a first sign-in: \texttt{503}, try again. 4c.~A refresh is cancelled or throttled: the session is kept.}%
+{The reader is signed in to their own library.}{FR-01}
+
+\section{User Stories and Story Cards}
+
+Requirements were planned as user stories, each with acceptance criteria
+that became tests.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.07\textwidth} L >{\ttfamily}p{0.1\textwidth}}
+\toprule
+\textrm{\textbf{ID}} & \textbf{Story} & \textrm{\textbf{Reqs}} \\
+\midrule
+US-1 & As a reader, I want to save the page I'm on with one click, so that I can find it later. & FR-02 \\
+US-2 & As a reader, I want pages I read to be saved automatically, so that I don't have to remember to save them. & FR-03 \\
+US-3 & As a reader, I want my inbox, bank and private documents never to be captured, so that I can leave auto-capture on. & FR-03 \\
+US-4 & As a reader, I want to search by describing a page, so that I find it without its title or address. & FR-07 \\
+US-5 & As a reader, I want to say where or when I saw a page, so that ``the reddit post from last week'' finds it. & FR-08 \\
+US-6 & As a reader, I want a short summary of a result, so that I know it's the right page before opening it. & FR-09 \\
+US-7 & As a reader, I want to delete a page and undo a mistake, so that my library stays mine. & FR-10 \\
+US-8 & As a reader, I want my Google and email sign-ins to share one library, so that I see the same pages either way. & FR-01 \\
+US-9 & As a maintainer, I want problem reports by email with context, so that I can fix issues users hit. & FR-11 \\
+\bottomrule
+\end{tabularx}
+\caption{User stories}
+\label{tab:stories}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}
+  \tikzset{card/.style={draw, rounded corners=2pt, fill=yellow!6, text width=43mm,
+    inner sep=4pt, font=\scriptsize, align=left, minimum height=44mm, anchor=north}}
+  \newcommand{\storycard}[7]{%
+    \node[card] at (#1,#2) {\textbf{#3}\hfill\textit{#4}\\[1mm]
+      #5\\[1.5mm]\textbf{Acceptance}\\#6\\[1.5mm]\textbf{Priority / size:} #7};}
+  \storycard{0}{0}{US-1}{Save}{As a reader, I want to save the page I'm on with one click.}%
+    {$\bullet$ Saved within seconds, with Undo\\
+     $\bullet$ Saving again updates one entry\\
+     $\bullet$ Pages under 50 words get a clear refusal}{High / 3}
+  \storycard{4.95}{0}{US-3}{Capture}{As a reader, I want my inbox, bank and private documents never to be captured.}%
+    {$\bullet$ Email, banking, private apps, local and account pages refused\\
+     $\bullet$ Password fields and \texttt{noindex} refused\\
+     $\bullet$ Server refuses them even from an old extension}{High / 5}
+  \storycard{9.9}{0}{US-4}{Search}{As a reader, I want to search by describing a page.}%
+    {$\bullet$ A paraphrase finds the page\\
+     $\bullet$ Exact names and codes still match\\
+     $\bullet$ Weak matches are left out, not padded}{High / 8}
+  \storycard{2.475}{-4.9}{US-5}{Search}{As a reader, I want to say where or when I saw a page.}%
+    {$\bullet$ Site names come from my saved domains\\
+     $\bullet$ ``yesterday'', ``last week'', ``in march'' work\\
+     $\bullet$ Hints boost; they never hide a better page}{Medium / 8}
+  \storycard{7.425}{-4.9}{US-7}{Library}{As a reader, I want to delete a page and undo a mistake.}%
+    {$\bullet$ Page disappears at once; Undo for 6\,s\\
+     $\bullet$ Closing the tab still deletes\\
+     $\bullet$ A reload never shows it again}{High / 3}
+\end{tikzpicture}
+\caption{Story cards, with priority and relative size in story points}
+\label{fig:storycards}
+\end{figure}
+
+\section{Workflow and Data Flow Models}
+
+\subsection{Activity and Swimlane Diagrams}
+
+Figure~\ref{fig:activity} follows one search from query to result, with the
+parallel searches as a fork and join. Figure~\ref{fig:swimlane} follows an
+automatic capture across the four parties involved; a decision that says
+``no'' ends the flow there (flow-final node), so a page that fails any test
+is never sent or stored.
+
+\begin{figure}[H]
+\centering
+\input{figures/activity-search}
+\caption{Activity diagram: a search}
+\label{fig:activity}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\input{figures/swimlane}
+\caption{Swimlane activity diagram: automatic capture of a page}
+\label{fig:swimlane}
+\end{figure}
+
+\subsection{DFD Level 0}
+
+The context diagram shows MemoryLane as one process with its external
+entities and the data that crosses the boundary.
+
+\begin{figure}[H]
+\centering
+\input{figures/dfd0}
+\caption{DFD level 0 (context diagram)}
+\label{fig:dfd0}
+\end{figure}
+
+\subsection{DFD Level 1}
+
+Level 1 splits the system into six processes and three data stores. It is
+balanced with level 0: the reader's pages, queries and deletes go in, and
+results, snippets and summaries come out; tokens flow with Cognito,
+page text with Gemini and reports to SES. Every flow that touches D1 carries
+the caller's verified library id.
+
+\begin{figure}[H]
+\centering
+\input{figures/dfd1}
+\caption{DFD level 1}
+\label{fig:dfd1}
+\end{figure}
+
+\subsection{DFD Level 2}
+
+Level 2 decomposes process 3, Search. Its inputs and outputs match process 3
+at level 1 (a query in, ranked results out, chunks read from D1).
+
+\begin{figure}[H]
+\centering
+\input{figures/dfd2}
+\caption{DFD level 2 of process 3, Search. D1 is drawn twice to avoid crossing lines.}
+\label{fig:dfd2}
+\end{figure}
+
+\section{External Interface Requirements}
+\label{sec:interfaces}
+
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.2\textwidth} >{\raggedright\arraybackslash}p{0.22\textwidth} L}
+\toprule
+\textbf{Interface} & \textbf{Protocol} & \textbf{Data exchanged} \\
+\midrule
+\multicolumn{3}{l}{\textit{User interfaces}} \\
+Web app & HTTPS, any modern browser & Search box, results with snippets, library, account menu; keyboard shortcuts \\
+Extension popup and options & Chrome extension UI & Save button and status, ``Auto-saved today'', auto-capture switch, excluded sites \\
+\multicolumn{3}{l}{\textit{Software interfaces}} \\
+MemoryLane REST API & HTTPS, JSON, \texttt{Authorization: Bearer} & Pages, queries, results, summaries, reports (Table~\ref{tab:api}) \\
+Apache Solr & HTTP JSON, inside the server only & Chunk documents, BM25 and KNN queries, deletes \\
+Amazon Cognito & OAuth 2.0 with PKCE; JWKS; userInfo & Authorization codes, tokens, signing keys, verified email \\
+Google Gemini & HTTPS API & One page's text and the query; the summary \\
+Amazon SES & SMTP on port 587 (STARTTLS) & Problem report emails \\
+YouTube & HTTPS from the user's own tab & Caption track, title, channel, length, description \\
+\multicolumn{3}{l}{\textit{Hardware and communication}} \\
+Hardware & -- & No special hardware; a microphone for voice search \\
+Communication & TLS 1.2+ via Caddy, HSTS & All traffic between browser and server is encrypted \\
+\bottomrule
+\end{tabularx}
+\caption{External interfaces}
+\label{tab:interfaces}
+\end{table}
+
+\section{Data Requirements}
+
+The table states what must be stored and how it must be treated; the
+implemented schema is in Section~\ref{sec:storage}.
+
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.13\textwidth} L L L}
+\toprule
+\textbf{Entity} & \textbf{Content and format} & \textbf{Validation and integrity} & \textbf{Retention and privacy} \\
+\midrule
+Page & URL, title, site, save time, readable text, short description & \texttt{http(s)} only; $\geq$50 words; size limits; one entry per normalised URL per library & Until the user deletes it; visible only to its owner; never in logs \\
+Passage (chunk) & Up to 150 words with a 384-number vector & Derived from the page; replaced when the page changes & Deleted with its page \\
+Sign-in link & Cognito sign-in id, library id, verified email, last check & Only verified emails link sign-ins; re-checked daily & Removed by ``delete all my data'' \\
+Problem report & Message and the context shown to the user & Length limits; cleaned text; stored before sending & Kept until sent; removed by ``delete all'' \\
+Session & Access token, refresh token, email & Verified on every request & Access token in memory; refresh token in browser storage; cleared on sign-out \\
+Extension settings & Auto-capture switch, excluded sites, today's automatic saves & Hosts normalised & In the browser only; automatic-save list keeps 24\,h \\
+\bottomrule
+\end{tabularx}
+\caption{Data requirements}
+\label{tab:datareq}
+\end{table}
+
+\section{Quality and Operational Requirements}
+
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.06\textwidth} >{\raggedright\arraybackslash}p{0.14\textwidth} L L}
+\toprule
+\textrm{\textbf{ID}} & \textbf{Quality} & \textbf{Requirement (target)} & \textbf{How it is met / measured} \\
+\midrule
+QR-01 & Performance & Median search time under 200\,ms on the server's CPU & 76\,ms median, 93\,ms 95th percentile (Section~\ref{sec:evaluation}) \\
+QR-02 & Relevance & MRR@10 on SciFact at least the prototype's 0.754 & 0.786; Hit@1 0.71 \\
+QR-03 & Capacity & 5{,}000 pages per account on one 2-vCPU server & Page limit enforced; one EC2 instance \\
+QR-04 & Reliability & No data lost when a save is retried or raced & Per-user write lock; content hash; idempotent deletes \\
+QR-05 & Availability & Services restart after a crash or reboot; optional services fail softly & Restart policies, health checks; summaries and reports optional \\
+QR-06 & Security & Every request except health authenticated; no access to another user's pages & PKCE, RS256 checks, user filter in the Solr client; isolation tests \\
+QR-07 & Privacy & Private pages never auto-saved; no URLs or queries in logs & Two-stage capture rules; log filters; a test checks the logs \\
+QR-08 & Usability & Every action reachable by keyboard; usable on phone widths & Shortcuts (\texttt{/}, arrows, \texttt{S}, \texttt{Shift+Del}); responsive layout \\
+QR-09 & Accessibility & Controls labelled for assistive technology & Buttons with text or \texttt{aria-label}; visible focus \\
+QR-10 & Maintainability & All tests pass on every change; decisions recorded & 566 tests in CI; 11 ADRs; documentation site \\
+QR-11 & Portability & Runs wherever Docker runs; extension in any Chromium browser & Docker Compose; Manifest V3 \\
+\bottomrule
+\end{tabularx}
+\caption{Quality and operational requirements}
+\label{tab:nfr}
+\end{table}
+
+\section{Business Rules}
+
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.06\textwidth} L}
+\toprule
+\textrm{\textbf{ID}} & \textbf{Rule} \\
+\midrule
+BR-01 & Every page belongs to exactly one library; pages are never shared between users. \\
+BR-02 & A library belongs to the first verified sign-in for an email; later sign-ins with the same verified email use it; an unverified sign-in claims nothing. \\
+BR-03 & A library holds at most 5{,}000 pages; saved pages can still be updated at the limit. \\
+BR-04 & Automatic capture is off by default and never saves email, banking, social media, private apps, local addresses, account, login or payment pages. \\
+BR-05 & An automatic save never rewrites a page already in the library; only a manual save updates it. \\
+BR-06 & A delete becomes final when its 6-second undo window ends; ``delete all'' removes pages, sign-in links and reports. \\
+BR-07 & Page text is sent to Gemini only when the user asks for that page's summary. \\
+BR-08 & Requests are rate-limited per user (Table~\ref{tab:api}). \\
+BR-09 & Logs never contain saved URLs or search text. \\
+\bottomrule
+\end{tabularx}
+\caption{Business rules}
+\label{tab:rules}
+\end{table}
+
+\section{Priorities, Acceptance and Traceability}
+\label{sec:trace}
+
+Priorities are given in Table~\ref{tab:fr}. A requirement is accepted when
+its test cases pass (Chapter~\ref{ch:testing}). Table~\ref{tab:trace} links
+each functional requirement to its use case, stories, design models and
+tests.
+
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\ttfamily}p{0.07\textwidth} >{\ttfamily}p{0.07\textwidth} >{\ttfamily}p{0.1\textwidth} L >{\ttfamily}p{0.16\textwidth}}
+\toprule
+\textrm{\textbf{FR}} & \textrm{\textbf{UC}} & \textrm{\textbf{US}} & \textbf{Design models} & \textrm{\textbf{Tests}} \\
+\midrule
+FR-01 & UC-5 & US-8 & Fig.~\ref{fig:seq-signin}, \ref{fig:state-session}, \ref{fig:class-client} & TC-11, TC-12, TC-18 \\
+FR-02 & UC-1 & US-1 & Fig.~\ref{fig:seq-save}, \ref{fig:class-backend} & TC-01, TC-02 \\
+FR-03 & UC-2 & US-2, US-3 & Fig.~\ref{fig:swimlane} & TC-04, TC-05 \\
+FR-04 & UC-2 & US-3 & Fig.~\ref{fig:swimlane}, \ref{fig:extension} & TC-20 \\
+FR-05 & UC-1 & -- & Fig.~\ref{fig:seq-save} & TC-13 \\
+FR-06 & UC-1 & US-1 & Fig.~\ref{fig:class-backend} & TC-01, TC-03 \\
+FR-07 & UC-3 & US-4 & Fig.~\ref{fig:activity}, \ref{fig:seq-search}, \ref{fig:collab-search}, \ref{fig:dfd2} & TC-06, TC-16 \\
+FR-08 & UC-3 & US-5 & Fig.~\ref{fig:dfd2} (3.1), \ref{fig:class-backend} & TC-07 \\
+FR-09 & UC-3 & US-6 & Fig.~\ref{fig:activity} & TC-14 \\
+FR-10 & UC-4 & US-7 & Fig.~\ref{fig:collab-delete}, \ref{fig:state-page}, \ref{fig:class-client} & TC-08, TC-09, TC-10 \\
+FR-11 & -- & US-9 & Fig.~\ref{fig:dfd1} (6) & TC-15 \\
+FR-12 & -- & -- & Fig.~\ref{fig:components} & TC-19 \\
+\bottomrule
+\end{tabularx}
+\caption{Traceability from requirements to use cases, stories, design and tests}
+\label{tab:trace}
+\end{table}
+
+\paragraph{Changes and unresolved requirements.} Two features were built and
+later withdrawn as requirements: a library map and ``Export my data''
+(ADRs 0009 and 0010). Automatic capture was tightened after an outdated
+extension saved an email inbox (ADR 0011). FR-05 has no user story of its own:
+it was added from the team's own feature proposal of 30~August
+(Section~\ref{sec:iterations}). No
+requirement is unresolved; the open items are improvements, listed as future
+work in Section~\ref{sec:future}.
