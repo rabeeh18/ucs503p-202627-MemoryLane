@@ -21,4 +21,5 @@ Automatic features need rules for what *not* to do. Posting the plan first made 
 ## Forum
 
 - [Product Demo Video](https://tiet-ucs503.bvraghav.com/d/69-product-demo-video-memorylane/1) (2 Sep): Ishan's demo of the prototype
-- [Proposed next features](https://tiet-ucs503.bvraghav.com/d/58-version-2-update-memorylane/5) (30 Aug), built this week
+
+The features built this week were proposed in week 5 (see [Week 5](./w05-apache-solr.md#forum)).
