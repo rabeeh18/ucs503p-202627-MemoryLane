@@ -193,7 +193,7 @@ Evaluation runs in-process (`ingest_page` + `hybrid_search`) under the user id `
 ```bash
 CORE_NAME=memorylane_eval ./scripts/setup_solr.sh
 python -m evaluation.scifact_ingest      # index the SciFact corpus
-python -m evaluation.scifact_evaluate    # hybrid vs BM25-only vs vector-only: MRR, Recall, nDCG @10
+python -m evaluation.scifact_evaluate    # 5 configurations: Hit@1/3/10, MRR, Recall, nDCG, MAP @10, latency, 95% CIs
 python -m evaluation.generate_eval       # build queries from indexed pages
 python -m evaluation.evaluate            # Recall@1/3/5/10 and MRR, per query category
 ```

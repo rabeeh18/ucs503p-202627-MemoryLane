@@ -77,6 +77,7 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.snippets:
       # Hover definitions for terms like BM25 and PKCE on every page.
+      check_paths: true
       auto_append:
         - includes/abbreviations.md
   - pymdownx.superfences:
@@ -105,10 +106,9 @@ nav:
       - Problem Statement: problem_statement.md
       - Features: features.md
 
-  - Getting Started:
-      - Quick Start (hosted application): getting-started/index.md
+  - Tutorial: getting-started/index.md
 
-  - User Guide:
+  - Usage Guide:
       - Saving Pages: user-guide/automatic-capture.md
       - Searching: user-guide/search.md
       - Library & Account: user-guide/library.md
@@ -147,7 +147,7 @@ nav:
           - 0011 Auto-capture keeps only content: decisions/0011-auto-capture-keeps-only-content.md
 
   - Development:
-      - Project Structure: development/project-structure.md
+      - Manifest: development/project-structure.md
       - Installation: development/installation.md
       - Configuration: development/configuration.md
       - Running Locally: development/running-locally.md
@@ -164,4 +164,5 @@ nav:
       - Results: evaluation/results.md
 
   - Privacy: privacy.md
+  - License: license.md
   - Glossary: glossary.md

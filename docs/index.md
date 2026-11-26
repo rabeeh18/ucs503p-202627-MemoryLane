@@ -55,8 +55,8 @@ Everything runs with Docker Compose on a single AWS EC2 instance, served at [mem
 
 **For users**
 
-- **[Getting Started](getting-started/index.md)**: start using the hosted site in four steps.
-- **[User Guide](user-guide/automatic-capture.md)**: saving, searching, the library, summaries and YouTube.
+- **[Tutorial](getting-started/index.md)**: save and find your first page, step by step, in about ten minutes.
+- **[Usage Guide](user-guide/automatic-capture.md)**: every feature: saving, searching, the library, summaries, YouTube and voice.
 - **[Privacy](privacy.md)**: what is stored, who can see it and what leaves the server.
 
 **For developers**
@@ -64,7 +64,8 @@ Everything runs with Docker Compose on a single AWS EC2 instance, served at [mem
 - **[How It Works](how-it-works/overview.md)**: follow a page from saving to search.
 - **[Architecture](architecture/overview.md)**: components, data flow diagrams, retrieval and security.
 - **[Design Decisions](decisions/index.md)**: why MemoryLane is built the way it is, one decision per page.
-- **[Development](development/project-structure.md)**: run your own copy, testing, deployment and troubleshooting.
-- **[API Reference](api/index.md)**: the backend endpoints.
+- **[Development](development/project-structure.md)**: the project manifest, running your own copy, testing, deployment and troubleshooting.
+- **[API Reference](api/index.md)**: every endpoint, with requests, responses, errors and rate limits.
 - **[Evaluation](evaluation/methodology.md)**: the SciFact retrieval benchmark.
+- **[License](license.md)**: the MIT License, and the third-party material with its own terms.
 - **[Glossary](glossary.md)**: the search and security terms used throughout. Hover over a dotted-underlined term on any page to see its meaning.

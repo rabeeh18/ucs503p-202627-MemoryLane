@@ -1,37 +1,4 @@
-# Project Structure
-
-```text
-ucs503p-202627-MemoryLane/
-├── code/src/                  The application (see below)
-├── docs/                      This documentation (MkDocs)
-├── mkdocs.yml                 Documentation site config
-├── assets/                    Images and theme files for the docs
-├── journals/                  Project journals
-├── project-proposal/          Course deliverables
-├── project-report-prototype-stage/
-└── project-report-final/
-```
-
-## Application
-
-```text
-code/src/
-├── backend/                   FastAPI app (see Backend Architecture)
-├── frontend/                  Svelte 4 + Vite web app
-├── extension/                 Chrome extension (Manifest V3)
-├── scripts/                   Solr setup, schema additions, re-index, backfill
-├── evaluation/                SciFact benchmark and generated-query evaluation
-├── tests/                     pytest suite
-├── deploy/
-│   ├── README.md              Step-by-step EC2 deployment guide
-│   └── caddy/                 Caddyfile + image that builds the web app and extension zip
-├── docs/                      Implementation plan
-├── docker-compose.yml         solr + backend + caddy
-├── requirements.txt           What the server image installs
-├── requirements-dev.txt       Plus the test tools
-├── pytest.ini
-└── .env.example               Every setting, with defaults
-```
+--8<-- "MANIFEST.md"
 
 ## Where to look
 
@@ -43,5 +10,7 @@ code/src/
 | Snippets | `backend/snippets.py` |
 | What's allowed per user | `backend/auth.py`, `backend/solr_client.py` |
 | The Solr schema | `scripts/setup_solr.sh` (and its PowerShell mirror) |
-| What auto-capture skips | `extension/page_filter.js` |
+| What auto-capture skips | `extension/page_filter.js` and `backend/page_filter.py` |
 | Colours and type | `frontend/src/styles/tokens.css`, `extension/tokens.css` |
+
+This page is generated from `MANIFEST.md` at the repository root.

@@ -32,6 +32,39 @@ Request and response models are in `backend/models.py`. FastAPI's interactive do
 
 See [Endpoints](endpoints.md) for details.
 
+## Quick example
+
+Save a page, then find it. `$TOKEN` is a Cognito access token. In the web app or the extension it is managed for you; for a script, get one through the same sign-in flow (see [Security](../architecture/security.md#authentication)).
+
+```bash
+API=https://memorylane.site/api
+
+# Save a page (the extension sends the page's HTML too; plain text works)
+curl -s -X POST "$API/memory" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"url": "https://example.org/caching", "title": "Caching at the edge",
+       "content": "…at least 50 words of the page text…", "is_manual": true}'
+
+# Search it by describing it
+curl -s -X POST "$API/search" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"query": "the article about caching i read today", "num_results": 5}'
+```
+
+The first call answers `{"status": "saved", "message": …, "page": {"id": …}}`, and the second returns the page among its `results`, with a snippet.
+
+## Rate limits
+
+Limits are per user (per IP address before sign-in); a request over the limit gets `429`.
+
+| Endpoint | Limit |
+| --- | --- |
+| `GET /memory/status`, `POST /memory/existing`, `GET /memory/{id}/related` | 120/minute |
+| `POST /memory`, `DELETE /memory/{id}`, `GET /memories`, `POST /search` | 60/minute |
+| `POST /summarize` | 20/minute |
+| `DELETE /me/data` | 5/minute |
+| `POST /reports` | 5/hour |
+
 ## Errors
 
 | Status | Meaning |

@@ -4,10 +4,10 @@ name: mkdocs
 on:
   workflow_dispatch:
   pull_request:
-    paths: ["docs/**", "includes/**", "hooks/**", "mkdocs.yml", "assets/**", ".github/workflows/mkdocs.yml"]
+    paths: ["docs/**", "includes/**", "hooks/**", "mkdocs.yml", "assets/**", "MANIFEST.md", "LICENSE", ".github/workflows/mkdocs.yml"]
   push:
     branches: [master, main]
-    paths: ["docs/**", "includes/**", "hooks/**", "mkdocs.yml", "assets/**", ".github/workflows/mkdocs.yml"]
+    paths: ["docs/**", "includes/**", "hooks/**", "mkdocs.yml", "assets/**", "MANIFEST.md", "LICENSE", ".github/workflows/mkdocs.yml"]
 permissions:
   contents: read
 jobs:
