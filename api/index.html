@@ -377,53 +377,6 @@
   
   
   
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Getting Started
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Getting Started
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../getting-started/" class="md-nav__link">
         
@@ -432,7 +385,7 @@
   <span class="md-ellipsis">
     
   
-    Quick Start (hosted application)
+    Tutorial
   
 
     
@@ -441,14 +394,6 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -478,7 +423,7 @@
   <span class="md-ellipsis">
     
   
-    User Guide
+    Usage Guide
   
 
     
@@ -494,7 +439,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    User Guide
+    Usage Guide
   
 
           </label>
@@ -1597,7 +1542,7 @@
   <span class="md-ellipsis">
     
   
-    Project Structure
+    Manifest
   
 
     
@@ -1924,6 +1869,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#quick-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick example
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rate-limits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rate limits
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#errors" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2122,6 +2089,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../license/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    License
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../glossary/" class="md-nav__link">
         
   
@@ -2238,6 +2232,54 @@
 </table>
 <p>Request and response models are in <code>backend/models.py</code>. FastAPI's interactive docs are at <code>/docs</code> when running locally.</p>
 <p>See <a href="endpoints/">Endpoints</a> for details.</p>
+<h2 id="quick-example">Quick example<a class="headerlink" href="#quick-example" title="Permanent link">&para;</a></h2>
+<p>Save a page, then find it. <code>$TOKEN</code> is a Cognito access token. In the web app or the extension it is managed for you; for a script, get one through the same sign-in flow (see <a href="../architecture/security/#authentication">Security</a>).</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">API</span><span class="o">=</span>https://memorylane.site/api
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Save a page (the extension sends the page's HTML too; plain text works)</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">"</span><span class="nv">$API</span><span class="s2">/memory"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">"</span><span class="w"> </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"url": "https://example.org/caching", "title": "Caching at the edge",</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="s1">       "content": "…at least 50 words of the page text…", "is_manual": true}'</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="c1"># Search it by describing it</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>curl<span class="w"> </span>-s<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span><span class="s2">"</span><span class="nv">$API</span><span class="s2">/search"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span>-H<span class="w"> </span><span class="s2">"Authorization: Bearer </span><span class="nv">$TOKEN</span><span class="s2">"</span><span class="w"> </span>-H<span class="w"> </span><span class="s2">"Content-Type: application/json"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span>-d<span class="w"> </span><span class="s1">'{"query": "the article about caching i read today", "num_results": 5}'</span>
+</span></code></pre></div>
+<p>The first call answers <code>{"status": "saved", "message": …, "page": {"id": …}}</code>, and the second returns the page among its <code>results</code>, with a snippet.</p>
+<h2 id="rate-limits">Rate limits<a class="headerlink" href="#rate-limits" title="Permanent link">&para;</a></h2>
+<p>Limits are per user (per IP address before sign-in); a request over the limit gets <code>429</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /memory/status</code>, <code>POST /memory/existing</code>, <code>GET /memory/{id}/related</code></td>
+<td>120/minute</td>
+</tr>
+<tr>
+<td><code>POST /memory</code>, <code>DELETE /memory/{id}</code>, <code>GET /memories</code>, <code>POST /search</code></td>
+<td>60/minute</td>
+</tr>
+<tr>
+<td><code>POST /summarize</code></td>
+<td>20/minute</td>
+</tr>
+<tr>
+<td><code>DELETE /me/data</code></td>
+<td>5/minute</td>
+</tr>
+<tr>
+<td><code>POST /reports</code></td>
+<td>5/hour</td>
+</tr>
+</tbody>
+</table>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

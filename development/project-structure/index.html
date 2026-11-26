@@ -26,7 +26,7 @@
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
-  <title>Project Structure - MemoryLane</title>
+  <title>Manifest - MemoryLane</title>
 
     
       <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
@@ -84,7 +84,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#project-structure" class="md-skip">
+        <a href="#manifest" class="md-skip">
           Skip to content
         </a>
       
@@ -119,7 +119,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Project Structure
+              Manifest
             
           </span>
         </div>
@@ -377,53 +377,6 @@
   
   
   
-    
-    
-    
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
-        
-          
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Getting Started
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Getting Started
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../../getting-started/" class="md-nav__link">
         
@@ -432,7 +385,7 @@
   <span class="md-ellipsis">
     
   
-    Quick Start (hosted application)
+    Tutorial
   
 
     
@@ -441,14 +394,6 @@
   
 
       </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
     </li>
   
 
@@ -478,7 +423,7 @@
   <span class="md-ellipsis">
     
   
-    User Guide
+    Usage Guide
   
 
     
@@ -494,7 +439,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    User Guide
+    Usage Guide
   
 
           </label>
@@ -1608,7 +1553,7 @@
   <span class="md-ellipsis">
     
   
-    Project Structure
+    Manifest
   
 
     
@@ -1626,7 +1571,7 @@
   <span class="md-ellipsis">
     
   
-    Project Structure
+    Manifest
   
 
     
@@ -1652,10 +1597,60 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#application" class="md-nav__link">
+  <a href="#top-level" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Application
+        Top level
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#application-codesrc" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Application (code/src/)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Application (code/src/)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#backend-modules-codesrcbackend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backend modules (code/src/backend/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generated-not-committed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generated, not committed
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#third-party-material" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Third-party material
       
     </span>
   </a>
@@ -2111,6 +2106,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../../license/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    License
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../glossary/" class="md-nav__link">
         
   
@@ -2151,35 +2173,326 @@
   
 
 
-<h1 id="project-structure">Project Structure<a class="headerlink" href="#project-structure" title="Permanent link">&para;</a></h1>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ucs503p-202627-MemoryLane/
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── code/src/                  The application (see below)
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── docs/                      This documentation (MkDocs)
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── mkdocs.yml                 Documentation site config
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── assets/                    Images and theme files for the docs
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── journals/                  Project journals
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>├── project-proposal/          Course deliverables
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>├── project-report-prototype-stage/
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>└── project-report-final/
-</span></code></pre></div>
-<h2 id="application">Application<a class="headerlink" href="#application" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>code/src/
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>├── backend/                   FastAPI app (see Backend Architecture)
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>├── frontend/                  Svelte 4 + Vite web app
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>├── extension/                 Chrome extension (Manifest V3)
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>├── scripts/                   Solr setup, schema additions, re-index, backfill
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>├── evaluation/                SciFact benchmark and generated-query evaluation
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>├── tests/                     pytest suite
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>├── deploy/
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>│   ├── README.md              Step-by-step EC2 deployment guide
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>│   └── caddy/                 Caddyfile + image that builds the web app and extension zip
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>├── docs/                      Implementation plan
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>├── docker-compose.yml         solr + backend + caddy
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>├── requirements.txt           What the server image installs
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>├── requirements-dev.txt       Plus the test tools
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>├── pytest.ini
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>└── .env.example               Every setting, with defaults
-</span></code></pre></div>
+<h1 id="manifest">Manifest<a class="headerlink" href="#manifest" title="Permanent link">&para;</a></h1>
+<p>Everything in the MemoryLane repository: what each folder and important file is for, what is generated, and what comes from third parties.</p>
+<h2 id="top-level">Top level<a class="headerlink" href="#top-level" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>README.md</code></td>
+<td>Project overview, quick start, team, license summary</td>
+</tr>
+<tr>
+<td><code>MANIFEST.md</code></td>
+<td>This file</td>
+</tr>
+<tr>
+<td><code>LICENSE</code></td>
+<td>MIT License</td>
+</tr>
+<tr>
+<td><code>code/src/</code></td>
+<td>The application (see below)</td>
+</tr>
+<tr>
+<td><code>docs/</code></td>
+<td>Source of the documentation site (Markdown, built with MkDocs)</td>
+</tr>
+<tr>
+<td><code>mkdocs.yml</code></td>
+<td>Documentation site configuration and navigation</td>
+</tr>
+<tr>
+<td><code>hooks/semantic_search.py</code></td>
+<td>MkDocs build hook that creates the meaning-based docs search</td>
+</tr>
+<tr>
+<td><code>includes/abbreviations.md</code></td>
+<td>Abbreviation tooltips added to every docs page</td>
+</tr>
+<tr>
+<td><code>assets/</code></td>
+<td>Images, icons and theme overrides used by the docs</td>
+</tr>
+<tr>
+<td><code>journals/</code></td>
+<td>Weekly project journals, one folder per student (roll number and name)</td>
+</tr>
+<tr>
+<td><code>project-proposal/</code></td>
+<td>Project proposal (LaTeX source and PDF)</td>
+</tr>
+<tr>
+<td><code>project-report-prototype-stage/</code></td>
+<td>Mid-semester report (LaTeX source, PDF, TIET report class)</td>
+</tr>
+<tr>
+<td><code>project-report-final/</code></td>
+<td>End-semester report: chapters, TikZ figures, screenshots, bibliography, PDF</td>
+</tr>
+<tr>
+<td><code>pyproject.toml</code></td>
+<td>Python project metadata</td>
+</tr>
+<tr>
+<td><code>Makefile</code></td>
+<td>Docs helper targets from the course template</td>
+</tr>
+<tr>
+<td><code>.github/workflows/ci.yml</code></td>
+<td>Runs the backend and frontend test suites on every push</td>
+</tr>
+<tr>
+<td><code>.github/workflows/mkdocs.yml</code></td>
+<td>Checks that the documentation builds in strict mode</td>
+</tr>
+</tbody>
+</table>
+<h2 id="application-codesrc">Application (<code>code/src/</code>)<a class="headerlink" href="#application-codesrc" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>backend/</code></td>
+<td>FastAPI application: API, sign-in checks, saving pipeline, search, snippets, summaries, problem reports</td>
+</tr>
+<tr>
+<td><code>backend/Dockerfile</code></td>
+<td>Image for the API (Python 3.11, CPU-only PyTorch)</td>
+</tr>
+<tr>
+<td><code>frontend/</code></td>
+<td>Svelte web app: search, library, account menu, landing and privacy pages</td>
+</tr>
+<tr>
+<td><code>extension/</code></td>
+<td>Chrome extension (Manifest V3): popup, options page, service worker, content scripts</td>
+</tr>
+<tr>
+<td><code>tests/</code></td>
+<td>Backend tests (pytest)</td>
+</tr>
+<tr>
+<td><code>frontend/src/**/*.test.js</code></td>
+<td>Frontend and extension-logic tests (Vitest)</td>
+</tr>
+<tr>
+<td><code>evaluation/</code></td>
+<td>SciFact benchmark, personal-library evaluation and the compare tool</td>
+</tr>
+<tr>
+<td><code>evaluation/scifact_report.json</code></td>
+<td>Latest benchmark results</td>
+</tr>
+<tr>
+<td><code>scripts/</code></td>
+<td>Solr schema setup (<code>setup_solr.sh</code>, <code>setup_solr.ps1</code>), field additions, re-index and backfill</td>
+</tr>
+<tr>
+<td><code>deploy/</code></td>
+<td>Server deployment guide and the Caddy image (HTTPS, static files, <code>/api</code> proxy)</td>
+</tr>
+<tr>
+<td><code>docs/</code></td>
+<td>Implementation plan and HTML design mock-ups for the web app and extension</td>
+</tr>
+<tr>
+<td><code>docker-compose.yml</code></td>
+<td>The three services: <code>solr</code>, <code>backend</code>, <code>caddy</code></td>
+</tr>
+<tr>
+<td><code>requirements.txt</code></td>
+<td>Python packages for the server image</td>
+</tr>
+<tr>
+<td><code>requirements-dev.txt</code></td>
+<td>The same plus test tools</td>
+</tr>
+<tr>
+<td><code>pytest.ini</code></td>
+<td>Test configuration</td>
+</tr>
+<tr>
+<td><code>.env.example</code></td>
+<td>Every setting, with defaults; copy to <code>.env</code></td>
+</tr>
+<tr>
+<td><code>README.md</code></td>
+<td>Developer reference for the application</td>
+</tr>
+</tbody>
+</table>
+<h3 id="backend-modules-codesrcbackend">Backend modules (<code>code/src/backend/</code>)<a class="headerlink" href="#backend-modules-codesrcbackend" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>main.py</code></td>
+<td>API endpoints, rate limits, log filtering, re-checking automatic saves</td>
+</tr>
+<tr>
+<td><code>auth.py</code></td>
+<td>Verifying Cognito access tokens</td>
+</tr>
+<tr>
+<td><code>accounts.py</code></td>
+<td>Linking Google and email sign-ins by verified email</td>
+</tr>
+<tr>
+<td><code>library_moves.py</code></td>
+<td>Moving pages into a linked library in the background</td>
+</tr>
+<tr>
+<td><code>ingest.py</code></td>
+<td>Saving a page: canonical URL, cleaning, chunking, <abbr title="a list of 384 numbers that represents the meaning of a passage; similar meanings give nearby embeddings">embedding</abbr>, storing</td>
+</tr>
+<tr>
+<td><code>cleaning.py</code>, <code>chunking.py</code></td>
+<td>Main-text extraction; 150-word overlapping <abbr title="passages of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunks</abbr></td>
+</tr>
+<tr>
+<td><code>embeddings.py</code></td>
+<td>Loading the <abbr title="a list of 384 numbers that represents the meaning of a passage; similar meanings give nearby embeddings">embedding</abbr> model; passage and query <abbr title="lists of 384 numbers that represent the meaning of passages; similar meanings give nearby embeddings">embeddings</abbr></td>
+</tr>
+<tr>
+<td><code>retrieval.py</code></td>
+<td><abbr title="Best Matching 25: a keyword ranking that scores pages by how often they use the query's words, favouring rare words and short passages">BM25</abbr> + vector search, Reciprocal Rank Fusion, page grouping, <abbr title="the rule that drops results which are neither a strong keyword match nor close enough in meaning">relevance floor</abbr></td>
+</tr>
+<tr>
+<td><code>query_intent.py</code></td>
+<td>Site words, time phrases and URLs in a query</td>
+</tr>
+<tr>
+<td><code>snippets.py</code></td>
+<td>Choosing the sentences shown under each result</td>
+</tr>
+<tr>
+<td><code>rerank.py</code></td>
+<td>Optional cross-encoder reranker</td>
+</tr>
+<tr>
+<td><code>solr_client.py</code></td>
+<td>All Solr access, with the per-user filter built in</td>
+</tr>
+<tr>
+<td><code>page_filter.py</code></td>
+<td>Pages automatic capture must refuse</td>
+</tr>
+<tr>
+<td><code>summarizer.py</code></td>
+<td>Gemini summaries</td>
+</tr>
+<tr>
+<td><code>reports.py</code></td>
+<td>Storing problem reports and emailing them</td>
+</tr>
+<tr>
+<td><code>youtube_utils.py</code></td>
+<td>YouTube video ids and transcripts</td>
+</tr>
+<tr>
+<td><code>url_utils.py</code></td>
+<td>URL normalisation and page ids</td>
+</tr>
+<tr>
+<td><code>models.py</code></td>
+<td>Request and response models</td>
+</tr>
+<tr>
+<td><code>config.py</code></td>
+<td>Settings read from the environment</td>
+</tr>
+<tr>
+<td><code>cli.py</code></td>
+<td>Command-line search for debugging</td>
+</tr>
+</tbody>
+</table>
+<h2 id="generated-not-committed">Generated, not committed<a class="headerlink" href="#generated-not-committed" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>What creates it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>site/</code></td>
+<td><code>mkdocs build</code> (the published documentation)</td>
+</tr>
+<tr>
+<td><code>code/src/.venv/</code>, <code>code/src/frontend/node_modules/</code></td>
+<td>Installing the Python and Node dependencies</td>
+</tr>
+<tr>
+<td><code>code/src/frontend/dist/</code></td>
+<td><code>npm run build</code> (the Caddy image builds it during deployment)</td>
+</tr>
+<tr>
+<td><code>code/src/data/</code></td>
+<td>Local SQLite databases (<code>accounts.db</code>, <code>reports.db</code>)</td>
+</tr>
+<tr>
+<td><code>code/src/.env</code></td>
+<td>Your settings, including secrets; never commit it</td>
+</tr>
+<tr>
+<td>LaTeX <code>*.aux</code>, <code>*.log</code>, <code>*.bbl</code>, …</td>
+<td>Building the reports</td>
+</tr>
+</tbody>
+</table>
+<p>On the server, Docker volumes hold Solr's index (<code>solr_data</code>), the downloaded models (<code>models</code>), the SQLite databases (<code>accounts</code>) and Caddy's certificates (<code>caddy_data</code>).</p>
+<h2 id="third-party-material">Third-party material<a class="headerlink" href="#third-party-material" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Material</th>
+<th>Location</th>
+<th>Terms</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>IBM Plex fonts</td>
+<td><code>code/src/extension/fonts/</code></td>
+<td>SIL Open Font License 1.1 (<code>LICENSE-OFL.txt</code> alongside)</td>
+</tr>
+<tr>
+<td>SciFact dataset (subset)</td>
+<td><code>code/src/evaluation/scifact_data/</code></td>
+<td>CC BY-NC 2.0, Allen Institute for AI; used for evaluation only</td>
+</tr>
+<tr>
+<td>Thapar Institute logo</td>
+<td><code>assets/tiet-logo.png</code>, <code>assets/tiet-logo.svg</code></td>
+<td>Trademark of TIET, used for the course documentation</td>
+</tr>
+<tr>
+<td>TIET report class</td>
+<td><code>project-report-*/tietreport.cls</code></td>
+<td>Course template</td>
+</tr>
+</tbody>
+</table>
+<p>Downloaded at install or build time, not stored in the repository: the <abbr title="a list of 384 numbers that represents the meaning of a passage; similar meanings give nearby embeddings">embedding</abbr> model <code>BAAI/bge-small-en-v1.5</code> (MIT), the optional reranker <code>cross-encoder/ms-marco-MiniLM-L-6-v2</code>, the docs-search model Model2Vec <code>potion-base-8M</code> (MIT), and the Python and npm packages listed in <code>requirements*.txt</code> and <code>package.json</code>.</p>
 <h2 id="where-to-look">Where to look<a class="headerlink" href="#where-to-look" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2215,7 +2528,7 @@
 </tr>
 <tr>
 <td>What auto-capture skips</td>
-<td><code>extension/page_filter.js</code></td>
+<td><code>extension/page_filter.js</code> and <code>backend/page_filter.py</code></td>
 </tr>
 <tr>
 <td>Colours and type</td>
@@ -2223,6 +2536,7 @@
 </tr>
 </tbody>
 </table>
+<p>This page is generated from <code>MANIFEST.md</code> at the repository root.</p>
 
 
 
