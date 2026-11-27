@@ -503,3 +503,7 @@ __pycache__/
 # Word build scratch
 project-report-final/docx/work/
 project-report-final/docx/build/
+
+# Extension build tooling and vendored runtimes (built by extension/build/vendor.mjs)
+code/src/extension/node_modules/
+code/src/extension/vendor/

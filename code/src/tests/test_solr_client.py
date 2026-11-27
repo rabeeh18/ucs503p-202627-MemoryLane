@@ -70,11 +70,12 @@ def test_bm25_query_uses_phrase_boost_and_blocks_field_queries():
     assert "\x00" not in params["q"]
 
 
-def test_knn_uses_json_filter_as_pre_filter():
+def test_knn_is_exact_and_user_filtered():
     solr = _client()
     solr.knn_search([0.1, 0.2], USER, k=7)
     payload = solr.client.post.call_args.kwargs["json"]
-    assert payload["query"].startswith("{!knn f=embedding topK=7}")
+    # Exact cosine over every allowed chunk, not the approximate HNSW {!knn}.
+    assert payload["query"] == "{!func}vectorSimilarity(FLOAT32,COSINE,embedding,[0.1,0.2])"
     assert payload["filter"] == [FILTER]
     assert payload["limit"] == 7
 
@@ -180,8 +181,9 @@ def test_related_pages_prefilters_user_and_excludes_the_page():
     solr = _client()
     solr.related_pages([0.1, 0.2], USER, exclude_page_id="p1", k=5)
     payload = solr.client.post.call_args.kwargs["json"]
-    assert payload["query"].startswith("{!knn f=page_embedding topK=5}")
-    assert payload["filter"] == [FILTER, "-{!term f=page_id}p1"]
+    assert payload["query"].startswith("{!func}vectorSimilarity(FLOAT32,COSINE,page_embedding,")
+    assert payload["filter"] == [FILTER, "chunk_id:0", "-{!term f=page_id}p1"]
+    assert payload["limit"] == 5
 
 
 def test_get_page_vector_reads_chunk_zero():

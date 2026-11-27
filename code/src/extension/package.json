@@ -1,0 +1,13 @@
+{
+  "name": "memorylane-extension-build",
+  "private": true,
+  "description": "Build tooling for the extension: copies the search model runtime and Pyodide into vendor/ (see build/vendor.mjs). The extension itself has no bundler.",
+  "type": "module",
+  "scripts": {
+    "vendor": "node build/vendor.mjs"
+  },
+  "devDependencies": {
+    "@huggingface/transformers": "3.5.2",
+    "pyodide": "314.0.8"
+  }
+}

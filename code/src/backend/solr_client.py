@@ -97,6 +97,14 @@ def saved_between_filter(start: str, end: str) -> str:
     return f"timestamp:[{start} TO {end}}}"
 
 
+def exact_vector_query(field: str, vector: list[float]) -> str:
+    """Score every matching document by cosine to `vector`: (1 + cos) / 2, as
+    {!knn} scores, but over all of them rather than an approximate HNSW walk.
+    A document without the vector scores 0."""
+    vector_str = "[" + ",".join(str(float(v)) for v in vector) + "]"
+    return f"{{!func}}vectorSimilarity(FLOAT32,COSINE,{field},{vector_str})"
+
+
 def user_filter(user_id: str) -> str:
     """The filter every scoped read, write and delete carries."""
     return term_query("user_id", _require_user(user_id))
@@ -236,20 +244,20 @@ class SolrClient:
 
     def knn_search(self, vector: list[float], user_id: str, k: int = 30,
                    page_ids: list[str] | None = None, filters: list[str] | None = None) -> list[dict]:
-        """Dense vector KNN search within one user's chunks.
+        """The k chunks nearest to `vector`, within one user's chunks.
 
-        The user filter (and optional page filter) goes in `filter`; with knn as
-        the main query Solr applies it as a pre-filter, so the user gets up to k
-        of their own chunks.
+        Exact: every chunk the filters allow is scored by cosine, with Solr's
+        (1 + cos) / 2 score. The HNSW index's {!knn} is approximate and misses a
+        true neighbour in most searches; the browser engine scans exactly, and
+        both must return the same pages (docs/decisions/0013).
         """
         url = f"{self.base_url}/select"
-        vector_str = "[" + ",".join(str(v) for v in vector) + "]"
         extra_filters, filters = filters, [user_filter(user_id)]
         if page_ids is not None:
             filters.append(page_ids_filter(page_ids))
         filters += list(extra_filters or [])
         payload = {
-            "query": f"{{!knn f=embedding topK={k}}}{vector_str}",
+            "query": exact_vector_query("embedding", vector),
             "filter": filters,
             "fields": CHUNK_FIELDS + ",score",
             "limit": k
@@ -284,11 +292,10 @@ class SolrClient:
         return [float(x) for x in vector] if vector else None
 
     def related_pages(self, vector: list[float], user_id: str, exclude_page_id: str, k: int = 5) -> list[dict]:
-        """KNN over page vectors, pre-filtered to the user's other pages."""
-        vector_str = "[" + ",".join(str(v) for v in vector) + "]"
+        """The user's other pages nearest to `vector` by page vector (exact, as knn_search)."""
         payload = {
-            "query": f"{{!knn f=page_embedding topK={k}}}{vector_str}",
-            "filter": [user_filter(user_id), "-" + term_query("page_id", exclude_page_id)],
+            "query": exact_vector_query("page_embedding", vector),
+            "filter": [user_filter(user_id), "chunk_id:0", "-" + term_query("page_id", exclude_page_id)],
             "fields": CHUNK_FIELDS + ",score",
             "limit": k,
         }
