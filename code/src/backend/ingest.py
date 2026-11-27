@@ -184,7 +184,9 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
                 solr: SolrClient | None = None, timestamp: str | None = None,
                 fetch_youtube: bool = True, force: bool = False,
                 description: str | None = None, max_pages: int | None = None,
-                youtube: dict | None = None, keep_existing: bool = False) -> IngestResult:
+                youtube: dict | None = None, keep_existing: bool = False,
+                prepared_chunks: list[str] | None = None,
+                content_hash: str | None = None) -> IngestResult:
     """Clean, chunk, embed and store one page for one user.
 
     Used by the API, the re-index script and the evaluation scripts. `solr`
@@ -196,8 +198,11 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
     many. `youtube` is a video's transcript and details as the extension fetched
     them (see youtube_utils.process_youtube_video). `keep_existing=True` (automatic
     saves) returns "unchanged" for a page that is already stored instead of
-    rewriting it; only a manual save updates a saved page. Raises IngestError for pages
-    that can't be stored.
+    rewriting it; only a manual save updates a saved page. `prepared_chunks` are
+    a page's chunks as this function made them when it was first saved (a page
+    moving from the extension's local store to the server), stored as they are
+    so the page embeds and ranks exactly as before, with its original
+    `content_hash`. Raises IngestError for pages that can't be stored.
     """
     if not is_valid_user_id(user_id):
         raise ValueError("ingest_page needs a valid user_id")
@@ -210,7 +215,7 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
     domain = urlparse(url).netloc
 
     youtube_content = None
-    if fetch_youtube and is_youtube_url(url):
+    if fetch_youtube and prepared_chunks is None and is_youtube_url(url):
         youtube_content, yt_title, skip = process_youtube_video(url, is_manual, provided=youtube)
         if skip:
             return IngestResult("skipped", skip, "", url, title or domain, domain, "", 0)
@@ -229,6 +234,10 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
     # 3. YouTube transcript, otherwise cleaned page text
     if youtube_content is not None:
         cleaned = youtube_content
+    elif prepared_chunks is not None:
+        cleaned = "\n\n".join(prepared_chunks)
+        if not cleaned.strip():
+            raise IngestError(422, NOT_ENOUGH_TEXT)
     else:
         cleaned = clean_content(html, text or "")
         if word_count(cleaned) < MIN_CONTENT_WORDS:
@@ -237,7 +246,8 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
     # 4-6 run under the user's write lock: see _user_write_lock.
     with _user_write_lock(user_id):
         # 4. Unchanged content (and same embedding model) needs no work
-        content_hash = hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
+        if content_hash is None or prepared_chunks is None:
+            content_hash = hashlib.sha256(cleaned.encode("utf-8")).hexdigest()
         existing = solr.get_page_head(page_id, user_id)
         unchanged = existing and existing.get("content_hash") == content_hash \
             and existing.get("embedding_model") == EMBEDDING_MODEL \
@@ -259,7 +269,7 @@ def ingest_page(user_id: str, url: str, title: str, text: str, html: str | None 
             raise IngestError(403, TOO_MANY_PAGES.format(limit=max_pages))
 
         # 5. Chunk, embed title + chunk, build docs
-        chunks = chunk_text(cleaned)
+        chunks = list(prepared_chunks) if prepared_chunks is not None else chunk_text(cleaned)
         if not chunks:
             raise IngestError(422, NOT_ENOUGH_TEXT)
         embeddings = embed_passages([f"{title}\n\n{chunk}" for chunk in chunks])

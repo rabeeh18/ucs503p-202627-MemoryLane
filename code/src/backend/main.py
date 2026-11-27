@@ -1,3 +1,4 @@
+import base64
 import logging
 import re
 from contextlib import asynccontextmanager
@@ -9,7 +10,8 @@ from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from backend import accounts, library_moves, reports
+from backend import accounts, device_data, library_moves, reports
+from backend import config as search_config
 from backend.auth import check_config, current_user_id
 from backend.config import CORS_ORIGINS, MAX_PAGES_PER_USER, MIN_VECTOR_SIMILARITY
 from backend.models import (
@@ -17,6 +19,8 @@ from backend.models import (
     MemoriesResponse, SearchResponse, SearchResultItem, DebugSearchResultItem,
     HealthResponse, SummarizeInput, SummarizeResponse, RelatedPage, RelatedResponse,
     ReportInput, ReportResponse, ExistingPagesInput, ExistingPagesResponse,
+    SearchSettingsResponse, MeResponse, TransferInput, PageContentResponse,
+    SummarizeTextInput, BackupInfoResponse,
 )
 from backend.embeddings import is_model_loaded, get_model
 from backend.ingest import IngestError, ingest_page, resolve_canonical_url
@@ -377,6 +381,7 @@ def delete_my_data(request: Request, user_id: str = Depends(current_user_id)):
         solr.delete_user(old)
     forget_user_sites(user_id)
     reports.delete_user_reports(user_id)
+    device_data.forget_library(user_id)
     accounts.forget_library(user_id)
     return Response(status_code=204)
 
@@ -410,3 +415,128 @@ def report_problem(request: Request, body: ReportInput, user_id: str = Depends(c
         logger.error(f"Failed to store report: {type(e).__name__}")
         raise HTTPException(status_code=500, detail="Couldn't send your report. Try again.")
     return ReportResponse(status="received", id=report_id)
+
+
+# ---- pages kept on the user's device (local-first) -------------------------------
+#
+# The extension can keep pages in the browser instead of on this server. These
+# endpoints never receive a stored page except when the user moves one here
+# (transfer) or asks for one page's summary; see backend/device_data.py.
+
+_SEARCH_SETTING_NAMES = list(SearchSettingsResponse.model_fields)
+
+
+@app.get("/search-settings", response_model=SearchSettingsResponse)
+def search_settings():
+    """The settings search runs with (public), so local search matches this server's."""
+    return SearchSettingsResponse(**{name: getattr(search_config, name) for name in _SEARCH_SETTING_NAMES})
+
+
+@app.get("/me", response_model=MeResponse)
+@limiter.limit("60/minute")
+def me(request: Request, user_id: str = Depends(current_user_id)):
+    """The caller's library id (page ids are derived from it) and device key."""
+    key = base64.urlsafe_b64encode(device_data.device_key(user_id)).decode().rstrip("=")
+    return MeResponse(library_id=user_id, device_key=key)
+
+
+@app.post("/memory/transfer", response_model=MemoryResponse)
+@limiter.limit("120/minute")
+def transfer_memory(request: Request, body: TransferInput, user_id: str = Depends(current_user_id)):
+    """Store a page the extension kept locally, exactly as it was first saved
+    (same cleaned text, title, description and save time), so it chunks, embeds
+    and ranks the same here."""
+    try:
+        if sum(len(c) for c in body.chunks) > 2_000_000:
+            raise IngestError(413, "This page is too long")
+        result = ingest_page(
+            user_id, body.url, body.title, "",
+            is_manual=True, fetch_youtube=False, prepared_chunks=body.chunks,
+            content_hash=body.content_hash, timestamp=body.timestamp,
+            description=body.description, max_pages=MAX_PAGES_PER_USER,
+        )
+    except IngestError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.detail)
+    except Exception as e:
+        logger.error(f"Failed to transfer a page: {type(e).__name__}")
+        raise HTTPException(status_code=500, detail="Failed to save page")
+    if result.status == "saved":
+        forget_user_sites(user_id)
+    page = PageInfo(id=result.page_id, url=result.url, title=result.title, domain=result.domain,
+                    timestamp=result.timestamp, chunks=result.chunks)
+    return MemoryResponse(status=result.status, message=result.message, page=page)
+
+
+@app.get("/memory/{page_id}/content", response_model=PageContentResponse)
+@limiter.limit("120/minute")
+def page_content(request: Request, page_id: str, user_id: str = Depends(current_user_id)):
+    """One of the caller's pages with its chunks, for moving it to the extension's local store."""
+    page_id = _owned_page_id(page_id, user_id)
+    chunks = get_solr_client().get_chunks_by_page_id(page_id, user_id)
+    head = chunks[0]
+    return PageContentResponse(
+        id=page_id, url=head.get("url") or "", title=head.get("title") or "",
+        description=head.get("description") or "", timestamp=str(head.get("timestamp") or ""),
+        content_hash=head.get("content_hash") or "", chunks=[c.get("text") or "" for c in chunks],
+    )
+
+
+@app.post("/summarize/text", response_model=SummarizeResponse)
+@limiter.limit("20/minute")
+def summarize_text(request: Request, body: SummarizeTextInput, user_id: str = Depends(current_user_id)):
+    """A summary of a page kept on the caller's device. Its text is used for this
+    request only: not stored, not logged."""
+    if not body.query.strip():
+        raise HTTPException(status_code=400, detail="Query is required")
+    if not body.text.strip():
+        raise HTTPException(status_code=400, detail="Text is required")
+    if not is_gemini_available():
+        raise HTTPException(status_code=503, detail="Summarization is unavailable")
+    summary = summarize(body.query.strip(), body.text, detect_detail_level(body.query))
+    if not summary:
+        raise HTTPException(status_code=502, detail="Summarization failed")
+    return SummarizeResponse(id="", summary=summary)
+
+
+@app.get("/backup/info", response_model=BackupInfoResponse)
+@limiter.limit("60/minute")
+def backup_info(request: Request, user_id: str = Depends(current_user_id)):
+    info = device_data.backup_info(user_id)
+    if info is None:
+        raise HTTPException(status_code=404, detail="No backup")
+    return BackupInfoResponse(**info)
+
+
+@app.put("/backup", response_model=BackupInfoResponse)
+@limiter.limit("10/hour")
+async def put_backup(request: Request, user_id: str = Depends(current_user_id)):
+    """Store the caller's encrypted backup (an opaque blob only their recovery key opens)."""
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > device_data.MAX_BACKUP_BYTES:
+        raise HTTPException(status_code=413, detail="The backup is too large")
+    blob = bytearray()
+    async for part in request.stream():
+        blob.extend(part)
+        if len(blob) > device_data.MAX_BACKUP_BYTES:
+            raise HTTPException(status_code=413, detail="The backup is too large")
+    try:
+        info = device_data.save_backup(user_id, bytes(blob))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return BackupInfoResponse(**info)
+
+
+@app.get("/backup")
+@limiter.limit("10/hour")
+def get_backup(request: Request, user_id: str = Depends(current_user_id)):
+    blob = device_data.load_backup(user_id)
+    if blob is None:
+        raise HTTPException(status_code=404, detail="No backup")
+    return Response(content=blob, media_type="application/octet-stream")
+
+
+@app.delete("/backup", status_code=204)
+@limiter.limit("10/minute")
+def delete_backup(request: Request, user_id: str = Depends(current_user_id)):
+    device_data.delete_backup(user_id)
+    return Response(status_code=204)

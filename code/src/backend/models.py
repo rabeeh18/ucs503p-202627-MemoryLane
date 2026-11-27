@@ -131,3 +131,65 @@ class ReportInput(BaseModel):
 class ReportResponse(BaseModel):
     status: str  # "received"
     id: int
+
+
+# ---- pages kept on the user's device (local-first) -------------------------------
+
+class SearchSettingsResponse(BaseModel):
+    """The numbers search runs with, so the extension's local engine uses the same."""
+    DEFAULT_TOP_K: int
+    DEFAULT_CANDIDATE_POOL: int
+    RRF_K: int
+    BM25_WEIGHT: float
+    VECTOR_WEIGHT: float
+    PAGE_SECOND_CHUNK_WEIGHT: float
+    MIN_VECTOR_SIMILARITY: float
+    KEYWORD_FULL_MATCH: float
+    QUERY_INTENT_ENABLED: bool
+    INTENT_WEIGHT: float
+    CHUNK_MAX_WORDS: int
+    CHUNK_MIN_WORDS: int
+    CHUNK_OVERLAP_WORDS: int
+    MAX_PAGES_PER_USER: int
+    EMBEDDING_MODEL: str
+    EMBEDDING_DIM: int
+    EMBEDDING_QUERY_PREFIX: str
+
+
+class MeResponse(BaseModel):
+    library_id: str
+    device_key: str  # base64url, for encrypting the extension's local copy at rest
+
+
+class TransferInput(BaseModel):
+    """A page moving from the extension's local store to the server, with the
+    chunks and details it was first saved with."""
+    url: str = Field(max_length=2048)
+    title: str = Field(max_length=2048)
+    chunks: List[str] = Field(min_length=1, max_length=5000)
+    description: str = Field(default="", max_length=2000)
+    timestamp: str = Field(max_length=40)
+    content_hash: Optional[str] = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+
+class PageContentResponse(BaseModel):
+    id: str
+    url: str
+    title: str
+    description: str
+    timestamp: str
+    content_hash: str
+    chunks: List[str]
+
+
+class SummarizeTextInput(BaseModel):
+    """A summary of a page kept on the device: its text is sent for this one request."""
+    query: str = Field(max_length=500)
+    title: str = Field(default="", max_length=2048)
+    text: str = Field(max_length=200_000)
+
+
+class BackupInfoResponse(BaseModel):
+    bytes: int
+    sha256: str
+    updated_at: float
