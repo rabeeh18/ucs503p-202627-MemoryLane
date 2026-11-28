@@ -145,6 +145,7 @@ class SearchSettingsResponse(BaseModel):
     PAGE_SECOND_CHUNK_WEIGHT: float
     MIN_VECTOR_SIMILARITY: float
     KEYWORD_FULL_MATCH: float
+    RELATIVE_SIMILARITY: float
     QUERY_INTENT_ENABLED: bool
     INTENT_WEIGHT: float
     CHUNK_MAX_WORDS: int

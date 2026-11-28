@@ -107,7 +107,7 @@ def test_hybrid_search_fuses_ranks_and_reports_timings():
     ]
     solr.knn_search.return_value = [
         _chunk("p2::0", "p2", score=0.9),
-        _chunk("p3::0", "p3", score=0.85),
+        _chunk("p3::0", "p3", score=0.89),  # cosine 0.78: close enough to the best (0.8)
         _chunk("p4::0", "p4", score=0.7),  # cosine 0.4: below the floor, no BM25 match
     ]
     retrieval._cached_query_embedding.cache_clear()
@@ -120,7 +120,7 @@ def test_hybrid_search_fuses_ranks_and_reports_timings():
     assert results[1]["knn_rank"] is None
     assert results[2]["bm25_rank"] is None
     assert results[1]["snippet"] == sentence
-    assert results[2]["vector_similarity"] == pytest.approx(0.7)
+    assert results[2]["vector_similarity"] == pytest.approx(0.78)
     assert [r["rank"] for r in results] == [1, 2, 3]
     assert set(timings) == {"embed_ms", "bm25_ms", "knn_ms", "intent_ms", "fuse_ms", "rerank_ms", "snippet_ms", "total_ms"}
 

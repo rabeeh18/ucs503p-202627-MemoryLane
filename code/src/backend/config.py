@@ -25,6 +25,11 @@ MIN_VECTOR_SIMILARITY = float(os.getenv('MIN_VECTOR_SIMILARITY', '0.55'))
 # MIN_VECTOR_SIMILARITY too. Pages holding at least KEYWORD_FULL_MATCH of the
 # query's words are kept whatever their similarity (exact names, codes, rare words).
 KEYWORD_FULL_MATCH = float(os.getenv('KEYWORD_FULL_MATCH', '0.75'))
+# Pages kept for their similarity (not a full keyword match) must also reach this
+# share of the way from MIN_VECTOR_SIMILARITY up to the query's best page.
+# bge-small scores every page in a narrow band (about 0.55-0.85), so a fixed floor
+# alone lets loosely related pages through (docs/architecture/retrieval.md).
+RELATIVE_SIMILARITY = float(os.getenv('RELATIVE_SIMILARITY', '0.7'))
 # Site words, time phrases and URLs in a query (backend/query_intent.py) also rank
 # the matching pages; their lists count this much relative to the main ones.
 QUERY_INTENT_ENABLED = os.getenv('QUERY_INTENT_ENABLED', 'true').strip().lower() in ('1', 'true', 'yes', 'on')

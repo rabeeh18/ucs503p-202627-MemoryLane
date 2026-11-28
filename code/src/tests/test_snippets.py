@@ -166,8 +166,38 @@ def test_relevance_floor_drops_weak_vector_only_pages():
         _page("weak-vector", False, 0.54),
         _page("nothing", False, None),
     ]
-    kept = [p["page_id"] for p in retrieval.apply_relevance_floor(pages, 0.55)]
+    kept = [p["page_id"] for p in retrieval.apply_relevance_floor(pages, 0.55, relative=0.0)]
     assert kept == ["bm25-only", "bm25-weak-vector", "strong-vector", "at-threshold"]
+
+
+def test_relevance_floor_drops_pages_far_below_the_best_match():
+    # "article about vitamins": the vitamin page 0.72, loosely related health pages ~0.65.
+    pages = [
+        _page("vitamin-d", False, 0.72),
+        _page("marathon", False, 0.66),
+        _page("obesity", False, 0.64),
+        _page("keyword", True, 0.20),  # matched every word (no terms given): kept
+    ]
+    kept = [p["page_id"] for p in retrieval.apply_relevance_floor(pages, 0.55, relative=0.7)]
+    assert kept == ["vitamin-d", "keyword"]
+    # 0.55 + 0.7 * (0.72 - 0.55) = 0.669: a page just above it stays.
+    pages.append(_page("close", False, 0.67))
+    assert "close" in [p["page_id"] for p in retrieval.apply_relevance_floor(pages, 0.55, relative=0.7)]
+
+
+def test_relevance_terms_drop_type_words_and_plurals():
+    assert retrieval.relevance_terms("article about vitamins") == ["vitamin"]
+    assert retrieval.relevance_terms("blog posts on stories") == ["story"]
+    assert retrieval.relevance_terms("glass") == ["glass"]
+    # a query of type words only keeps them
+    assert retrieval.relevance_terms("videos") == ["video"]
+
+
+def test_type_words_do_not_count_towards_coverage():
+    page = _kw_page("p", "Please note the date of last review on all articles.", 0.6)
+    assert retrieval.keyword_coverage(page, retrieval.relevance_terms("article about vitamins")) == 0.0
+    page = _kw_page("p", "The body makes vitamin D from sunlight.", 0.6)
+    assert retrieval.keyword_coverage(page, retrieval.relevance_terms("article about vitamins")) == 1.0
 
 
 def test_relevance_floor_uses_config_default():

@@ -128,6 +128,10 @@ Keyword matches are judged too, because BM25 accepts a page that shares any one 
 
 When such a page's chunks weren't in the main KNN list, its similarity is looked up with one more KNN request restricted to those pages (at most 50 pages, 8 chunks each). If that request fails, they're dropped rather than shown unjudged.
 
+The words counted here leave out ones that only say what kind of thing was read (*article*, *page*, *post*, *site*, *video*, *thread*, *link*, *blog*, unless the query has nothing else), and a plural ending is dropped, so *vitamins* matches *vitamin*.
+
+A fixed floor alone is not enough: `bge-small-en-v1.5` scores almost every page between 0.55 and 0.85, so loosely related pages clear 0.55 easily. A page kept for its similarity (no keyword match, or only some of the words) must therefore also reach `RELATIVE_SIMILARITY` (0.7) of the way from `MIN_VECTOR_SIMILARITY` up to the best similarity among the query's candidates. For "article about vitamins" over 100 mixed pages, the NHS vitamin D page scores 0.72, so the bar is \(0.55 + 0.7 \times (0.72 - 0.55) = 0.67\): Marathon (0.66), Obesity (0.64) and Stoicism (0.62) go, and 10 results become the 3 pages that mention vitamins. Over 22 labelled queries on those pages, it cut the results that weren't about the query from 110 to 19, and SciFact improved slightly (MRR@10 0.785 to 0.787, Hit@10 0.92 to 0.93).
+
 ## Snippets
 
 For each result, `backend/snippets.py` picks 2–3 consecutive readable sentences around the sentence that contains the most query terms (the first one on a tie). If no sentence contains a query term, the first 3 readable sentences are compared with the query by embedding, so the snippet still fits a search by meaning. Embedding runs on the server's CPU during the search, which is why it's limited to this case. A readable sentence has 8+ words, is at least 70% letters, has no table pipes and ends in punctuation. Snippets are 200–280 characters. If no sentence qualifies, the page's stored description is used.

@@ -8,7 +8,7 @@ from functools import lru_cache
 from backend.config import (
     BM25_WEIGHT, VECTOR_WEIGHT, DEFAULT_CANDIDATE_POOL, DEFAULT_TOP_K,
     RRF_K, PAGE_SECOND_CHUNK_WEIGHT, RERANK_ENABLED, RERANK_TOP_N, MIN_VECTOR_SIMILARITY,
-    QUERY_INTENT_ENABLED, INTENT_WEIGHT, KEYWORD_FULL_MATCH,
+    QUERY_INTENT_ENABLED, INTENT_WEIGHT, KEYWORD_FULL_MATCH, RELATIVE_SIMILARITY,
 )
 from backend.embeddings import embed_passages, embed_query
 from backend import rerank
@@ -152,8 +152,38 @@ def group_by_webpage(candidates: list[dict], fused_scores: dict[str, float],
     return results
 
 
+# Words that only say what kind of thing was read. They don't make a page relevant:
+# "article about vitamins" is about vitamins, and "article" is on half the web.
+TYPE_WORDS = {
+    "article", "articles", "page", "pages", "post", "posts", "site", "website", "webpage",
+    "video", "videos", "thread", "threads", "link", "links", "blog", "blogs",
+}
+
+
+def _stem(term: str) -> str:
+    """Drop a plural ending, so "vitamins" matches "vitamin" (matching is by prefix)."""
+    if len(term) > 4 and term.endswith("ies"):
+        return term[:-3] + "y"
+    if len(term) > 3 and term.endswith("s") and not term.endswith("ss"):
+        return term[:-1]
+    return term
+
+
+def relevance_terms(query: str) -> list[str]:
+    """The query terms that decide whether a page is about the query: query_terms
+    without the type words (unless nothing else is left), plural endings dropped."""
+    terms = query_terms(query)
+    content = [t for t in terms if t not in TYPE_WORDS] or terms
+    stems = []
+    for term in content:
+        stem = _stem(term)
+        if stem not in stems:
+            stems.append(stem)
+    return stems
+
+
 def keyword_coverage(page: dict, terms: list[str]) -> float:
-    """Share of the query's terms (snippets.query_terms) found in the page's
+    """Share of the query's terms (relevance_terms) found in the page's
     title or best chunk, by prefix match. 1.0 for a query with no such terms."""
     if not terms:
         return 1.0
@@ -167,7 +197,8 @@ def _strong_keyword_match(page: dict, terms: list[str] | None) -> bool:
 
 def apply_relevance_floor(pages: list[dict], min_similarity: float = None,
                           terms: list[str] | None = None,
-                          keyword_min_similarity: float = None) -> list[dict]:
+                          keyword_min_similarity: float = None,
+                          relative: float = None) -> list[dict]:
     """Drop pages that aren't about the query.
 
     - Pages the query points at by site, time or URL (and that matched the rest
@@ -180,11 +211,23 @@ def apply_relevance_floor(pages: list[dict], min_similarity: float = None,
       football player of all time") also needs `keyword_min_similarity`
       (default: `min_similarity`).
       Without `terms`, every BM25 match is kept.
+    - Pages kept for their similarity must also reach `relative` of the way from
+      `min_similarity` up to the best similarity among the candidates: with
+      bge-small every page scores in a narrow band, so one well below the best
+      match is only loosely related.
     """
     if min_similarity is None:
         min_similarity = MIN_VECTOR_SIMILARITY
     if keyword_min_similarity is None:
         keyword_min_similarity = min_similarity
+    if relative is None:
+        relative = RELATIVE_SIMILARITY
+    similarities = [p["vector_similarity"] for p in pages if p.get("vector_similarity") is not None]
+    if similarities:
+        best = max(similarities)
+        min_similarity = max(min_similarity, min_similarity + relative * (best - min_similarity))
+        keyword_min_similarity = max(keyword_min_similarity,
+                                     keyword_min_similarity + relative * (best - keyword_min_similarity))
 
     def similar(page, threshold):
         return page.get("vector_similarity") is not None and page["vector_similarity"] >= threshold
@@ -431,7 +474,7 @@ def hybrid_search(query: str, user_id: str, top_k: int = None, candidate_pool: i
         k=RRF_K,
     )
 
-    terms = query_terms(query)
+    terms = relevance_terms(query)
     all_pages = group_by_webpage(list(candidates_map.values()), fused)
     try:
         fill_keyword_similarity(solr, all_pages, terms, user_id,

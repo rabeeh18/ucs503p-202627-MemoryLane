@@ -8,6 +8,7 @@
 import { SETTINGS } from "./settings.js";
 import { isActive, parseQuery } from "./query_intent.js";
 import { buildSnippets, queryTerms, termScore } from "./snippets.js";
+import { cpLen } from "./pytext.js";
 import { generatePageId } from "./url.js";
 
 // Read at call time: the extension may refresh SETTINGS from the server.
@@ -79,6 +80,32 @@ export function groupByWebpage(candidates, fused, secondChunkWeight = S.PAGE_SEC
     return results;
 }
 
+// Words that only say what kind of thing was read (backend/retrieval.py TYPE_WORDS).
+export const TYPE_WORDS = new Set([
+    "article", "articles", "page", "pages", "post", "posts", "site", "website", "webpage",
+    "video", "videos", "thread", "threads", "link", "links", "blog", "blogs",
+]);
+
+/** Drop a plural ending, so "vitamins" matches "vitamin" (matching is by prefix). */
+function stem(term) {
+    const n = cpLen(term);
+    if (n > 4 && term.endsWith("ies")) return term.slice(0, -3) + "y";
+    if (n > 3 && term.endsWith("s") && !term.endsWith("ss")) return term.slice(0, -1);
+    return term;
+}
+
+/** The query terms that decide whether a page is about the query (backend relevance_terms). */
+export function relevanceTerms(query) {
+    const terms = queryTerms(query);
+    const content = terms.filter((t) => !TYPE_WORDS.has(t));
+    const stems = [];
+    for (const term of content.length ? content : terms) {
+        const s = stem(term);
+        if (!stems.includes(s)) stems.push(s);
+    }
+    return stems;
+}
+
 export function keywordCoverage(page, terms) {
     if (!terms.length) return 1.0;
     return termScore(`${page.title || ""} ${page.text || ""}`, terms) / terms.length;
@@ -86,8 +113,16 @@ export function keywordCoverage(page, terms) {
 
 const strongKeywordMatch = (page, terms) => terms === null || keywordCoverage(page, terms) >= S.KEYWORD_FULL_MATCH;
 
-export function applyRelevanceFloor(pages, { minSimilarity = S.MIN_VECTOR_SIMILARITY, terms = null, keywordMinSimilarity = null } = {}) {
-    const kwMin = keywordMinSimilarity ?? minSimilarity;
+export function applyRelevanceFloor(pages, { minSimilarity = S.MIN_VECTOR_SIMILARITY, terms = null, keywordMinSimilarity = null, relative = S.RELATIVE_SIMILARITY } = {}) {
+    let kwMin = keywordMinSimilarity ?? minSimilarity;
+    // Pages kept for their similarity must reach `relative` of the way from the
+    // floor up to the best candidate's similarity (as on the server).
+    const sims = pages.map((p) => p.vector_similarity).filter((s) => s !== null && s !== undefined);
+    if (sims.length) {
+        const best = Math.max(...sims);
+        minSimilarity = Math.max(minSimilarity, minSimilarity + relative * (best - minSimilarity));
+        kwMin = Math.max(kwMin, kwMin + relative * (best - kwMin));
+    }
     const similar = (page, threshold) => page.vector_similarity !== null && page.vector_similarity >= threshold;
     return pages.filter((page) => {
         if (page.intent_match) return true;
@@ -210,7 +245,7 @@ export async function hybridSearch(query, store, {
         S.RRF_K,
     );
 
-    const terms = queryTerms(query);
+    const terms = relevanceTerms(query);
     const allPages = groupByWebpage([...candidates.values()], fused);
     try {
         await fillKeywordSimilarity(store, allPages, terms, queryVector);
