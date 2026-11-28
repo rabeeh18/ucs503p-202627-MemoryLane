@@ -8,14 +8,32 @@
 <main class="privacy">
   <h1>Privacy</h1>
 
+  <h2>Where it's stored</h2>
+  <p>
+    With the browser extension, pages are kept <strong>on your device</strong> by default: encrypted in
+    your browser and searched there, never sent to the server. You can choose the server instead in the
+    extension's settings, and once the pages on your device pass a size limit you set, the oldest can
+    move to the server after you agree. Pages on the server are searchable from any browser, including
+    your phone.
+  </p>
+
   <h2>What's stored</h2>
   <p>The URL, title and cleaned text of pages you save, and when you saved them.</p>
+
+  <h2>Encrypted backups</h2>
+  <p>
+    The extension can back up the pages on your device, locked with a recovery key that only you have.
+    The server stores the backup but cannot open it.
+  </p>
 
   <h2>Who can see it</h2>
   <p>Only your account. Every search, summary and listing is limited to the pages you saved.</p>
 
   <h2>What's sent to Google Gemini</h2>
-  <p>A page's text, and only when you press Summarise on that page.</p>
+  <p>
+    A page's text, and only when you press Summarise on that page. For a page kept on your device, its
+    text passes through the server for that one summary and is not stored.
+  </p>
 
   <h2>Problem reports</h2>
   <p>

@@ -5,7 +5,7 @@
   import { pageDeletes } from '../pageDeletes.js';
   import { safeUrl } from '../lib/url.js';
 
-  /** @type {{ id: string, url: string, title: string, domain: string, timestamp: string }} */
+  /** @type {{ id: string, url: string, title: string, domain: string, timestamp: string, location?: string }} */
   export let page;
 </script>
 
@@ -17,7 +17,7 @@
         <span class="title">{page.title || page.url}</span>
         <span class="when mono">{relativeTime(page.timestamp)}</span>
       </span>
-      <span class="domain">{page.domain}</span>
+      <span class="domain">{page.domain}{#if page.location === 'device'}<span class="where"> · on this device</span>{/if}</span>
     </span>
   </a>
   <button
@@ -89,6 +89,10 @@
     flex: none;
     font-size: 12px;
     color: var(--text-3);
+  }
+
+  .where {
+    opacity: 0.75;
   }
 
   .domain {

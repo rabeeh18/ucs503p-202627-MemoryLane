@@ -9,6 +9,7 @@
   import { openPage } from '../lib/url.js';
   import { libraryVersion, results, resultsError, resultsLoading, searchQuery } from '../stores';
   import { hiddenPageIds, pageDeletes } from '../pageDeletes.js';
+  import { extensionInstalled } from '../lib/extension.js';
 
   /** The query from ?q= in the URL. */
   export let query = '';
@@ -208,6 +209,9 @@
       {/each}
     </div>
   {/if}
+  {#if !$extensionInstalled}
+    <p class="device-note">Pages kept on a computer with the MemoryLane extension are searched only in that browser.</p>
+  {/if}
 </main>
 
 <footer class="keys">
@@ -219,6 +223,12 @@
 </footer>
 
 <style>
+  .device-note {
+    margin-top: 24px;
+    font-size: 13px;
+    opacity: 0.7;
+  }
+
   .results {
     flex: 1;
     width: 100%;
