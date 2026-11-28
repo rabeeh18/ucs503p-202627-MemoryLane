@@ -177,7 +177,8 @@ function mainView() {
         const remove = pageId
             ? h("button", { type: "button", class: "link-button", onclick: () => undoSave(pageId) }, "Remove")
             : null;
-        return [pageCard([checkIcon(), when ? `Saved ${when}` : "Saved"], remove), outline("Saved", null, true, true)];
+        const where = state.status.location === "server" ? " · on the server" : state.status.location === "device" ? " · on this device" : "";
+        return [pageCard([checkIcon(), (when ? `Saved ${when}` : "Saved") + where], remove), outline("Saved", null, true, true)];
     }
     if (state.autoCapture) {
         // Manual saving works whatever the automatic rules say (skipped sites, long
@@ -200,6 +201,24 @@ function mainView() {
 }
 
 const AUTO_SAVES_SHOWN = 5;
+
+/** Pages on this device passed the size limit: may the oldest move to the server? */
+function overflowView() {
+    if (!state.overflowPrompt) return null;
+    const answer = async (allow) => {
+        state.overflowPrompt = false;
+        render();
+        await send({ type: "OVERFLOW_ANSWER", allow });
+    };
+    return h("section", { class: "overflow", "aria-label": "Storage on this device" },
+        h("p", {}, "Your pages on this device have passed the size limit. Move the oldest to the MemoryLane server? "
+            + "They stay searchable; the server can read pages stored there."),
+        h("div", { class: "actions" },
+            h("button", { type: "button", class: "btn btn-primary", onclick: () => answer(true) }, "Move oldest pages"),
+            h("button", { type: "button", class: "btn btn-outline", onclick: () => answer(false) }, "Keep all here"),
+        ),
+    );
+}
 
 /** "Auto-saved today": the last few automatic saves, each removable in one click. */
 function autoSavesView() {
@@ -248,6 +267,7 @@ function renderSignedIn() {
         renderConfirmAuto();
     } else {
         fill(body,
+            overflowView(),
             ...mainView(),
             autoSavesView(),
             h("div", { class: "search-link" },
@@ -264,7 +284,7 @@ function renderSignedIn() {
     fill(footer,
         h("div", { class: "toggle" }, h("span", { "aria-hidden": "true" }, "Auto-capture"), toggle),
         h("a", { href: "options.html", onclick: (e) => { e.preventDefault(); chrome.runtime.openOptionsPage(); window.close(); } },
-            "Excluded sites"),
+            "Settings"),
     );
 }
 

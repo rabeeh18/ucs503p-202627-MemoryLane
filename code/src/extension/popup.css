@@ -321,3 +321,16 @@ body {
   gap: 14px;
   font-size: 12px;
 }
+
+/* Pages on this device passed the size limit (see local.js). */
+.overflow {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+    border-radius: 10px;
+}
+.overflow p {
+    margin: 0 0 8px;
+    font-size: 12px;
+    line-height: 1.45;
+}

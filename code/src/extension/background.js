@@ -1,5 +1,6 @@
-// Service worker: sign-in, saving, auto-capture, excluded sites, and the
-// messages the popup and options page send.
+// Service worker: sign-in, saving (on this device or the server, see local.js),
+// auto-capture, excluded sites, and the messages the popup, the options page
+// and the MemoryLane website send.
 import { COGNITO_DOMAIN, WEB_APP_URL } from "./config.js";
 import { getSession, signIn, signOut } from "./auth.js";
 import { ApiError, apiFetch } from "./api.js";
@@ -7,6 +8,11 @@ import {
     assessContent, isAutoCaptureEligible, isExcluded, isSaveableUrl, normalizeHost, sameDocument,
 } from "./page_filter.js";
 import { fetchYouTubeVideo, youtubeVideoId } from "./youtube.js";
+import {
+    autoBackup, backupNow, checkOverflow, closeIfIdle, engine, forgetIdentity, isLocal, libraryId,
+    moveAllToDevice, moveAllToServer, restoreBackup, saveLocal, storageSettings, STORAGE_DEFAULTS,
+} from "./local.js";
+import { newRecoveryKey, normalizeRecoveryKey } from "./engine/crypto.js";
 
 const RECENT_CAPTURE_MS = 60 * 1000;
 // Auto-saves the popup lists under "Auto-saved today".
@@ -162,7 +168,10 @@ async function saveTab(tab, { manual }) {
             is_manual: manual,
         };
         if (youtube) body.youtube = youtube;
-        const data = await apiFetch("/memory", { method: "POST", body });
+        const { storageMode } = await storageSettings();
+        const data = storageMode === "device"
+            ? await saveLocal(body)
+            : await apiFetch("/memory", { method: "POST", body });
         if (!manual) recentlyCaptured.set(key, Date.now());
         if (data.status === "skipped") {
             return { ok: false, reason: "skipped", error: data.message };
@@ -199,6 +208,8 @@ async function popupState() {
         excluded: Boolean(tab && isExcluded(tab.url, settings.excludedSites)),
         status: null,
         statusError: "",
+        storageMode: (await storageSettings()).storageMode,
+        overflowPrompt: (await storageSettings()).overflowPrompt,
     };
     if (!state.signedIn) {
         return state;
@@ -214,7 +225,7 @@ async function popupState() {
         const params = new URLSearchParams({ url: tab.url });
         const canonical = await tabCanonical(tab.id);
         if (canonical) params.set("canonical_url", canonical);
-        state.status = await apiFetch(`/memory/status?${params}`);
+        state.status = await pageStatus(tab.url, canonical, params);
     } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
             state.signedIn = false;
@@ -226,6 +237,28 @@ async function popupState() {
     }
     await autoSavesChecked; // stillSaved never throws
     return state;
+}
+
+/** Saved on this device, or else on the server? (A page is stored whole in one place.) */
+async function pageStatus(url, canonical, params) {
+    let local = null;
+    try {
+        local = await engine("STATUS", { url, canonical_url: canonical });
+    } catch (_err) {
+        local = null; // the local store can't open (offline at first sign-in): the server still answers
+    }
+    if (local && local.saved) return { ...local, location: "device" };
+    const remote = await apiFetch(`/memory/status?${params}`);
+    return remote.saved ? { ...remote, location: "server" } : remote;
+}
+
+/** Delete one page wherever it is. 404 when it is in neither place. */
+async function deletePage(id) {
+    if (await isLocal(id)) {
+        await engine("DELETE", { id });
+        return;
+    }
+    await apiFetch(`/memory/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
 async function setSiteExcluded(host, excluded) {
@@ -303,8 +336,18 @@ async function rememberAutoSave(page, tab) {
 async function stillSaved(entries) {
     if (!entries.length) return entries;
     try {
-        const { ids } = await apiFetch("/memory/existing", { method: "POST", body: { ids: entries.map((s) => s.id) } });
-        const kept = new Set(ids);
+        const all = entries.map((s) => s.id);
+        let local = [];
+        try {
+            local = await engine("EXISTING", { ids: all });
+        } catch (_err) {
+            local = [];
+        }
+        const rest = all.filter((id) => !local.includes(id));
+        const { ids } = rest.length
+            ? await apiFetch("/memory/existing", { method: "POST", body: { ids: rest } })
+            : { ids: [] };
+        const kept = new Set([...local, ...ids]);
         const gone = entries.filter((s) => !kept.has(s.id)).map((s) => s.id);
         if (gone.length) {
             const { autoSaves = [] } = await chrome.storage.local.get({ autoSaves: [] });
@@ -349,6 +392,7 @@ const handlers = {
         }
     },
     async SIGN_OUT() {
+        await forgetIdentity(); // the device key goes: local pages are unreadable until sign-in
         await signOut();
         return { ok: true };
     },
@@ -357,7 +401,7 @@ const handlers = {
     },
     async UNDO_SAVE({ id }) {
         try {
-            await apiFetch(`/memory/${encodeURIComponent(id)}`, { method: "DELETE" });
+            await deletePage(id);
             await forgetAutoSave(id);
             return { ok: true };
         } catch (err) {
@@ -377,7 +421,7 @@ const handlers = {
     async REMOVE_AUTO_SAVE({ id, url, excludeSite }) {
         if (excludeSite && url) await setSiteExcluded(url, true);
         try {
-            await apiFetch(`/memory/${encodeURIComponent(id)}`, { method: "DELETE" });
+            await deletePage(id);
         } catch (err) {
             if (err instanceof ApiError && err.status === 401) return { ok: false, reason: "signed-out" };
             if (!(err instanceof ApiError && err.status === 404)) {
@@ -391,7 +435,119 @@ const handlers = {
         const settings = await setSiteExcluded(host, excluded);
         return { ok: true, excludedSites: settings.excludedSites };
     },
+
+    // ---- storage on this device (popup and options page) ----
+    /** The popup's answer to "move older pages to the server?". */
+    async OVERFLOW_ANSWER({ allow }) {
+        await chrome.storage.local.set({ overflow: allow ? "on" : "off", overflowPrompt: false });
+        return wrap(allow ? checkOverflow() : Promise.resolve({ moved: 0 }));
+    },
+    async GET_STORAGE_STATE() {
+        const settings = await storageSettings();
+        const state = {
+            ok: true, signedIn: Boolean(await getSession()),
+            storageMode: settings.storageMode, deviceLimitMb: settings.deviceLimitMb, overflow: settings.overflow,
+            autoBackup: settings.autoBackup, lastBackup: settings.lastBackup, device: null, server: null, backup: null,
+        };
+        if (!state.signedIn) return state;
+        await Promise.all([
+            engine("STATS").then((s) => { state.device = s; }).catch(() => {}),
+            apiFetch("/memories?limit=1&offset=0").then((r) => { state.server = { pages: r.total }; }).catch(() => {}),
+            apiFetch("/backup/info").then((b) => { state.backup = b; }).catch(() => {}),
+        ]);
+        return state;
+    },
+    async SET_STORAGE({ storageMode, deviceLimitMb, overflow }) {
+        const update = {};
+        if (storageMode === "device" || storageMode === "server") update.storageMode = storageMode;
+        if (Number.isFinite(deviceLimitMb) && deviceLimitMb >= 10 && deviceLimitMb <= 10000) update.deviceLimitMb = Math.round(deviceLimitMb);
+        if (["ask", "on", "off"].includes(overflow)) update.overflow = overflow;
+        await chrome.storage.local.set(update);
+        if (update.deviceLimitMb || update.overflow === "on") checkOverflow().catch(() => {});
+        return { ok: true };
+    },
+    async MOVE_ALL_TO_SERVER() { return wrap(moveAllToServer()); },
+    async MOVE_ALL_TO_DEVICE() { return wrap(moveAllToDevice()); },
+    /** A new recovery key, to show the user once. Kept only if automatic backups are on. */
+    async NEW_RECOVERY_KEY() { return { ok: true, recoveryKey: newRecoveryKey() }; },
+    async SET_AUTO_BACKUP({ enabled, recoveryKey }) {
+        const key = recoveryKey ? normalizeRecoveryKey(recoveryKey) : null;
+        if (enabled && !key) return { ok: false, error: "That isn't a valid recovery key." };
+        await chrome.storage.local.set({ autoBackup: Boolean(enabled), recoveryKey: enabled ? key : null });
+        return { ok: true };
+    },
+    async BACKUP_NOW({ recoveryKey }) {
+        const key = recoveryKey || (await storageSettings()).recoveryKey;
+        return wrap(backupNow(key));
+    },
+    async RESTORE_BACKUP({ recoveryKey }) { return wrap(restoreBackup(recoveryKey)); },
+    async DELETE_BACKUP() { return wrap(apiFetch("/backup", { method: "DELETE" }).then(() => ({}))); },
 };
+
+/** A long-running storage action as {ok, ...result} or {ok: false, error}. */
+async function wrap(promise) {
+    try {
+        return { ok: true, ...(await promise) };
+    } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return { ok: false, reason: "signed-out" };
+        return { ok: false, error: (err && err.message) || "Something went wrong. Try again." };
+    }
+}
+
+// ---- timers -------------------------------------------------------------------
+
+chrome.alarms.create("engine-idle", { periodInMinutes: 5 });
+chrome.alarms.create("auto-backup", { periodInMinutes: 60 });
+chrome.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === "engine-idle") closeIfIdle().catch(() => {});
+    if (alarm.name === "auto-backup") autoBackup().catch((err) => console.warn("Automatic backup failed:", err));
+});
+
+chrome.runtime.onInstalled.addListener(async () => {
+    // New settings get their defaults; existing choices stay.
+    const current = await chrome.storage.local.get(Object.keys(STORAGE_DEFAULTS));
+    const missing = Object.fromEntries(Object.entries(STORAGE_DEFAULTS).filter(([k]) => !(k in current)));
+    if (Object.keys(missing).length) await chrome.storage.local.set(missing);
+});
+
+// ---- the MemoryLane website ------------------------------------------------------
+//
+// memorylane.site asks the extension about the pages kept on this device
+// (externally_connectable lets only that site connect). Each request names the
+// library the website is signed in to; the extension answers only for its own,
+// so two different accounts in one browser never see each other's pages.
+
+const SITE_ORIGIN = new URL(WEB_APP_URL).origin;
+
+async function forThisLibrary(message, fn) {
+    if (!(await getSession())) return { ok: false, reason: "signed-out" };
+    if (message.library_id !== (await libraryId())) return { ok: false, reason: "other-account" };
+    return wrap(fn());
+}
+
+const siteHandlers = {
+    async HELLO() {
+        const settings = await storageSettings();
+        return { ok: true, version: chrome.runtime.getManifest().version, storageMode: settings.storageMode };
+    },
+    SEARCH: (m) => forThisLibrary(m, async () => engine("SEARCH", { query: String(m.query || "").slice(0, 500), num_results: Math.min(20, Number(m.num_results) || 10) })),
+    LIST: (m) => forThisLibrary(m, async () => engine("LIST", { limit: Math.min(100, Number(m.limit) || 20), offset: Math.max(0, Number(m.offset) || 0) })),
+    PAGE_TEXT: (m) => forThisLibrary(m, async () => ({ page: await engine("PAGE_TEXT", { id: String(m.id || "") }) })),
+    DELETE: (m) => forThisLibrary(m, async () => ({ deleted: await engine("DELETE", { id: String(m.id || "") }) })),
+    DELETE_ALL: (m) => forThisLibrary(m, async () => {
+        await engine("FORGET_DEVICE_DATA", { library_id: m.library_id });
+        await forgetIdentity();
+        return {};
+    }),
+};
+
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+    if (sender.origin !== SITE_ORIGIN || !message || !siteHandlers[message.type]) return false;
+    siteHandlers[message.type](message)
+        .then(sendResponse)
+        .catch((err) => sendResponse({ ok: false, error: String((err && err.message) || err) }));
+    return true;
+});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // From engagement.js, running in a page's top frame: that page has been read.

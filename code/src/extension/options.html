@@ -3,12 +3,65 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Excluded sites · MemoryLane</title>
+  <title>Settings · MemoryLane</title>
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="options.css">
 </head>
 <body>
   <main class="options">
+    <section aria-labelledby="storage-heading">
+      <h1 id="storage-heading">Where your pages are kept</h1>
+      <p class="lede">On this device, pages are stored encrypted in this browser and searched here; the server never
+        sees them. On the server, they are searchable from any browser, including your phone.</p>
+      <fieldset class="choices">
+        <legend class="visually-hidden">Save new pages</legend>
+        <label><input type="radio" name="mode" value="device"> On this device</label>
+        <label><input type="radio" name="mode" value="server"> On the MemoryLane server</label>
+      </fieldset>
+      <p class="usage" id="usage" role="status"></p>
+      <div class="row">
+        <label for="limit">Size limit on this device</label>
+        <input id="limit" type="number" min="10" max="10000" step="10" inputmode="numeric"> <span>MB</span>
+      </div>
+      <div class="row">
+        <label for="overflow">Past the limit</label>
+        <select id="overflow">
+          <option value="ask">Ask before moving pages</option>
+          <option value="on">Move the oldest pages to the server</option>
+          <option value="off">Keep everything here</option>
+        </select>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-outline" id="to-server">Move pages here to the server</button>
+        <button type="button" class="btn btn-outline" id="to-device">Bring server pages to this device</button>
+      </div>
+      <p class="message" id="storage-message" role="status"></p>
+    </section>
+
+    <section aria-labelledby="backup-heading">
+      <h1 id="backup-heading">Encrypted backup</h1>
+      <p class="lede">A copy of the pages on this device, locked with a recovery key only you have. The server
+        stores it but can't open it. Without the key, the backup can't be restored by anyone.</p>
+      <p class="usage" id="backup-status" role="status"></p>
+      <div class="key" id="key-box" hidden>
+        <p>Your recovery key. Write it down or save it in a password manager: it is shown only now.</p>
+        <code id="recovery-key"></code>
+      </div>
+      <label class="check"><input type="checkbox" id="auto-backup"> Back up automatically every day
+        (keeps the recovery key in this browser)</label>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" id="backup-now">Back up now</button>
+        <button type="button" class="btn btn-outline" id="restore">Restore from backup</button>
+        <button type="button" class="btn btn-outline" id="delete-backup">Delete backup</button>
+      </div>
+      <form class="add" id="key-form" hidden novalidate>
+        <label for="key-input" class="visually-hidden">Recovery key</label>
+        <input id="key-input" type="text" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" autocomplete="off" spellcheck="false">
+        <button type="submit" class="btn btn-primary" id="key-submit">Continue</button>
+      </form>
+      <p class="message" id="backup-message" role="status"></p>
+    </section>
+
     <h1>Excluded sites</h1>
     <p class="lede">Auto-capture never saves pages from these sites.</p>
 
@@ -23,5 +76,6 @@
     <p class="empty" id="empty" hidden>No sites excluded.</p>
   </main>
   <script type="module" src="options.js"></script>
+  <script type="module" src="options_storage.js"></script>
 </body>
 </html>
