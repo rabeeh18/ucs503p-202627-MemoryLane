@@ -2416,12 +2416,15 @@
 </tbody>
 </table>
 <pre class="mermaid"><code>flowchart LR
-    users["Browser + extension"]
+    subgraph browser["User's browser"]
+        users["Web app"]
+        ext["Extension&lt;br/&gt;local engine · IndexedDB"]
+    end
 
     subgraph ec2["AWS EC2 c7i-flex.large · Mumbai · Elastic IP"]
         subgraph compose["Docker Compose"]
-            caddy["caddy&lt;br/&gt;ports 80, 443&lt;br/&gt;&lt;i&gt;volume: caddy_data (certificates)&lt;/i&gt;"]
-            backend["backend&lt;br/&gt;FastAPI + bge-small&lt;br/&gt;&lt;i&gt;volumes: models, accounts&lt;/i&gt;"]
+            caddy["caddy&lt;br/&gt;ports 80, 443&lt;br/&gt;web app, extension zip, /models&lt;br/&gt;&lt;i&gt;volume: caddy_data (certificates)&lt;/i&gt;"]
+            backend["backend&lt;br/&gt;FastAPI + bge-small&lt;br/&gt;&lt;i&gt;volumes: models, accounts&lt;br/&gt;(SQLite, device keys, backups)&lt;/i&gt;"]
             solr["solr 9.7&lt;br/&gt;127.0.0.1:8983&lt;br/&gt;&lt;i&gt;volume: solr_data&lt;/i&gt;"]
         end
     end
@@ -2433,6 +2436,8 @@
     end
 
     users --&gt;|"HTTPS"| caddy
+    ext --&gt;|"HTTPS: /api, /models"| caddy
+    users -.-&gt;|"device results"| ext
     caddy --&gt;|"/api/*"| backend
     backend --&gt; solr
     backend --&gt;|"user info"| cognito

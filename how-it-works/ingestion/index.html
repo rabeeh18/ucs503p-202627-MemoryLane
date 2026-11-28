@@ -2360,6 +2360,8 @@
     participant B as Service worker
     participant T as The page's tab
     participant Y as youtube.com
+    participant E as Local engine
+    participant D as IndexedDB
     participant A as FastAPI
     participant S as Solr
 
@@ -2374,20 +2376,30 @@
         B-&gt;&gt;T: Inject content.js
         T--&gt;&gt;B: HTML, visible text, canonical URL
     end
-    B-&gt;&gt;A: POST /api/memory (Bearer token)
-    Note over B,A: On 401: refresh the token once and retry
-    A-&gt;&gt;A: Verify token → user_id
-    A-&gt;&gt;A: Canonical URL → normalise → page_id
-    A-&gt;&gt;A: Clean (trafilatura) or use the transcript
-    Note over A: Under 50 words: 422
-    A-&gt;&gt;S: Stored page head (content_hash, embedding_model)
-    alt Same text and model
-        A--&gt;&gt;B: unchanged
-    else New or changed
-        A-&gt;&gt;A: Chunk → embed "title + chunk" → page vector
-        A-&gt;&gt;S: Upsert chunks {page_id}::0..n-1
-        A-&gt;&gt;S: Delete chunks ≥ n
-        A--&gt;&gt;B: saved, with the page
+    alt Kept on this device (the default)
+        B-&gt;&gt;E: SAVE (same body as POST /memory)
+        E-&gt;&gt;E: The server's ingest_page in Pyodide: canonical URL → page_id, clean (trafilatura), chunk
+        Note over E: Under 50 words: refused, as on the server
+        E-&gt;&gt;E: Embed "title + chunk" (bge-small, transformers.js)
+        E-&gt;&gt;D: One encrypted record: text, keyword statistics, vectors
+        E--&gt;&gt;B: saved (or unchanged), with the page
+        Note over B: Past the size limit: the oldest pages move to the server, once the user agrees
+    else Kept on the server
+        B-&gt;&gt;A: POST /api/memory (Bearer token)
+        Note over B,A: On 401: refresh the token once and retry
+        A-&gt;&gt;A: Verify token → user_id
+        A-&gt;&gt;A: Canonical URL → normalise → page_id
+        A-&gt;&gt;A: Clean (trafilatura) or use the transcript
+        Note over A: Under 50 words: 422
+        A-&gt;&gt;S: Stored page head (content_hash, embedding_model)
+        alt Same text and model
+            A--&gt;&gt;B: unchanged
+        else New or changed
+            A-&gt;&gt;A: Chunk → embed "title + chunk" → page vector
+            A-&gt;&gt;S: Upsert chunks {page_id}::0..n-1
+            A-&gt;&gt;S: Delete chunks ≥ n
+            A--&gt;&gt;B: saved, with the page
+        end
     end
     B--&gt;&gt;P: Result
     P--&gt;&gt;U: "Saved just now" + Undo</code></pre>

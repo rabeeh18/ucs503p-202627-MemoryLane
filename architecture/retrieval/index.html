@@ -2436,31 +2436,39 @@
     autonumber
     actor U as User
     participant W as Web app
+    participant X as Extension (local engine)
     participant A as FastAPI
     participant E as Embedding model
     participant S as Solr
 
     U-&gt;&gt;W: Type or speak a query
-    W-&gt;&gt;A: POST /api/search {query}
-    A-&gt;&gt;A: Verify token → user_id
-    par Keyword search
-        A-&gt;&gt;S: BM25 (edismax, user filter) → top 50 chunks
-    and Meaning search
-        A-&gt;&gt;E: Embed query (cached)
-        E--&gt;&gt;A: 384-d vector
-        A-&gt;&gt;S: KNN topK=50 (user pre-filter)
-    and Site, time or URL in the query (only if found)
-        A-&gt;&gt;S: BM25 + KNN within those domains / dates
+    par Pages on this device
+        W-&gt;&gt;X: SEARCH (this library only)
+        X-&gt;&gt;X: The same pipeline, over IndexedDB
+        X--&gt;&gt;W: Ranked pages
+    and Pages on the server
+        W-&gt;&gt;A: POST /api/search {query}
+        A-&gt;&gt;A: Verify token → user_id
+        par Keyword search
+            A-&gt;&gt;S: BM25 (edismax, user filter) → top 50 chunks
+        and Meaning search
+            A-&gt;&gt;E: Embed query (cached)
+            E--&gt;&gt;A: 384-d vector
+            A-&gt;&gt;S: Exact vector scoring, top 50 (user filter)
+        and Site, time or URL in the query (only if found)
+            A-&gt;&gt;S: BM25 + vectors within those domains / dates
+        end
+        S--&gt;&gt;A: Ranked chunk lists
+        A-&gt;&gt;A: Reciprocal Rank Fusion
+        A-&gt;&gt;A: Group chunks into pages (best chunk's score)
+        opt Keyword matches without a similarity
+            A-&gt;&gt;S: One vector search restricted to those pages
+        end
+        A-&gt;&gt;A: Relevance floor
+        A-&gt;&gt;A: Snippets (2–3 sentences per page)
+        A--&gt;&gt;W: Up to 10 pages
     end
-    S--&gt;&gt;A: Ranked chunk lists
-    A-&gt;&gt;A: Reciprocal Rank Fusion
-    A-&gt;&gt;A: Group chunks into pages (best chunk's score)
-    opt Keyword matches without a similarity
-        A-&gt;&gt;S: One KNN restricted to those pages
-    end
-    A-&gt;&gt;A: Relevance floor
-    A-&gt;&gt;A: Snippets (2–3 sentences per page)
-    A--&gt;&gt;W: Up to 10 pages
+    W-&gt;&gt;W: Fuse the two lists (RRF, k = 60), or use one list if every page is in one place
     W--&gt;&gt;U: Results with snippets</code></pre>
 <h2 id="lexical-retrieval">Lexical retrieval<a class="headerlink" href="#lexical-retrieval" title="Permanent link">&para;</a></h2>
 <p>Solr's <strong><abbr title="Solr's extended DisMax query parser, used for the keyword search across title and text">edismax</abbr></strong> parser searches <code>title^2 text</code>, with a phrase boost <code>pf=text^2 title^3</code> so pages containing the query as a phrase rank higher. Both fields use <code>text_en</code> (possessives, stopwords, Porter stemming), so <em>learning</em> matches <em>learn</em>. Field queries in user input are disabled (<code>uf=-*</code>).</p>

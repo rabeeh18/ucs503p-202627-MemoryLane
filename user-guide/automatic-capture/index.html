@@ -2401,10 +2401,10 @@
     recent -- no --&gt; extract[Extract the page:&lt;br/&gt;HTML + text, or a video's captions]
     extract --&gt; content{Reads like content?&lt;br/&gt;no password field, editor, noindex}
     content -- no --&gt; skip
-    content -- yes --&gt; post[POST /api/memory]
-    post --&gt; server{Server checks&lt;br/&gt;the address again}
+    content -- yes --&gt; post[Save: on this device by default,&lt;br/&gt;or POST /api/memory]
+    post --&gt; server{The server's rules check&lt;br/&gt;the address again}
     server -- refused --&gt; skip
-    server -- ok --&gt; stored([Cleaned, chunked, embedded and&lt;br/&gt;stored under your account])</code></pre>
+    server -- ok --&gt; stored([Cleaned, chunked, embedded and&lt;br/&gt;stored: encrypted on the device,&lt;br/&gt;or on the server])</code></pre>
 <h3 id="what-automatic-capture-skips">What automatic capture skips<a class="headerlink" href="#what-automatic-capture-skips" title="Permanent link">&para;</a></h3>
 <ul>
 <li>Social-media sites</li>

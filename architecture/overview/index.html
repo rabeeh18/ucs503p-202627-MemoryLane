@@ -2431,15 +2431,22 @@
 
     subgraph client["In the user's browser"]
         direction LR
-        ext["Chrome extension&lt;br/&gt;&lt;i&gt;Manifest V3&lt;/i&gt;&lt;br/&gt;save, auto-capture"]
+        subgraph extbox["Chrome extension · Manifest V3"]
+            direction TB
+            ext["Service worker&lt;br/&gt;save, auto-capture, routing"]
+            engine["Local engine (offscreen)&lt;br/&gt;Pyodide: the server's saving code&lt;br/&gt;transformers.js: bge-small&lt;br/&gt;BM25 + vectors, as Solr"]
+            idb[("IndexedDB&lt;br/&gt;pages, encrypted&lt;br/&gt;with the device key")]
+            ext --&gt; engine --&gt; idb
+        end
         web["Web app&lt;br/&gt;&lt;i&gt;Svelte 4&lt;/i&gt;&lt;br/&gt;search, library, account"]
+        web --&gt;|"device results&lt;br/&gt;(this library only)"| ext
     end
 
     subgraph server["One EC2 instance · Docker Compose"]
-        caddy["Caddy&lt;br/&gt;HTTPS, static web app, /api proxy"]
-        api["FastAPI backend&lt;br/&gt;token check → user_id&lt;br/&gt;ingest · retrieval · summaries · reports&lt;br/&gt;Sentence Transformers (bge-small)"]
+        caddy["Caddy&lt;br/&gt;HTTPS, static web app,&lt;br/&gt;/api proxy, /models"]
+        api["FastAPI backend&lt;br/&gt;token check → user_id&lt;br/&gt;ingest · retrieval · summaries · reports&lt;br/&gt;device keys · encrypted backups&lt;br/&gt;Sentence Transformers (bge-small)"]
         solr[("Apache Solr 9.7&lt;br/&gt;BM25 + exact vector scoring")]
-        sqlite[("SQLite&lt;br/&gt;accounts.db, reports.db")]
+        sqlite[("SQLite&lt;br/&gt;accounts.db, reports.db, device.db&lt;br/&gt;+ encrypted backup files")]
         caddy --&gt; api
         api --&gt;|"always filtered by user_id"| solr
         api --&gt; sqlite
@@ -2454,7 +2461,9 @@
     end
 
     user --&gt; client
-    client --&gt;|"HTTPS + Bearer access token"| caddy
+    web --&gt;|"HTTPS + Bearer access token"| caddy
+    ext --&gt;|"server pages, moves past the size limit,&lt;br/&gt;encrypted backups, device key"| caddy
+    engine -.-&gt;|"model weights, once"| caddy
     client -.-&gt;|"PKCE sign-in"| cognito
     ext -.-&gt;|"captions, in the YouTube tab"| youtube
     api --&gt;|"user info"| cognito
