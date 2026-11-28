@@ -1,16 +1,18 @@
 # Evaluation Results
 
-These are SciFact results for the **current** search: `bge-small-en-v1.5`, 150-word overlapping chunks embedded with the page title, Reciprocal Rank Fusion, the relevance floor, and pages scored by their best chunk. They were measured on 19 November 2026 with `evaluation.scifact_evaluate` (see [Methodology](methodology.md)): 100 claims over 999 indexed abstracts. One of the 1,000 abstracts failed to index, and it isn't the answer to any claim.
+These are SciFact results for the **current** search: `bge-small-en-v1.5`, 150-word overlapping chunks embedded with the page title, Reciprocal Rank Fusion, the relevance floor, and pages scored by their best chunk. They were measured on 28 November 2026, with the exact vector search of [ADR 0013](../decisions/0013-exact-vector-search.md), using `evaluation.scifact_evaluate` (see [Methodology](methodology.md)): 100 claims over 999 indexed abstracts. One of the 1,000 abstracts failed to index, and it isn't the answer to any claim.
 
 ## Current search
 
 | Configuration | Hit@1 | Hit@3 | Hit@10 | MRR@10 | Recall@10 | nDCG@10 | MAP@10 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| **Hybrid (live search)** | 0.71 | 0.84 | 0.93 | 0.786 | 0.922 | 0.810 | 0.768 |
+| **Hybrid (live search)** | 0.71 | 0.84 | 0.92 | 0.785 | 0.917 | 0.809 | 0.768 |
 | BM25 only | 0.63 | 0.76 | 0.86 | 0.705 | 0.837 | 0.728 | 0.687 |
 | Vector only | **0.75** | **0.86** | **0.94** | **0.812** | **0.932** | **0.837** | **0.803** |
-| Hybrid, no relevance floor | 0.71 | 0.84 | 0.93 | 0.785 | 0.922 | 0.810 | 0.768 |
-| Hybrid, old second-chunk bonus (0.3) | 0.44 | 0.73 | 0.92 | 0.601 | 0.897 | 0.663 | 0.578 |
+| Hybrid, no relevance floor | 0.71 | 0.84 | 0.92 | 0.785 | 0.917 | 0.809 | 0.768 |
+| Hybrid, old second-chunk bonus (0.3) | 0.44 | 0.73 | 0.92 | 0.603 | 0.897 | 0.664 | 0.580 |
+
+Before vector search became exact (19 November, with Solr's approximate HNSW), hybrid search measured Hit@10 0.93, MRR@10 0.786, Recall@10 0.922 and nDCG@10 0.810: the change moved every measure by at most 0.01, as the confidence intervals would allow either way. The same exact search now runs in the browser for pages kept on the device, with identical results ([Pages on Your Device](../how-it-works/local-search.md)).
 
 In plain words:
 
@@ -54,11 +56,11 @@ So the weight is now **0**, and a page is scored by its best-matching chunk alon
 
 ### The relevance floor costs nothing here
 
-Turning the floor off changed almost nothing (MRR@10 0.786 → 0.785), and no claim lost all its results. The floor only drops weak vector-only matches, and the right abstract is rarely one of them.
+Turning the floor off changed almost nothing (MRR@10 0.7851 → 0.7846), and no claim lost all its results. The floor only drops weak vector-only matches, and the right abstract is rarely one of them.
 
 ### Hybrid and vector-only are level on SciFact
 
-Vector-only is slightly ahead (MRR@10 0.812 against 0.786), within the margin of error. SciFact claims rarely share exact words with their abstracts, which plays to meaning-based search. Hybrid is kept for everyday searches, where keywords matter: exact names, error messages, product codes and site names, which a meaning-only search can miss. The [personal-library evaluation](methodology.md#second-evaluation-your-own-library) measures those kinds of queries.
+Vector-only is slightly ahead (MRR@10 0.812 against 0.785), within the margin of error. SciFact claims rarely share exact words with their abstracts, which plays to meaning-based search. Hybrid is kept for everyday searches, where keywords matter: exact names, error messages, product codes and site names, which a meaning-only search can miss. The [personal-library evaluation](methodology.md#second-evaluation-your-own-library) measures those kinds of queries.
 
 ## Earlier pipeline
 
@@ -70,4 +72,4 @@ The numbers published before November 2026 came from the earlier pipeline: `all-
 | Vector only | 0.780 | 0.887 | 0.801 |
 | Hybrid (min-max fusion) | 0.754 | 0.917 | 0.789 |
 
-The current search beats it on every measure. Hybrid: MRR@10 0.786 against 0.754, Recall@10 0.922 against 0.917, nDCG@10 0.810 against 0.789. Vector-only: 0.812, 0.932 and 0.837.
+The current search beats or matches it on every measure. Hybrid: MRR@10 0.785 against 0.754, Recall@10 0.917 against 0.917 (level), nDCG@10 0.809 against 0.789. Vector-only: 0.812, 0.932 and 0.837, ahead on all three.

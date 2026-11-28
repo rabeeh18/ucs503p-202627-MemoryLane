@@ -65,6 +65,10 @@ TC-17 & QR-07 & -- & Run a search and a first sign-in; inspect the logs & No sea
 TC-18 & FR-01 & Signed in & Refresh the session while the request is cancelled, throttled (429), fails (5xx), or is refused (400/401) & Kept for the first three; signed out on refusal \\
 TC-19 & FR-12 & Server running & Call \texttt{GET /health} without a token & \texttt{200} with the status of Solr, model and Gemini \\
 TC-20 & FR-04 & Extension installed, signed in & Add a site on the Excluded sites page & The site is listed, with a confirmation (Figure~\ref{fig:extension}b) \\
+TC-21 & FR-13, QR-12 & SciFact in Solr and in the device engine & Run 119 keyword and 117 hybrid queries in both & Same results, order, scores and snippets \\
+TC-22 & FR-13 & Ten real pages & Save each through the device and through the server & Identical chunks, titles, descriptions, refusals \\
+TC-23 & FR-13 & Pages saved on the device & Reopen the store; open it with another key & Same results; another key reads nothing \\
+TC-24 & FR-14, FR-15 & Signed in; device pages & Move a page to the server and back; back up; restore with the key and with a wrong key & Identical page; restored; wrong key refused \\
 \bottomrule
 \caption{Test cases}
 \label{tab:testcases}
@@ -102,16 +106,20 @@ TC-17 & \path{test_solr_and_cognito_requests_are_not_logged} & As expected & Pas
 TC-18 & \path{auth.test.js}: keeps the session when cancelled, on 429/500/503; signs out on 400/401 & As expected & Pass \\
 TC-19 & \path{test_health_contract} & As expected & Pass \\
 TC-20 & Manual check; screenshot in Figure~\ref{fig:extension}b & ``devdocs.io excluded'' & Pass \\
+TC-21 & \path{bm25_check.mjs}, \path{hybrid_check.mjs} & 119/119 and 117/117 identical & Pass \\
+TC-22 & \path{ingest_check.mjs} & 10/10 identical & Pass \\
+TC-23 & \path{engine_check.mjs}; in Chromium under the extension's CSP & As expected & Pass \\
+TC-24 & \path{engine_check.mjs} (move); \path{test_local_first.py} (transfer, backup, owner scoping); in-browser flow by hand before release & As expected & Pass \\
 \bottomrule
 \caption{Test report for the test cases}
 \label{tab:testreport}
 \end{longtable}
 }
 
-\paragraph{Totals.} Of the 20 test cases, 20 were executed and 20 passed;
+\paragraph{Totals.} Of the 24 test cases, 24 were executed and 24 passed;
 none are planned-only or blocked. The full automated suites, which include
-these, were run on the same day: \textbf{566 tests (430 backend with pytest,
-136 frontend and extension with Vitest), 566 passed, 0 failed, 0 skipped},
+these, were run on the same day: \textbf{585 tests (445 backend with pytest,
+140 frontend and extension with Vitest), 585 passed, 0 failed, 0 skipped},
 and \texttt{svelte-check} reported no errors. The largest suites cover the
 extension's capture rules (76), content cleaning and chunking (50), query
 understanding (46), ingestion (45) and accounts and sign-in (45). The
@@ -164,7 +172,7 @@ targets.
 \midrule
 FR-01--12 & All functional requirements & TC-01--TC-20 pass & Met \\
 QR-01 & Median search $<$ 200\,ms & 76\,ms measured & Met \\
-QR-02 & MRR@10 $\geq$ 0.754 & 0.786 measured & Met \\
+QR-02 & MRR@10 $\geq$ 0.754 & 0.785 measured & Met \\
 QR-03 & 5{,}000 pages per account & Limit enforced and tested; not load-tested at 5{,}000 & Partly \\
 QR-04 & No data lost on retries & Write lock, content hash; ingestion tests & Met \\
 QR-05 & Restart and soft failure & Restart policies; degraded health status & Met \\
@@ -172,8 +180,9 @@ QR-06 & Authentication and isolation & TC-11, TC-16; isolation suite & Met \\
 QR-07 & Privacy of pages and logs & TC-04, TC-17 & Met \\
 QR-08 & Keyboard and phone use & Checked by hand; no automated UI tests & Partly \\
 QR-09 & Accessible controls & Labelled controls; no formal accessibility audit & Partly \\
-QR-10 & Tests on every change & 566 tests in CI & Met \\
+QR-10 & Tests on every change & 585 tests in CI & Met \\
 QR-11 & Portability & Runs on the Linux server; tests and the evaluation also run on a Windows laptop & Met \\
+QR-12 & Device and server search agree & TC-21--TC-23 & Met \\
 \bottomrule
 \end{tabularx}
 \caption{Acceptance against the requirements}

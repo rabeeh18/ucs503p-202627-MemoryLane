@@ -20,10 +20,10 @@ nothing in the table is an estimate.
 \midrule
 O1 & Save pages; never store private pages & Manual and automatic capture; private pages refused twice (TC-04) & Met \\
 O2 & Searchable by meaning and words & Cleaning, 150-word chunks, BGE vectors, BM25 + KNN in one core & Met \\
-O3 & Right page first for most queries & Measured: Hit@1 0.71, Hit@10 0.93, MRR@10 0.786 on SciFact & Met \\
-O4 & Private libraries; public HTTPS deployment & Isolation in the data layer (TC-16); live at \texttt{memorylane.site} & Met \\
+O3 & Right page first for most queries & Measured: Hit@1 0.71, Hit@10 0.92, MRR@10 0.785 on SciFact & Met \\
+O4 & Private libraries; public HTTPS deployment & Isolation in the data layer (TC-16); live at \texttt{memorylane.site}; pages on the device by default, identical search (TC-21--TC-23) & Met \\
 O5 & Measure and improve retrieval & Seven metrics, latency, intervals; found and fixed a ranking defect & Met \\
-O6 & Engineering practice & Specified and traced requirements; 11 ADRs; 566 tests in CI; documentation site & Met \\
+O6 & Engineering practice & Specified and traced requirements; 16 ADRs; 585 tests in CI; documentation site & Met \\
 \bottomrule
 \end{tabularx}
 \caption{Objectives and delivered outcomes}
@@ -90,11 +90,11 @@ only: \textbf{Hybrid} (the live search), \textbf{BM25 only},
 \toprule
 \textbf{Configuration} & \textbf{Hit@1} & \textbf{Hit@3} & \textbf{Hit@10} & \textbf{MRR@10} & \textbf{R@10} & \textbf{nDCG@10} & \textbf{MAP@10} \\
 \midrule
-\textbf{Hybrid (live)} & 0.71 & 0.84 & 0.93 & 0.786 & 0.922 & 0.810 & 0.768 \\
+\textbf{Hybrid (live)} & 0.71 & 0.84 & 0.92 & 0.785 & 0.917 & 0.809 & 0.768 \\
 BM25 only & 0.63 & 0.76 & 0.86 & 0.705 & 0.837 & 0.728 & 0.687 \\
 Vector only & \textbf{0.75} & \textbf{0.86} & \textbf{0.94} & \textbf{0.812} & \textbf{0.932} & \textbf{0.837} & \textbf{0.803} \\
-Hybrid, no floor & 0.71 & 0.84 & 0.93 & 0.785 & 0.922 & 0.810 & 0.768 \\
-Hybrid, old bonus & 0.44 & 0.73 & 0.92 & 0.601 & 0.897 & 0.663 & 0.578 \\
+Hybrid, no floor & 0.71 & 0.84 & 0.92 & 0.785 & 0.917 & 0.809 & 0.768 \\
+Hybrid, old bonus & 0.44 & 0.73 & 0.92 & 0.603 & 0.897 & 0.664 & 0.580 \\
 \bottomrule
 \end{tabular}
 \caption{SciFact results for the final system (100 claims)}
@@ -113,7 +113,7 @@ Hybrid, old bonus & 0.44 & 0.73 & 0.92 & 0.601 & 0.897 & 0.663 & 0.578 \\
                 /tikz/every even column/.append style={column sep=4mm}},
   enlarge x limits=0.09, ymajorgrids, grid style={gray!25},
 ]
-\addplot[fill=black!75] coordinates {(Hit@1,0.71) (Hit@3,0.84) (Hit@10,0.93) (MRR@10,0.786) (nDCG@10,0.810) (MAP@10,0.768)};
+\addplot[fill=black!75] coordinates {(Hit@1,0.71) (Hit@3,0.84) (Hit@10,0.92) (MRR@10,0.785) (nDCG@10,0.809) (MAP@10,0.768)};
 \addplot[fill=black!45] coordinates {(Hit@1,0.75) (Hit@3,0.86) (Hit@10,0.94) (MRR@10,0.812) (nDCG@10,0.837) (MAP@10,0.803)};
 \addplot[fill=black!20] coordinates {(Hit@1,0.63) (Hit@3,0.76) (Hit@10,0.86) (MRR@10,0.705) (nDCG@10,0.728) (MAP@10,0.687)};
 \addplot[fill=white, postaction={pattern=north east lines}] coordinates {(Hit@1,0.44) (Hit@3,0.73) (Hit@10,0.92) (MRR@10,0.601) (nDCG@10,0.663) (MAP@10,0.578)};
@@ -125,7 +125,7 @@ Hybrid, old bonus & 0.44 & 0.73 & 0.92 & 0.601 & 0.897 & 0.663 & 0.578 \\
 \end{figure}
 
 No claim received an empty result list in any configuration. Hybrid search
-took \textbf{76\,ms} at the median and \textbf{93\,ms} at the 95th
+took \textbf{70\,ms} at the median and \textbf{86\,ms} at the 95th
 percentile, in-process on a laptop (network and sign-in checks excluded).
 
 \paragraph{Confidence.} With 100 claims, a few lucky or unlucky ones move an
@@ -183,10 +183,10 @@ words with their abstracts; hybrid is kept because everyday queries contain
 names, error messages, product codes and sites that vector search can miss.
 
 \paragraph{Comparison with the prototype.} Every configuration of the final
-system beats its prototype counterpart on every metric. MRR@10 rose from
+system beats or matches its prototype counterpart on every metric. MRR@10 rose from
 0.648 to 0.705 for BM25, from 0.780 to 0.812 for vector search, and from 0.754
-(min-max fusion) to 0.786 (RRF) for hybrid search; Recall@10 and nDCG@10
-moved the same way. The gains come from the stronger embedding model,
+(min-max fusion) to 0.785 (RRF) for hybrid search; nDCG@10 moved the same
+way, and hybrid Recall@10 is level (0.917). The gains come from the stronger embedding model,
 smaller overlapping chunks embedded with titles, rank fusion and
 best-passage page scoring.
 
@@ -238,6 +238,9 @@ Private pages captured automatically & Rules lived only in an outdated extension
 YouTube refused the server & YouTube blocks server transcript requests & A proxy; a paid API & Fetch captions in the user's browser (ADR 0006) \\
 Two sign-ins, two libraries & Cognito gives Google and email different ids & One library per sign-in & Link by verified email (ADR 0005) \\
 Search got worse after the rebuild & A page bonus outweighed RRF rank gaps & Smaller bonus values & Score pages by their best chunk (Section~\ref{sec:bonus}) \\
+Device and server ranked differently & Solr's HNSW search is approximate (missed a neighbour in 71 of 100 queries) & Accept differences; ask HNSW for more & Exact vector scoring on both (ADR 0013) \\
+Trafilatura exists only in Python & The browser needs the server's exact chunks & Readability in JavaScript & The server's code in Pyodide (ADR 0015) \\
+Saving in the browser was slow & One CPU thread: 0.8\,s a chunk & Threads (unreliable in extension pages) & WebGPU: 2.6\,s for 67 chunks \\
 \bottomrule
 \end{tabularx}
 \caption{Challenges, alternatives and solutions}
@@ -249,15 +252,21 @@ Search got worse after the rebuild & A page bonus outweighed RRF rank gaps & Sma
 \paragraph{Limitations.} SciFact is a scientific benchmark and the
 personal-library query sets are small, so neither fully represents everyday
 browsing. Pages that render little text, videos without captions and content
-behind logins are saved poorly or not at all. Page text is stored on the
-server, and summaries send one page to an external model when asked, so users
-must trust the operator. The extension targets Chromium browsers and is
-installed unpacked.
+behind logins are saved poorly or not at all. Pages kept on the device are
+searchable only in that browser profile (not on a phone) unless moved to the
+server, and are lost with the browser's data unless backed up; pages on the
+server, and summaries, which send one page to an external model when asked,
+require trusting the operator. Device and server can order close keyword ties
+differently when a library is split, because Solr weighs word rarity across
+all users. The extension targets Chromium browsers, is installed unpacked,
+and downloads a 130\,MB model on first use.
 
 \paragraph{Bottlenecks.} Embedding runs on the server's two CPU cores in one
 process: it dominates the cost of saving a page (passages are embedded in
 batches of 32), while a search embeds only the query (cached) and takes
-about 76\,ms. Solr's 1\,GB heap and the 4\,GB of RAM bound the size of the
+about 70\,ms. On the device, a search takes 50--120\,ms and saving takes up to
+a few seconds for a long page; the model and Pyodide use memory while the
+engine is open, and it closes after ten idle minutes. Solr's 1\,GB heap and the 4\,GB of RAM bound the size of the
 index on one machine.
 
 \paragraph{Failure and recovery.} Every container restarts after a crash or
@@ -305,7 +314,7 @@ understands sites and times, filters weak matches and shows readable snippets;
 and a web app with a library, undoable deletes, summaries and voice search,
 behind Cognito sign-in with isolation enforced in the data layer. On SciFact
 the live search puts the right abstract first for 71\% of claims and in the
-top ten for 93\%, ahead of the prototype on every metric, in about 76\,ms.
+top ten for 92\%, ahead of or level with the prototype on every metric, in about 70\,ms.
 
 \paragraph{Lessons learned.} Measuring matters as much as building: the
 largest single improvement of the semester came from evaluating the system
@@ -329,8 +338,8 @@ the product simpler without losing anything users relied on.
   \item \textbf{Import}: bring in existing bookmarks and browser history.
   \item \textbf{Account features}: password change and signing out of every
   device.
-  \item \textbf{Local-first mode}: on-device embedding and storage for users
-  who do not want page text on a server.
+  \item \textbf{Sync between devices}: device pages kept in step across a
+  user's browsers through the encrypted backup, without the server reading them.
   \item \textbf{Store distribution}: publish the extension in the Chrome Web
   Store, and port it to Firefox.
 \end{enumerate}

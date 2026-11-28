@@ -23,7 +23,8 @@ Web app & Search, results, summaries, library, account & Svelte, Vite & FR-07--F
 Caddy & HTTPS, serve the web app, forward \texttt{/api} & Caddy 2 & QR-05, QR-06 \\
 FastAPI backend & Verify sign-in; save, search, summarise, report & Python, FastAPI, Sentence Transformers & FR-01--FR-12 \\
 Apache Solr & Store chunks; BM25 and vector search & Solr 9.7 & FR-07, QR-01, QR-02 \\
-SQLite & Sign-in links; problem reports & SQLite 3 & FR-01, FR-11 \\
+SQLite & Sign-in links; problem reports; device keys & SQLite 3 & FR-01, FR-11, FR-15 \\
+Local engine (extension) & Save, store (encrypted) and search pages on the device & Pyodide, transformers.js, IndexedDB & FR-13--FR-15, QR-12 \\
 \bottomrule
 \end{tabularx}
 \caption{Architectural responsibilities}
@@ -55,6 +56,11 @@ alternatives that were rejected and the cost of the choice
 0009 & Remove the library map & Keep and improve it & Costly, fragile, rarely used \\
 0010 & Remove ``Export my data'' & Keep it & Little use; deletion is the stronger right \\
 0011 & Auto-capture keeps only pages that read like content & A list of blocked sites & Rules generalise; some content may be skipped \\
+0012 & Pages on the device by default, server as fallback & Server only; local only & Server never holds them; device pages stay in one browser \\
+0013 & Score vectors exactly & HNSW \texttt{\{!knn\}} & Both engines agree; 7\,ms against 5\,ms \\
+0014 & Own BM25 and an int8 scan, no Orama & Orama & Half the latency, a tenth of the memory \\
+0015 & The server's saving code in Pyodide & Readability in JavaScript & Identical chunks; 18\,MB runtime \\
+0016 & Encrypt device pages; recovery-key backups & Plain storage; device-key backups & Server can't read backups; a lost key loses them \\
 \bottomrule
 \end{tabularx}
 \caption{Architecture decision records}

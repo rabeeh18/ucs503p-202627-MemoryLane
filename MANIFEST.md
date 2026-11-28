@@ -31,10 +31,13 @@ Everything in the MemoryLane repository: what each folder and important file is 
 | `backend/` | FastAPI application: API, sign-in checks, saving pipeline, search, snippets, summaries, problem reports |
 | `backend/Dockerfile` | Image for the API (Python 3.11, CPU-only PyTorch) |
 | `frontend/` | Svelte web app: search, library, account menu, landing and privacy pages |
-| `extension/` | Chrome extension (Manifest V3): popup, options page, service worker, content scripts |
+| `extension/` | Chrome extension (Manifest V3): popup, options page, service worker, content scripts, and the local engine for pages kept on the device |
+| `extension/engine/` | The local engine: Solr-identical text analysis and BM25, vector index, ports of the server's search, the server's saving code in Pyodide, transformers.js embedder, encrypted IndexedDB store |
+| `extension/tools/vendor.mjs` | Bundles Pyodide, the Python packages, the backend's saving modules and transformers.js into `extension/vendor/` |
 | `tests/` | Backend tests (pytest) |
 | `frontend/src/**/*.test.js` | Frontend and extension-logic tests (Vitest) |
 | `evaluation/` | SciFact benchmark, personal-library evaluation and the compare tool |
+| `evaluation/parity/` | Checks that the browser engine matches the server (analysis, BM25, hybrid search, saving, storage) |
 | `evaluation/scifact_report.json` | Latest benchmark results |
 | `scripts/` | Solr schema setup (`setup_solr.sh`, `setup_solr.ps1`), field additions, re-index and backfill |
 | `deploy/` | Server deployment guide and the Caddy image (HTTPS, static files, `/api` proxy) |
@@ -65,6 +68,7 @@ Everything in the MemoryLane repository: what each folder and important file is 
 | `page_filter.py` | Pages automatic capture must refuse |
 | `summarizer.py` | Gemini summaries |
 | `reports.py` | Storing problem reports and emailing them |
+| `device_data.py` | Device keys and encrypted backups for pages kept in the browser |
 | `youtube_utils.py` | YouTube video ids and transcripts |
 | `url_utils.py` | URL normalisation and page ids |
 | `models.py` | Request and response models |
@@ -78,7 +82,8 @@ Everything in the MemoryLane repository: what each folder and important file is 
 | `site/` | `mkdocs build` (the published documentation) |
 | `code/src/.venv/`, `code/src/frontend/node_modules/` | Installing the Python and Node dependencies |
 | `code/src/frontend/dist/` | `npm run build` (the Caddy image builds it during deployment) |
-| `code/src/data/` | Local SQLite databases (`accounts.db`, `reports.db`) |
+| `code/src/extension/node_modules/`, `code/src/extension/vendor/` | `npm ci --ignore-scripts && npm run vendor` in `extension/` (the Caddy image does it during deployment) |
+| `code/src/data/` | Local SQLite databases (`accounts.db`, `reports.db`, `device.db`) and encrypted backups |
 | `code/src/.env` | Your settings, including secrets; never commit it |
 | LaTeX `*.aux`, `*.log`, `*.bbl`, … | Building the reports |
 
@@ -93,4 +98,4 @@ On the server, Docker volumes hold Solr's index (`solr_data`), the downloaded mo
 | Thapar Institute logo | `assets/tiet-logo.png`, `assets/tiet-logo.svg` | Trademark of TIET, used for the course documentation |
 | TIET report class | `project-report-*/tietreport.cls` | Course template |
 
-Downloaded at install or build time, not stored in the repository: the embedding model `BAAI/bge-small-en-v1.5` (MIT), the optional reranker `cross-encoder/ms-marco-MiniLM-L-6-v2`, the docs-search model Model2Vec `potion-base-8M` (MIT), and the Python and npm packages listed in `requirements*.txt` and `package.json`.
+Downloaded at install or build time, not stored in the repository: the embedding model `BAAI/bge-small-en-v1.5` (MIT; its ONNX conversion `Xenova/bge-small-en-v1.5` is served to the extension from `/models/`), Pyodide (MPL 2.0) with lxml (BSD), regex (Apache 2.0), trafilatura (Apache 2.0) and their dependencies, transformers.js and ONNX Runtime Web (Apache 2.0/MIT), bundled into the extension at build time, the optional reranker `cross-encoder/ms-marco-MiniLM-L-6-v2`, the docs-search model Model2Vec `potion-base-8M` (MIT), and the Python and npm packages listed in `requirements*.txt` and `package.json`.

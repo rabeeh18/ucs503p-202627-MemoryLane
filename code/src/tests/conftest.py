@@ -36,3 +36,11 @@ def _fresh_save_state():
     ingest.reset_for_tests()
     yield
     ingest.reset_for_tests()
+
+
+@pytest.fixture(autouse=True)
+def _device_data_in_tmp(tmp_path):
+    """Device keys and backups (backend/device_data.py) never touch the working tree."""
+    from backend import device_data
+    device_data.reset_for_tests(str(tmp_path / "device.db"), str(tmp_path / "backups"))
+    yield

@@ -16,6 +16,7 @@ MemoryLane is a personal memory for the web. You save pages as you browse, with 
 ## What it does
 
 - **Save pages** from a Chrome extension with one click, with undo.
+- **Pages stay on your device** by default: saved, stored (encrypted) and searched in the browser, with the same results as the server. Past a size limit you set, the oldest can move to the server, after you agree. Encrypted backups open only with your recovery key.
 - **Automatic capture** (off by default) saves only pages you actually read that look like content. It never saves email, banking, social media, private apps or login pages, and you can exclude any site.
 - **Search by meaning or by exact words.** Keyword search (BM25) and meaning search (vector KNN) run together and are combined with Reciprocal Rank Fusion.
 - **Say where or when**: *"the reddit post about rust lifetimes from last week"* ranks pages from that site and time first.
@@ -34,9 +35,9 @@ Results ◀─ Snippets ◀─ Relevance floor ◀─ Group into pages ◀─ RR
 | Part | Technology |
 | --- | --- |
 | Backend | Python 3.11, FastAPI, Sentence Transformers, trafilatura |
-| Search | Apache Solr 9.7: BM25 and HNSW vectors in one core |
+| Search | Apache Solr 9.7: BM25 and exact vector scoring in one core; the same search in the browser for device pages |
 | Web app | Svelte 4, Vite |
-| Extension | Chrome Manifest V3 |
+| Extension | Chrome Manifest V3; a local engine with Pyodide (the server's saving code), transformers.js (WebGPU) and encrypted IndexedDB |
 | Sign-in | Amazon Cognito (OAuth 2.0 authorization code with PKCE) |
 | Summaries | Google Gemini (optional) |
 | Hosting | One AWS EC2 instance, Docker Compose, Caddy (automatic HTTPS) |
@@ -48,11 +49,11 @@ Measured on the SciFact benchmark (100 claims, 1,000 abstracts) with the product
 
 | Configuration | Hit@1 | Hit@10 | MRR@10 | nDCG@10 |
 | --- | ---: | ---: | ---: | ---: |
-| Hybrid (live search) | 0.71 | 0.93 | 0.786 | 0.810 |
+| Hybrid (live search) | 0.71 | 0.92 | 0.785 | 0.809 |
 | Vector only | 0.75 | 0.94 | 0.812 | 0.837 |
 | BM25 only | 0.63 | 0.86 | 0.705 | 0.728 |
 
-A search takes about 76 ms (median, in-process). The full results, with confidence intervals, are in [Evaluation Results](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/evaluation/results/).
+A search takes about 70 ms (median, in-process). The browser engine, for pages kept on the device, returns the same results. The full results, with confidence intervals, are in [Evaluation Results](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/evaluation/results/).
 
 ## Getting started
 
@@ -75,16 +76,16 @@ uvicorn backend.main:app --reload --port 8000     # the API
 cd frontend && npm install && npm run dev          # the web app on :5173
 ```
 
-Then load `code/src/extension` as an unpacked extension in Chrome. Step-by-step instructions, Windows commands and every setting are in [Installation](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/development/installation/) and [Configuration](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/development/configuration/).
+Then bundle the extension's runtimes (`cd code/src/extension && npm ci --ignore-scripts && npm run vendor`) and load `code/src/extension` as an unpacked extension in Chrome. Step-by-step instructions, Windows commands and every setting are in [Installation](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/development/installation/) and [Configuration](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/development/configuration/).
 
 ## Tests
 
 ```bash
-cd code/src && python -m pytest -q             # 430 backend tests
-cd code/src/frontend && npm test && npm run check   # 136 frontend tests + type check
+cd code/src && python -m pytest -q             # 445 backend tests
+cd code/src/frontend && npm test && npm run check   # 140 frontend tests + type check
 ```
 
-GitHub Actions runs both suites on every push (`.github/workflows/ci.yml`) and checks that the documentation builds (`.github/workflows/mkdocs.yml`).
+GitHub Actions runs both suites on every push (`.github/workflows/ci.yml`) and checks that the documentation builds (`.github/workflows/mkdocs.yml`). The browser engine is checked against Solr with the parity scripts in `code/src/evaluation/parity/` (see [Testing](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/development/testing/)).
 
 ## Documentation
 
@@ -94,7 +95,7 @@ GitHub Actions runs both suites on every push (`.github/workflows/ci.yml`) and c
 | [Usage Guide](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/user-guide/automatic-capture/) | Every feature: saving, searching, the library, summaries, YouTube, voice |
 | [API Reference](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/api/) | Every endpoint, with requests, responses, errors and rate limits |
 | [Architecture](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/architecture/overview/) | Components, data flow, retrieval and security |
-| [Design Decisions](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/decisions/) | Eleven architecture decision records |
+| [Design Decisions](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/decisions/) | Sixteen architecture decision records |
 | [Deployment](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/development/deployment/) | Running it on a server |
 
 ## Repository

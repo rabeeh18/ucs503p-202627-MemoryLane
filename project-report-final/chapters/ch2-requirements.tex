@@ -32,6 +32,9 @@ FR-09 & Each result can be summarised on demand. & Query and page id $\rightarro
 FR-10 & Users browse their library newest first, delete pages with undo, and delete all their data. & Page id or ``delete all'' $\rightarrow$ library list; \texttt{204} & Owner only (\texttt{404}); 6\,s undo; on failure the page returns with an error message & H \\
 FR-11 & Users report a problem from the website or the extension; it is emailed to the maintainer. & Message and context $\rightarrow$ \texttt{202}, then an email & Length and content cleaned (\texttt{422}); 5 per hour (\texttt{429}) & L \\
 FR-12 & A public health endpoint reports the state of Solr, the model and Gemini. & -- $\rightarrow$ status of each dependency & Public; reports \texttt{degraded} instead of failing & L \\
+FR-13 & Pages are kept on the device by default (or on the server, by choice), saved and searched there with the server's results. & Page $\rightarrow$ encrypted local record; query $\rightarrow$ same results as the server & Same refusals as the server; the website asks only for its own library & H \\
+FR-14 & Past a size limit (default 100\,MB), the oldest device pages move to the server once the user agrees; search covers both places. & Size, limit, consent $\rightarrow$ pages moved whole & Never without consent; a page lives whole in one place & M \\
+FR-15 & Device pages can be backed up encrypted with a recovery key only the user has, and restored. & Recovery key $\rightarrow$ encrypted backup; key $\rightarrow$ restored pages & A wrong key opens nothing (\texttt{400}); backup up to 200\,MB (\texttt{413}) & M \\
 \bottomrule
 \caption{Functional requirements (priority: H high, M medium, L low)}
 \label{tab:fr}
@@ -324,7 +327,7 @@ Extension settings & Auto-capture switch, excluded sites, today's automatic save
 \textrm{\textbf{ID}} & \textbf{Quality} & \textbf{Requirement (target)} & \textbf{How it is met / measured} \\
 \midrule
 QR-01 & Performance & Median search time under 200\,ms on the server's CPU & 76\,ms median, 93\,ms 95th percentile (Section~\ref{sec:evaluation}) \\
-QR-02 & Relevance & MRR@10 on SciFact at least the prototype's 0.754 & 0.786; Hit@1 0.71 \\
+QR-02 & Relevance & MRR@10 on SciFact at least the prototype's 0.754 & 0.785; Hit@1 0.71 \\
 QR-03 & Capacity & 5{,}000 pages per account on one 2-vCPU server & Page limit enforced; one EC2 instance \\
 QR-04 & Reliability & No data lost when a save is retried or raced & Per-user write lock; content hash; idempotent deletes \\
 QR-05 & Availability & Services restart after a crash or reboot; optional services fail softly & Restart policies, health checks; summaries and reports optional \\
@@ -332,8 +335,9 @@ QR-06 & Security & Every request except health authenticated; no access to anoth
 QR-07 & Privacy & Private pages never auto-saved; no URLs or queries in logs & Two-stage capture rules; log filters; a test checks the logs \\
 QR-08 & Usability & Every action reachable by keyboard; usable on phone widths & Shortcuts (\texttt{/}, arrows, \texttt{S}, \texttt{Shift+Del}); responsive layout \\
 QR-09 & Accessibility & Controls labelled for assistive technology & Buttons with text or \texttt{aria-label}; visible focus \\
-QR-10 & Maintainability & All tests pass on every change; decisions recorded & 566 tests in CI; 11 ADRs; documentation site \\
+QR-10 & Maintainability & All tests pass on every change; decisions recorded & 585 tests in CI; 16 ADRs; documentation site \\
 QR-11 & Portability & Runs wherever Docker runs; extension in any Chromium browser & Docker Compose; Manifest V3 \\
+QR-12 & Parity & Device search returns the server's pages, order and snippets & Parity checks against Solr (Section~\ref{sec:local-engine}) \\
 \bottomrule
 \end{tabularx}
 \caption{Quality and operational requirements}
@@ -358,6 +362,8 @@ BR-06 & A delete becomes final when its 6-second undo window ends; ``delete all'
 BR-07 & Page text is sent to Gemini only when the user asks for that page's summary. \\
 BR-08 & Requests are rate-limited per user (Table~\ref{tab:api}). \\
 BR-09 & Logs never contain saved URLs or search text. \\
+BR-10 & A page kept on the device moves to the server only after the user agrees. \\
+BR-11 & Device pages are unreadable while signed out; the server never holds a key to a backup. \\
 \bottomrule
 \end{tabularx}
 \caption{Business rules}
@@ -391,6 +397,9 @@ FR-09 & UC-3 & US-6 & Fig.~\ref{fig:activity} & TC-14 \\
 FR-10 & UC-4 & US-7 & Fig.~\ref{fig:collab-delete}, \ref{fig:state-page}, \ref{fig:class-client} & TC-08, TC-09, TC-10 \\
 FR-11 & -- & US-9 & Fig.~\ref{fig:dfd1} (6) & TC-15 \\
 FR-12 & -- & -- & Fig.~\ref{fig:components} & TC-19 \\
+FR-13 & UC-1, UC-3 & US-1, US-4 & Table~\ref{tab:local-engine} & TC-21, TC-22, TC-23 \\
+FR-14 & -- & -- & Table~\ref{tab:local-engine} & TC-24 \\
+FR-15 & -- & -- & Table~\ref{tab:local-engine} & TC-24 \\
 \bottomrule
 \end{tabularx}
 \caption{Traceability from requirements to use cases, stories, design and tests}

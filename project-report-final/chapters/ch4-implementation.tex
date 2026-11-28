@@ -65,7 +65,7 @@ Solr listens on the server's localhost.
 \subsection{Modules}
 
 The repository holds the backend (23 Python modules, about 4{,}000 lines),
-the web app (21 Svelte components), the Chrome extension, 566 tests, the
+the web app (21 Svelte components), the Chrome extension, 585 tests, the
 evaluation scripts and the documentation. Table~\ref{tab:modules} lists the
 main backend modules.
 
@@ -171,6 +171,54 @@ once on a \texttt{401}. Deleting is optimistic, with six seconds to undo
 (Figure~\ref{fig:state-page}). Voice search uses the browser's speech
 recognition. \textbf{Report a problem} shows exactly what will be sent, and the
 backend stores the report before emailing it through Amazon SES (ADR~0007).
+It asks the extension, through site-to-extension messaging limited to
+\texttt{memorylane.site}, for the pages kept on the device, and merges them
+with the server's in search, the library, deletes and summaries.
+
+\subsection{Local Engine: Pages on the Device}
+\label{sec:local-engine}
+
+Following the supervisor's guidance to offer both models and fall back to the
+server for large data, the extension keeps pages \textbf{on the device} by
+default (ADR~0012). It contains a second, complete MemoryLane engine
+(\texttt{extension/engine/}) in an offscreen document:
+\begin{itemize}
+  \item \textbf{Saving} runs the server's own Python (\texttt{ingest.py},
+  trafilatura and the cleaning and chunking modules) in Pyodide, bundled with
+  pinned, hash-checked packages so no code is loaded at run time (ADR~0015).
+  \item \textbf{Embedding} uses the same model at full precision with
+  transformers.js, on WebGPU when available: a 67-chunk page in 2.6\,s,
+  vectors within $10^{-7}$ of the server's.
+  \item \textbf{Storage} is one AES-256-GCM record per page in IndexedDB,
+  keyed by a per-library device key from \texttt{GET /me} that is forgotten on
+  sign-out (ADR~0016).
+  \item \textbf{Search} reproduces the server's pipeline: Solr's
+  \texttt{text\_en} analysis and edismax BM25 with Lucene's arithmetic, an
+  int8 vector scan rescored exactly, and ports of the fusion, floor, query
+  understanding and snippets (ADR~0014). The server's vector search was made
+  exact to match (ADR~0013).
+\end{itemize}
+Past a size limit (default 100\,MB) the oldest pages move to the server, as
+their exact chunks, once the user agrees; the website fuses device and server
+results with RRF. Table~\ref{tab:local-engine} gives the parity checks.
+
+\begin{table}[H]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{p{0.28\textwidth} L p{0.22\textwidth}}
+\toprule
+\textbf{Check (device against server)} & \textbf{Data} & \textbf{Result} \\
+\midrule
+Text analysis & 2,006 SciFact titles and abstracts, Unicode, URLs, CJK, Thai, emoji & Identical tokens, positions, stems \\
+Keyword search & 119 queries with operators, quotes and wildcards & Same top 50 and scores (to $10^{-5}$) \\
+Hybrid search & 117 queries with site words, time phrases and URLs & Same pages, order, snippets \\
+Saving & 10 real pages (Wikipedia, MDN, BBC, GitHub, \ldots) & Identical chunks and refusals \\
+Store & Save, reopen, wrong key, move out and back & Identical; wrong key reads nothing \\
+\bottomrule
+\end{tabularx}
+\caption{Parity of the local engine with the server (\texttt{code/src/evaluation/parity/})}
+\label{tab:local-engine}
+\end{table}
 
 \subsection{REST API}
 
@@ -192,9 +240,15 @@ POST & /search & Hybrid search & 60/min \\
 POST & /summarize & Summary of one page & 20/min \\
 DELETE & /me/data & Delete all the caller's data & 5/min \\
 POST & /reports & Report a problem & 5/hour \\
+GET & /search-settings & Search settings for the local engine (public) & -- \\
+GET & /me & Library id and device key & 60/min \\
+POST & /memory/transfer & Store a device page as its chunks & 120/min \\
+GET & /memory/\{id\}/content & A page's chunks, to move it to the device & 120/min \\
+POST & /summarize/text & Summary of a device page & 20/min \\
+PUT/GET & /backup & Encrypted backup (opaque blob) & 10/hour \\
 \bottomrule
 \end{tabularx}
-\caption{API endpoints. All except \texttt{/health} need a Cognito access token.}
+\caption{API endpoints. All except \texttt{/health} and \texttt{/search-settings} need a Cognito access token.}
 \label{tab:api}
 \end{table}
 
@@ -299,7 +353,17 @@ delete-by-query on \texttt{user\_id} and \texttt{page\_id}.
 relational data (Table~\ref{tab:sqlite}). A library is identified by the
 \texttt{library} value, which is also the \texttt{user\_id} stored on its Solr
 chunks; it is the only link between the two stores. The backend connects to
-Solr over HTTP and to SQLite as local files.
+Solr over HTTP and to SQLite as local files. \texttt{device.db} holds each
+library's device key and the size and hash of its encrypted backup, whose
+bytes are a file on the same volume.
+
+\paragraph{IndexedDB (device).} A page kept on the device is one record keyed
+by its page id (the same SHA-256-derived id as on the server), its value
+encrypted: the page's metadata (Table~\ref{tab:schema}'s fields), each
+chunk's text and keyword statistics (term counts and length per field, so
+opening the store needs no re-analysis), and the chunk vectors as float32. In
+memory the index keeps postings, int8 vectors and metadata; full vectors are
+read back only to rescore the best candidates.
 
 \begin{table}[H]
 \centering
@@ -394,6 +458,7 @@ CORE_NAME=memorylane_v2 ./scripts/setup_solr.sh
 docker compose up -d --build                  # backend + caddy (builds the web app)
 python -m pytest -q                           # backend tests
 cd frontend && npm test && npm run check      # frontend tests and type check
+cd ../extension && npm ci --ignore-scripts && npm run vendor  # local engine runtimes
 \end{lstlisting}
 
 \paragraph{Sample data.} The SciFact corpus in
@@ -407,8 +472,9 @@ frontend test suites on every push and pull request
 (\texttt{.github/workflows/ci.yml}) and builds the documentation in strict
 mode when it changes. A release is a push to \texttt{master} followed, on the
 server, by \texttt{git pull} and \texttt{docker compose up -d --build}; the
-Caddy image builds the web app and zips the extension during that build, so
-what is served always matches the deployed code. Schema changes are applied by
+Caddy image builds the web app, vendors the extension's runtimes and zips it
+(16.5\,MB), and downloads the pinned search model it serves at
+\texttt{/models/}, so what is served always matches the deployed code. Schema changes are applied by
 script before the code that needs them. Backups are EBS snapshots.
 
 \section{User Documentation and Access}
@@ -449,7 +515,11 @@ was posted on the course forum and discussed with the supervisor
 question of storing full text versus snapshots (full text was kept, for better
 summaries) and the move to Apache Solr discussed at the 24~August lab. The
 next steps we set in those discussions, a dynamic number of results and a
-lower LLM cost, later became the relevance floor and on-demand summaries.
+lower LLM cost, later became the relevance floor and on-demand summaries. In
+the last week, asked whether to present the client-server or a local-first
+version, the supervisor answered ``both'', with the server as a heuristic
+fallback for large data and the limit a user setting; that became the local
+engine (Section~\ref{sec:local-engine}).
 
 \begin{figure}[H]
 \centering
@@ -489,7 +559,7 @@ Query understanding & None & Site words, time phrases and URLs \\
 Result quality & Best chunk per page, fixed result count & Relevance floor, keyword coverage, sentence snippets \\
 YouTube & Server-side transcripts & Captions fetched in the user's browser \\
 Library & None & Library page, delete with undo, delete all data \\
-Tests & A few scripts & 566 automated tests in CI \\
+Tests & A few scripts & 585 automated tests in CI \\
 Documentation & README & 48-page site, 11 decision records, meaning-based search \\
 Evaluation & 3 metrics, 3 runs & 7 quality metrics, latency, bootstrap intervals, 5 runs \\
 \bottomrule

@@ -22,7 +22,7 @@ One entry per week of the project, written from the repository's history: what I
 | 15 | 2 – 8 Nov | [Real users, real bugs](./w15-real-users.md) |
 | 16 | 9 – 15 Nov | [Better matches and YouTube in the browser](./w16-matches-and-youtube.md) |
 | 17 | 16 – 22 Nov | [The audit, and a ranking bug the numbers found](./w17-audit-and-evaluation.md) |
-| 18 | 23 – 29 Nov | [Final report and repository documents](./w18-final-report.md) |
+| 18 | 23 – 29 Nov | [Final report, repository documents and pages on the device](./w18-final-report.md) |
 
 ## Forum discussions
 

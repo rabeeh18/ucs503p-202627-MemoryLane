@@ -82,15 +82,18 @@ supervisor, and for developers who would maintain or extend MemoryLane.
 videos from Chrome; cleaning, chunking, embedding and indexing; hybrid search
 with site and time hints, snippets and on-demand summaries; a library with
 deletion and undo; accounts with Google or email sign-in; problem reports;
-deployment on one server; documentation and evaluation.
+keeping pages on the device (encrypted, searched in the browser) with the
+server as a fallback, and encrypted backups; deployment on one server;
+documentation and evaluation.
 
 \paragraph{Out of scope.} Crawling the web; sharing pages between users;
 browsers other than Chromium-based ones; mobile apps; importing existing
 history or bookmarks; pages behind logins that the user's browser cannot
 read; offline use.
 
-\paragraph{Boundary.} The system consists of the extension, the web app and
-the server (Caddy, the FastAPI backend, Solr and two SQLite databases). The
+\paragraph{Boundary.} The system consists of the extension (with its local
+engine and IndexedDB store), the web app and the server (Caddy, the FastAPI
+backend, Solr and three SQLite databases). The
 reader's browser, Amazon Cognito, Google Gemini, Amazon SES and YouTube are
 outside it and are reached only through defined interfaces
 (Section~\ref{sec:interfaces}); Figure~\ref{fig:dfd0} shows the boundary as a
@@ -151,7 +154,7 @@ External services & Identity, summaries, email & Well-formed requests & -- & Onl
 \toprule
 \textbf{Part} & \textbf{Environment} \\
 \midrule
-Extension & Google Chrome or another Chromium browser with Manifest V3 support, on any desktop OS \\
+Extension & Google Chrome or another Chromium browser with Manifest V3 support, on any desktop OS; WebGPU used when present for saving on the device (WebAssembly otherwise); ~130\,MB model cached once \\
 Web app & Any modern browser on desktop or phone; voice search where the browser supports speech recognition (Chrome, Edge) \\
 Server & Linux with Docker Compose; AWS EC2 \texttt{c7i-flex.large} (2 vCPU, 4\,GB RAM, 2\,GB swap), Mumbai region; no GPU \\
 Network & HTTPS only (ports 80/443 open); ordinary home or campus connections; the server reaches Cognito, Gemini and SES over the internet \\
@@ -171,8 +174,11 @@ Network & HTTPS only (ports 80/443 open); ordinary home or campus connections; t
   free-tier cloud services.
   \item \textbf{Security policy}: no client secret in the browser; every
   request authenticated; no user may reach another's pages.
-  \item \textbf{Privacy and legal}: page text is personal data, so it is
-  stored only on our server, kept out of logs, deletable at any time, and
+  \item \textbf{Manifest V3}: no code may be loaded at run time, so the
+  extension bundles Pyodide and its packages and the model's runtime; only
+  the model's weights (data) are downloaded.
+  \item \textbf{Privacy and legal}: page text is personal data, so by default
+  it stays on the device; on the server it is kept out of logs, deletable at any time, and
   sent to an external model only when the user asks for a summary. The
   SciFact evaluation data is licensed CC BY-NC 2.0 and is used for evaluation
   only. YouTube's restrictions on server requests mean captions are fetched in
@@ -195,6 +201,7 @@ Amazon SES is reachable & Problem reports wait in SQLite and are retried with ba
 YouTube serves captions to the user's browser & A video is saved from its description, or skipped \\
 Pages expose readable text & Pages with under 50 words are refused with a clear message \\
 The server has its Docker volumes & Without them, pages and sign-in links would be lost; EBS snapshots are the backup \\
+The browser keeps its IndexedDB data & Device pages are lost if the data is cleared; the encrypted backup restores them \\
 \bottomrule
 \end{tabularx}
 \caption{Assumptions, dependencies and the effect of their failure}
