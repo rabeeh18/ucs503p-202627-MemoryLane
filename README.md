@@ -82,7 +82,7 @@ Then bundle the extension's runtimes (`cd code/src/extension && npm ci --ignore-
 
 ```bash
 cd code/src && python -m pytest -q             # 445 backend tests
-cd code/src/frontend && npm test && npm run check   # 140 frontend tests + type check
+cd code/src/frontend && npm test && npm run check   # 162 frontend tests + type check
 ```
 
 GitHub Actions runs both suites on every push (`.github/workflows/ci.yml`) and checks that the documentation builds (`.github/workflows/mkdocs.yml`). The browser engine is checked against Solr with the parity scripts in `code/src/evaluation/parity/` (see [Testing](https://rabeeh18.github.io/ucs503p-202627-MemoryLane/development/testing/)).
