@@ -24,8 +24,8 @@ stateDiagram-v2
     Shown --> Hidden: Delete (bin or Shift+Del)
     Hidden --> Shown: Undo within 6 s
     Hidden --> Deleting: 6 s pass, or the tab closes
-    Deleting --> Deleted: Server confirms
-    Deleting --> Shown: Server error (toast)
+    Deleting --> Deleted: The device or the server confirms
+    Deleting --> Shown: Error (toast)
     Deleted --> [*]
 ```
 

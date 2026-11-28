@@ -24,6 +24,8 @@ sequenceDiagram
     participant B as Service worker
     participant T as The page's tab
     participant Y as youtube.com
+    participant E as Local engine
+    participant D as IndexedDB
     participant A as FastAPI
     participant S as Solr
 
@@ -38,20 +40,30 @@ sequenceDiagram
         B->>T: Inject content.js
         T-->>B: HTML, visible text, canonical URL
     end
-    B->>A: POST /api/memory (Bearer token)
-    Note over B,A: On 401: refresh the token once and retry
-    A->>A: Verify token → user_id
-    A->>A: Canonical URL → normalise → page_id
-    A->>A: Clean (trafilatura) or use the transcript
-    Note over A: Under 50 words: 422
-    A->>S: Stored page head (content_hash, embedding_model)
-    alt Same text and model
-        A-->>B: unchanged
-    else New or changed
-        A->>A: Chunk → embed "title + chunk" → page vector
-        A->>S: Upsert chunks {page_id}::0..n-1
-        A->>S: Delete chunks ≥ n
-        A-->>B: saved, with the page
+    alt Kept on this device (the default)
+        B->>E: SAVE (same body as POST /memory)
+        E->>E: The server's ingest_page in Pyodide: canonical URL → page_id, clean (trafilatura), chunk
+        Note over E: Under 50 words: refused, as on the server
+        E->>E: Embed "title + chunk" (bge-small, transformers.js)
+        E->>D: One encrypted record: text, keyword statistics, vectors
+        E-->>B: saved (or unchanged), with the page
+        Note over B: Past the size limit: the oldest pages move to the server, once the user agrees
+    else Kept on the server
+        B->>A: POST /api/memory (Bearer token)
+        Note over B,A: On 401: refresh the token once and retry
+        A->>A: Verify token → user_id
+        A->>A: Canonical URL → normalise → page_id
+        A->>A: Clean (trafilatura) or use the transcript
+        Note over A: Under 50 words: 422
+        A->>S: Stored page head (content_hash, embedding_model)
+        alt Same text and model
+            A-->>B: unchanged
+        else New or changed
+            A->>A: Chunk → embed "title + chunk" → page vector
+            A->>S: Upsert chunks {page_id}::0..n-1
+            A->>S: Delete chunks ≥ n
+            A-->>B: saved, with the page
+        end
     end
     B-->>P: Result
     P-->>U: "Saved just now" + Undo

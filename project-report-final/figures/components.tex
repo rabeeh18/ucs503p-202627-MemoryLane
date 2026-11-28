@@ -1,20 +1,22 @@
 \begin{tikzpicture}[>={Stealth[length=1.8mm]}]
   \tikzset{comp2/.style={component, text width=#1, minimum height=12mm}, comp2/.default=21mm}
   % ---- components ------------------------------------------------------------
-  \node[comp2] (web) at (0, 0.95)  {$\ll$component$\gg$\\\textbf{Web app}\\Svelte SPA};
-  \node[comp2] (ext) at (0,-0.95)  {$\ll$component$\gg$\\\textbf{Extension}\\Chrome MV3};
+  \node[comp2] (web) at (0, 2.3)  {$\ll$component$\gg$\\\textbf{Web app}\\Svelte SPA};
+  \node[comp2] (ext) at (0, 0)  {$\ll$component$\gg$\\\textbf{Extension}\\Chrome MV3};
+  \node[comp2=24mm, minimum height=14mm] (eng) at (0,-2.3)
+    {$\ll$component$\gg$\\\textbf{Local engine}\\Pyodide $\cdot$ transformers.js\\IndexedDB (encrypted)};
   \node[comp2=17mm, minimum height=30mm] (caddy) at (3.55,0) {$\ll$component$\gg$\\\textbf{Caddy}\\[1mm]TLS, static files, reverse proxy};
   \node[comp2=30mm, minimum height=30mm] (api) at (7.45,0)
-    {$\ll$component$\gg$\\\textbf{FastAPI backend}\\[1mm]auth $\cdot$ accounts\\ingest $\cdot$ retrieval\\snippets $\cdot$ summaries\\reports $\cdot$ embeddings};
+    {$\ll$component$\gg$\\\textbf{FastAPI backend}\\[1mm]auth $\cdot$ accounts\\ingest $\cdot$ retrieval\\snippets $\cdot$ summaries\\reports $\cdot$ embeddings\\device keys $\cdot$ backups};
   \node[comp2] (solr) at (11.65, 0.95) {$\ll$component$\gg$\\\textbf{Apache Solr}\\core \texttt{memorylane\_v2}};
-  \node[comp2] (sql)  at (11.65,-0.95) {$\ll$component$\gg$\\\textbf{SQLite}\\accounts, reports};
-  \node[comp2, dashed] (cog) at (3.55,-3.35) {$\ll$external$\gg$\\\textbf{Amazon Cognito}};
-  \node[comp2, dashed] (gem) at (7.45,-3.35) {$\ll$external$\gg$\\\textbf{Google Gemini}};
-  \node[comp2, dashed] (ses) at (11.15,-3.35) {$\ll$external$\gg$\\\textbf{Amazon SES}};
+  \node[comp2] (sql)  at (11.65,-0.95) {$\ll$component$\gg$\\\textbf{SQLite}\\accounts, reports,\\device keys};
+  \node[comp2, dashed] (cog) at (3.55,-3.95) {$\ll$external$\gg$\\\textbf{Amazon Cognito}};
+  \node[comp2, dashed] (gem) at (7.45,-3.95) {$\ll$external$\gg$\\\textbf{Google Gemini}};
+  \node[comp2, dashed] (ses) at (11.15,-3.95) {$\ll$external$\gg$\\\textbf{Amazon SES}};
 
   % ---- deployment groupings --------------------------------------------------
   \begin{scope}[on background layer]
-    \node[group, dashed, fit=(web)(ext), inner sep=5pt] (bro) {};
+    \node[group, dashed, fit=(web)(ext)(eng), inner sep=5pt] (bro) {};
     \node[group, dashed, fit=(caddy)(api)(solr)(sql), inner sep=5pt] (srv) {};
   \end{scope}
   \node[font=\scriptsize\bfseries, anchor=south] at (bro.north) {$\ll$device$\gg$ Browser};
@@ -27,6 +29,16 @@
   \draw (ext.east) -- ++(0.25,0) |- ($(p1)+(-0.2,0)$);
   \draw (caddy.west |- p1) -- ($(p1)+(0.115,0)$);
   \ballsocket{(p1)}{0}{HTTPS}
+  % the website asks the extension for pages kept on the device
+  \coordinate (p8) at (0, 1.15);
+  \draw (web.south) -- ($(p8)+(0,0.2)$);
+  \draw (ext.north) -- ($(p8)+(0,-0.115)$);
+  \ballsocket{(p8)}{-90}{site messages}
+  % the extension saves and searches through the local engine
+  \coordinate (p9) at (0,-1.1);
+  \draw (ext.south) -- ($(p9)+(0,0.2)$);
+  \draw (eng.north) -- ($(p9)+(0,-0.115)$);
+  \ballsocket{(p9)}{-90}{local store}
   % REST API: provided by the backend, required by Caddy
   \coordinate (p2) at (5.15,0);
   \draw (caddy.east |- p2) -- ($(p2)+(-0.2,0)$);

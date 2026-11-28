@@ -12,12 +12,15 @@ MemoryLane runs on one machine with Docker Compose. The live site is an AWS EC2 
 
 ```mermaid
 flowchart LR
-    users["Browser + extension"]
+    subgraph browser["User's browser"]
+        users["Web app"]
+        ext["Extension<br/>local engine · IndexedDB"]
+    end
 
     subgraph ec2["AWS EC2 c7i-flex.large · Mumbai · Elastic IP"]
         subgraph compose["Docker Compose"]
-            caddy["caddy<br/>ports 80, 443<br/><i>volume: caddy_data (certificates)</i>"]
-            backend["backend<br/>FastAPI + bge-small<br/><i>volumes: models, accounts</i>"]
+            caddy["caddy<br/>ports 80, 443<br/>web app, extension zip, /models<br/><i>volume: caddy_data (certificates)</i>"]
+            backend["backend<br/>FastAPI + bge-small<br/><i>volumes: models, accounts<br/>(SQLite, device keys, backups)</i>"]
             solr["solr 9.7<br/>127.0.0.1:8983<br/><i>volume: solr_data</i>"]
         end
     end
@@ -29,6 +32,8 @@ flowchart LR
     end
 
     users -->|"HTTPS"| caddy
+    ext -->|"HTTPS: /api, /models"| caddy
+    users -.->|"device results"| ext
     caddy -->|"/api/*"| backend
     backend --> solr
     backend -->|"user info"| cognito

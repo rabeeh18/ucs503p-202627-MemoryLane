@@ -8,15 +8,22 @@ flowchart TB
 
     subgraph client["In the user's browser"]
         direction LR
-        ext["Chrome extension<br/><i>Manifest V3</i><br/>save, auto-capture"]
+        subgraph extbox["Chrome extension · Manifest V3"]
+            direction TB
+            ext["Service worker<br/>save, auto-capture, routing"]
+            engine["Local engine (offscreen)<br/>Pyodide: the server's saving code<br/>transformers.js: bge-small<br/>BM25 + vectors, as Solr"]
+            idb[("IndexedDB<br/>pages, encrypted<br/>with the device key")]
+            ext --> engine --> idb
+        end
         web["Web app<br/><i>Svelte 4</i><br/>search, library, account"]
+        web -->|"device results<br/>(this library only)"| ext
     end
 
     subgraph server["One EC2 instance · Docker Compose"]
-        caddy["Caddy<br/>HTTPS, static web app, /api proxy"]
-        api["FastAPI backend<br/>token check → user_id<br/>ingest · retrieval · summaries · reports<br/>Sentence Transformers (bge-small)"]
+        caddy["Caddy<br/>HTTPS, static web app,<br/>/api proxy, /models"]
+        api["FastAPI backend<br/>token check → user_id<br/>ingest · retrieval · summaries · reports<br/>device keys · encrypted backups<br/>Sentence Transformers (bge-small)"]
         solr[("Apache Solr 9.7<br/>BM25 + exact vector scoring")]
-        sqlite[("SQLite<br/>accounts.db, reports.db")]
+        sqlite[("SQLite<br/>accounts.db, reports.db, device.db<br/>+ encrypted backup files")]
         caddy --> api
         api -->|"always filtered by user_id"| solr
         api --> sqlite
@@ -31,7 +38,9 @@ flowchart TB
     end
 
     user --> client
-    client -->|"HTTPS + Bearer access token"| caddy
+    web -->|"HTTPS + Bearer access token"| caddy
+    ext -->|"server pages, moves past the size limit,<br/>encrypted backups, device key"| caddy
+    engine -.->|"model weights, once"| caddy
     client -.->|"PKCE sign-in"| cognito
     ext -.->|"captions, in the YouTube tab"| youtube
     api -->|"user info"| cognito

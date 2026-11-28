@@ -38,10 +38,10 @@ flowchart LR
     recent -- no --> extract[Extract the page:<br/>HTML + text, or a video's captions]
     extract --> content{Reads like content?<br/>no password field, editor, noindex}
     content -- no --> skip
-    content -- yes --> post[POST /api/memory]
-    post --> server{Server checks<br/>the address again}
+    content -- yes --> post[Save: on this device by default,<br/>or POST /api/memory]
+    post --> server{The server's rules check<br/>the address again}
     server -- refused --> skip
-    server -- ok --> stored([Cleaned, chunked, embedded and<br/>stored under your account])
+    server -- ok --> stored([Cleaned, chunked, embedded and<br/>stored: encrypted on the device,<br/>or on the server])
 ```
 
 ### What automatic capture skips

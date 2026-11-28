@@ -1,28 +1,39 @@
-\begin{tikzpicture}[x=3.05cm, y=0.5cm]
-  \foreach \i/\t in {0/{Reader}, 1/{:Web app}, 2/{:FastAPI}, 3/{:Embedding\\model}, 4/{:Solr}} {
+\begin{tikzpicture}[x=2.55cm, y=0.5cm]
+  \foreach \i/\t in {0/{Reader}, 1/{:Web app}, 2/{:Extension\\(local engine)}, 3/{:FastAPI}, 4/{:Embedding\\model}, 5/{:Solr}} {
     \node[lifehead] (h\i) at (\i,0) {\t};
-    \draw[life] (h\i.south) -- (\i,-15.2);
+    \draw[life] (h\i.south) -- (\i,-20.4);
   }
-  \node[act, fit={(1,-1.6) (1,-14.6)}] {};
-  \node[act, fit={(2,-2.5) (2,-13.8)}] {};
+  \node[act, fit={(1,-1.6) (1,-19.8)}] {};
+  \node[act, fit={(2,-3.4) (2,-5.0)}] {};
+  \node[act, fit={(3,-6.6) (3,-17.0)}] {};
   \newcommand{\m}[4]{\draw[msg] (#1,#3) -- node[mlabel, fill=white] {#4} (#2,#3);}
   \newcommand{\rt}[4]{\draw[ret] (#1,#3) -- node[mlabel, fill=white] {#4} (#2,#3);}
   \newcommand{\self}[3]{\draw[msg] (#1,#2) -- ++(0.1,0) -- ++(0,-0.75) node[font=\scriptsize, right, pos=0.5, align=left, fill=white, inner sep=1pt] {#3} -- ++(-0.1,0);}
 
   \m{0}{1}{-1.6}{type or speak a query}
-  \m{1}{2}{-2.5}{POST /api/search \{query\}}
-  \self{2}{-3.1}{verify token\\$\rightarrow$ library id}
-  % par frame
-  \draw (1.6,-4.6) rectangle (4.35,-10.1);
-  \node[draw, fill=white, font=\tiny, anchor=north west, inner sep=1.5pt] at (1.6,-4.6) {par};
-  \m{2}{4}{-5.4}{BM25, user filter, top 50}
-  \draw[densely dashed] (1.6,-6.1) -- (4.35,-6.1);
-  \m{2}{3}{-6.9}{embed query (cached)}
-  \rt{3}{2}{-7.7}{384-d vector}
-  \m{2}{4}{-8.6}{KNN top 50, user pre-filter}
-  \rt{4}{2}{-9.5}{ranked chunk lists}
-  \self{2}{-10.7}{RRF fusion;\\group into pages}
-  \self{2}{-12.2}{relevance floor;\\snippets}
-  \rt{2}{1}{-13.8}{up to 10 pages}
-  \rt{1}{0}{-14.6}{results with snippets}
+  % outer par: pages on this device, pages on the server
+  \draw (0.55,-2.3) rectangle (5.4,-17.6);
+  \node[draw, fill=white, font=\tiny, anchor=north west, inner sep=1.5pt] at (0.55,-2.3) {par};
+  \node[font=\tiny, anchor=east] at (5.35,-2.75) {[pages on this device]};
+  \m{1}{2}{-3.4}{SEARCH (this library only)}
+  \self{2}{-3.9}{same pipeline,\\over IndexedDB}
+  \rt{2}{1}{-5.0}{ranked pages}
+  \draw[densely dashed] (0.55,-5.6) -- (5.4,-5.6);
+  \node[font=\tiny, anchor=east] at (5.35,-6.0) {[pages on the server]};
+  \m{1}{3}{-6.6}{POST /api/search \{query\}}
+  \self{3}{-7.1}{verify token\\$\rightarrow$ library id}
+  % inner par: keyword and vector search
+  \draw (2.6,-8.5) rectangle (5.3,-13.4);
+  \node[draw, fill=white, font=\tiny, anchor=north west, inner sep=1.5pt] at (2.6,-8.5) {par};
+  \m{3}{5}{-9.2}{BM25, user filter, top 50}
+  \draw[densely dashed] (2.6,-9.8) -- (5.3,-9.8);
+  \m{3}{4}{-10.5}{embed query (cached)}
+  \rt{4}{3}{-11.3}{384-d vector}
+  \m{3}{5}{-12.2}{exact vectors, top 50}
+  \rt{5}{3}{-13.0}{ranked chunk lists}
+  \self{3}{-13.9}{RRF fusion;\\group into pages}
+  \self{3}{-15.3}{relevance floor;\\snippets}
+  \rt{3}{1}{-17.0}{up to 10 pages}
+  \self{1}{-18.1}{fuse both lists\\(RRF, k = 60)}
+  \rt{1}{0}{-19.8}{results with snippets}
 \end{tikzpicture}

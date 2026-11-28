@@ -11,9 +11,12 @@ Figure~\ref{fig:components} shows the implemented system as UML components.
 The \textbf{Chrome extension} and the \textbf{web app} both require the HTTPS
 interface that \textbf{Caddy} provides; Caddy serves the built web app and
 requires the REST API that the \textbf{FastAPI backend} provides. The backend
-requires Solr's HTTP API, SQL access to two SQLite databases, and three
+requires Solr's HTTP API, SQL access to three SQLite databases, and three
 external interfaces: Cognito for identity, Gemini for summaries and SES for
-email. The browser clients also use Cognito directly to sign in.
+email. The browser clients also use Cognito directly to sign in. Inside the
+browser, the extension provides the website its device pages (site
+messages) and requires the \textbf{local engine}, which saves and searches
+pages kept on the device (Section~\ref{sec:local-engine}).
 
 \begin{figure}[H]
 \centering
@@ -33,12 +36,12 @@ the three Docker containers, their volumes and their connections.
 \centering
 \begin{tikzpicture}[node distance=6mm and 10mm]
   \tikzset{vol/.style={db, minimum width=17mm, minimum height=8mm, font=\scriptsize, fill=white}}
-  \node[comp, minimum width=31mm] (caddy) {$\ll$container$\gg$\\\textbf{caddy}\\\scriptsize ports 80, 443\\\scriptsize certificates, web app,\\\scriptsize extension zip, \texttt{/api} proxy};
+  \node[comp, minimum width=31mm] (caddy) {$\ll$container$\gg$\\\textbf{caddy}\\\scriptsize ports 80, 443\\\scriptsize certificates, web app,\\\scriptsize extension zip, \texttt{/models},\\\scriptsize \texttt{/api} proxy};
   \node[comp, right=9mm of caddy, minimum width=29mm] (backend) {$\ll$container$\gg$\\\textbf{backend}\\\scriptsize FastAPI + bge-small\\\scriptsize no published port};
   \node[comp, right=9mm of backend, minimum width=28mm] (solr) {$\ll$container$\gg$\\\textbf{solr} 9.7\\\scriptsize 1\,GB heap\\\scriptsize \texttt{127.0.0.1:8983}};
   \node[vol, below=8mm of caddy] (v1) {caddy\_data};
   \node[vol, below=8mm of backend, xshift=-9.5mm] (v2) {models};
-  \node[vol, below=8mm of backend, xshift=9.5mm] (v3) {accounts};
+  \node[vol, below=8mm of backend, xshift=9.5mm, align=center] (v3) {accounts\\[-1pt]\tiny + keys, backups};
   \node[vol, below=8mm of solr] (v4) {solr\_data};
   \draw[flow] (caddy) -- node[lbl, above] {HTTP} (backend);
   \draw[flow] (backend) -- node[lbl, above] {HTTP} (solr);
@@ -47,7 +50,7 @@ the three Docker containers, their volumes and their connections.
     \node[group, fill=gray!4, fit=(caddy)(solr)(v1)(v4), inner sep=9pt,
           label={[font=\small\bfseries]above:$\ll$node$\gg$ AWS EC2 c7i-flex.large $\cdot$ Docker Compose}] (ec2) {};
   \end{scope}
-  \node[box, left=12mm of caddy] (net) {$\ll$device$\gg$\\Browser};
+  \node[box, left=12mm of caddy] (net) {$\ll$device$\gg$\\Browser\\[1mm]\scriptsize web app\\\scriptsize extension:\\\scriptsize local engine,\\\scriptsize IndexedDB};
   \draw[flow] (net) -- node[lbl, above] {HTTPS} (caddy);
 \end{tikzpicture}
 \caption{Deployment diagram: nodes, containers and volumes}
@@ -55,7 +58,8 @@ the three Docker containers, their volumes and their connections.
 \end{figure}
 
 Caddy \cite{caddy} obtains and renews certificates automatically, redirects
-HTTP to HTTPS with HSTS, serves the web app and the extension download, sets
+HTTP to HTTPS with HSTS, serves the web app, the extension download and the
+search model for the local engine (\texttt{/models}), sets
 the Content Security Policy and proxies \texttt{/api/*} to the backend. Only
 ports 80 and 443 are open: the backend is reachable only through Caddy, and
 Solr listens on the server's localhost.
@@ -113,7 +117,9 @@ is not private, the user has read it (30\,s in view, or scrolled halfway after
 5\,s), and it reads like content (at least 150 readable words, mostly not
 links, no visible password field or large editor, not marked
 \texttt{noindex}). The server applies the address rules again, and an
-automatic save never rewrites a page already in the library.
+automatic save never rewrites a page already in the library. By default the
+page is then processed and stored by the local engine in the extension; it
+goes to the server only when the reader chose server storage.
 
 \subsection{Backend: Saving}
 
@@ -523,11 +529,11 @@ engine (Section~\ref{sec:local-engine}).
 
 \begin{figure}[H]
 \centering
-\begin{tikzpicture}[x=1.45cm]
-  \draw[thick,->] (0,0) -- (9.6,0);
+\begin{tikzpicture}[x=1.32cm]
+  \draw[thick,->] (0,0) -- (10.6,0);
   \foreach \x/\m in {0/Jul, 1.6/Aug, 3.2/Sep, 4.8/Oct, 6.4/Nov}
     \node[font=\scriptsize\bfseries, below] at (\x,-0.12) {\m};
-  \foreach \x in {0.1,1.5,2.4,3.4,5.4,6.6,7.9,9.0}
+  \foreach \x in {0.1,1.5,2.4,3.4,5.4,6.6,7.9,9.0,10.0}
     \fill (\x,0) circle (2pt);
   \node[font=\scriptsize, align=center, above=3mm] at (0.1,0) {Repository\\ set up};
   \node[font=\scriptsize, align=center, below=5mm] at (1.5,0) {First working\\ prototype};
@@ -537,6 +543,7 @@ engine (Section~\ref{sec:local-engine}).
   \node[font=\scriptsize, align=center, below=5mm] at (6.6,0) {Site and time\\ queries, account\\ linking};
   \node[font=\scriptsize, align=center, above=3mm] at (7.9,0) {Bug audit,\\ capture rules,\\ ADRs};
   \node[font=\scriptsize, align=center, below=5mm] at (9.0,0) {Re-evaluation,\\ ranking fix};
+  \node[font=\scriptsize, align=center, above=3mm] at (10.0,0) {Local engine,\\ device storage,\\ backups};
 \end{tikzpicture}
 \caption{Project timeline, July--November 2026}
 \label{fig:timeline}
@@ -552,6 +559,7 @@ engine (Section~\ref{sec:local-engine}).
 Users & One user, no sign-in & Multi-user, Amazon Cognito, linked by verified email \\
 Capture & TamperMonkey script, then a basic extension & Manifest V3 extension with automatic-capture rules \\
 Deployment & Local Docker & AWS EC2, Docker Compose, Caddy with HTTPS \\
+Storage & Server only & On the device by default (encrypted), the server by choice or past a size limit \\
 Embedding model & \texttt{all-MiniLM-L6-v2} & \texttt{bge-small-en-v1.5} with a query instruction \\
 Chunking & 300--500 words & 150 words, 30-word overlap, title embedded \\
 Fusion & Min-max scores, 0.5\,/\,0.5 & Reciprocal Rank Fusion ($k=60$) \\
@@ -568,7 +576,7 @@ Evaluation & 3 metrics, 3 runs & 7 quality metrics, latency, bootstrap intervals
 \label{tab:prototype-vs-final}
 \end{table}
 
-\paragraph{Completed, partial and omitted features.} All twelve functional
+\paragraph{Completed, partial and omitted features.} All fifteen functional
 requirements are delivered. Two built features were \emph{omitted} on
 purpose: the library map (a clustered view of the library) and ``Export my
 data'' were removed as costly or little used (ADRs 0009, 0010). The optional

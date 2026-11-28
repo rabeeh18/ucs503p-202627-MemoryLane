@@ -73,8 +73,13 @@ Figure~\ref{fig:class-backend} shows the core of the backend: the save
 pipeline (\texttt{ingest}), the search (\texttt{retrieval}) and the only class
 that talks to Solr, which adds the user filter to every request.
 Figure~\ref{fig:class-client} shows the client side of deleting and signing
-in. Python and JavaScript modules are drawn as classes with the stereotype
-$\ll$module$\gg$; dashed arrows are dependencies.
+in, and Figure~\ref{fig:class-engine} the extension's local engine. The engine
+depends on a \texttt{Storage} interface, not on IndexedDB: the extension uses
+\texttt{IdbStorage}, the tests \texttt{MemoryStorage}. \texttt{LocalIndex}
+answers the same questions the server's \texttt{SolrClient} does, so the
+ported search runs unchanged over either. Python and JavaScript modules are
+drawn as classes with the stereotype $\ll$module$\gg$; dashed arrows are
+dependencies, filled diamonds composition, open triangles realisation.
 
 \begin{figure}[H]
 \centering
@@ -90,25 +95,41 @@ $\ll$module$\gg$; dashed arrows are dependencies.
 \label{fig:class-client}
 \end{figure}
 
+\begin{figure}[H]
+\centering
+\input{figures/class-engine}
+\caption{Class diagram: the local engine in the extension}
+\label{fig:class-engine}
+\end{figure}
+
 \section{Sequence Diagrams}
 
-Figure~\ref{fig:seq-save} shows a manual save, including the case where the
-page has not changed; Figure~\ref{fig:seq-search} a search, with the keyword
-and vector searches running in parallel; and Figure~\ref{fig:seq-signin} a
+Figure~\ref{fig:seq-save} shows a manual save to the server, including the
+case where the page has not changed; Figure~\ref{fig:seq-save-device} the same
+save kept on the device (the default), where the server's saving code runs in
+Pyodide; Figure~\ref{fig:seq-search} a search, with the device and the server
+searched in parallel and their results fused; and Figure~\ref{fig:seq-signin} a
 sign-in with PKCE followed by the first API request, which finds the library
 for the sign-in.
 
 \begin{figure}[H]
 \centering
 \input{figures/seq-save}
-\caption{Sequence diagram: saving a page}
+\caption{Sequence diagram: saving a page on the server}
 \label{fig:seq-save}
 \end{figure}
 
 \begin{figure}[H]
 \centering
+\input{figures/seq-save-device}
+\caption{Sequence diagram: saving a page on the device}
+\label{fig:seq-save-device}
+\end{figure}
+
+\begin{figure}[H]
+\centering
 \input{figures/seq-search}
-\caption{Sequence diagram: a search}
+\caption{Sequence diagram: a search over the device and the server}
 \label{fig:seq-search}
 \end{figure}
 

@@ -6,7 +6,7 @@
   \node[umlclass=46mm, anchor=north west] (api) at (3.4,1.6) {%
     \centering$\ll$module$\gg$\\\textbf{api}
     \nodepart{second}\textit{API\_BASE, TIMEOUT\_MS}
-    \nodepart{third}+ search(query, signal)\\+ listMemories(limit, offset)\\+ fetchSummary(\{query, id\})\\+ deletePage(id, \{keepalive\})\\+ deleteAllData()};
+    \nodepart{third}+ search(query, signal): device + server\\+ mergeRanked(lists, limit)\\+ listMemories(limit, offset)\\+ fetchSummary(\{query, id\})\\+ deletePage(id, \{keepalive\})\\+ deleteAllData()};
   \node[umlclass=30mm, anchor=north west] (apierr) at (9.1,1.6) {%
     \textbf{ApiError}
     \nodepart{second}+ message: str\\+ status: int

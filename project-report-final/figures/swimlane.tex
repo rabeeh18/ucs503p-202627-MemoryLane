@@ -23,6 +23,8 @@
   \node[adecide] (d2) at (4.75,-6.65) {read?};
   \node[action] (a4) at (4.75,-7.9) {Extract HTML, text and content signals};
   \node[adecide] (d3) at (4.75,-9.2) {content?};
+  \node[adecide] (d5) at (4.75,-10.4) {where?};
+  \node[action] (a10) at (4.75,-12.0) {Clean, chunk, embed on the device; store encrypted (IndexedDB)};
   \node[action] (a5) at (8.9,-10.4) {Verify token; re-check address and \texttt{noindex}};
   \node[adecide] (d4) at (8.9,-11.65) {allowed?};
   \node[action] (a6) at (8.9,-12.9) {Clean, chunk, embed (an existing page is kept)};
@@ -40,7 +42,10 @@
   \draw[->] (a3) -- (d2);
   \draw[->] (d2) -- node[tlabel, right] {yes} (a4);
   \draw[->] (a4) -- (d3);
-  \draw[->] (d3.south) |- node[tlabel, pos=0.25, left] {yes} (a5.west);
+  \draw[->] (d3) -- node[tlabel, right] {yes} (d5);
+  \draw[->] (d5) -- node[tlabel, above] {server} (a5);
+  \draw[->] (d5) -- node[tlabel, right] {device (default)} (a10);
+  \draw[->] (a10) -- (a8);
   \draw[->] (a5) -- (d4);
   \draw[->] (d4) -- node[tlabel, right] {yes} (a6);
   \draw[->] (a6) -- (a7);

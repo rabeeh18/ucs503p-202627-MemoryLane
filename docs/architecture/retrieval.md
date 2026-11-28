@@ -34,31 +34,39 @@ sequenceDiagram
     autonumber
     actor U as User
     participant W as Web app
+    participant X as Extension (local engine)
     participant A as FastAPI
     participant E as Embedding model
     participant S as Solr
 
     U->>W: Type or speak a query
-    W->>A: POST /api/search {query}
-    A->>A: Verify token → user_id
-    par Keyword search
-        A->>S: BM25 (edismax, user filter) → top 50 chunks
-    and Meaning search
-        A->>E: Embed query (cached)
-        E-->>A: 384-d vector
-        A->>S: KNN topK=50 (user pre-filter)
-    and Site, time or URL in the query (only if found)
-        A->>S: BM25 + KNN within those domains / dates
+    par Pages on this device
+        W->>X: SEARCH (this library only)
+        X->>X: The same pipeline, over IndexedDB
+        X-->>W: Ranked pages
+    and Pages on the server
+        W->>A: POST /api/search {query}
+        A->>A: Verify token → user_id
+        par Keyword search
+            A->>S: BM25 (edismax, user filter) → top 50 chunks
+        and Meaning search
+            A->>E: Embed query (cached)
+            E-->>A: 384-d vector
+            A->>S: Exact vector scoring, top 50 (user filter)
+        and Site, time or URL in the query (only if found)
+            A->>S: BM25 + vectors within those domains / dates
+        end
+        S-->>A: Ranked chunk lists
+        A->>A: Reciprocal Rank Fusion
+        A->>A: Group chunks into pages (best chunk's score)
+        opt Keyword matches without a similarity
+            A->>S: One vector search restricted to those pages
+        end
+        A->>A: Relevance floor
+        A->>A: Snippets (2–3 sentences per page)
+        A-->>W: Up to 10 pages
     end
-    S-->>A: Ranked chunk lists
-    A->>A: Reciprocal Rank Fusion
-    A->>A: Group chunks into pages (best chunk's score)
-    opt Keyword matches without a similarity
-        A->>S: One KNN restricted to those pages
-    end
-    A->>A: Relevance floor
-    A->>A: Snippets (2–3 sentences per page)
-    A-->>W: Up to 10 pages
+    W->>W: Fuse the two lists (RRF, k = 60), or use one list if every page is in one place
     W-->>U: Results with snippets
 ```
 

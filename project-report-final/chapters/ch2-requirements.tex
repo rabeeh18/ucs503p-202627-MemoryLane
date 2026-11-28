@@ -64,6 +64,8 @@ FR-15 & Device pages can be backed up encrypted with a recovery key only the use
   \node[usecase] (exclude) at (-3.75,-3.75) {Exclude a site};
   \node[usecase] (yt)      at (-3.75,-5.0)  {Save a YouTube video};
   \node[usecase] (undo)    at (-3.75,-6.25) {Undo / remove a save};
+  \node[usecase] (where)   at (-3.75,-7.5)  {Choose where to keep pages};
+  \node[usecase] (backup)  at (-3.75,-8.75) {Back up / restore pages};
   \node[usecase] (search)  at (3.75, 0.0)  {Search by description};
   \node[usecase] (voice)   at (3.75,-1.25) {Search by voice};
   \node[usecase] (summ)    at (3.75,-2.5)  {Summarise a result};
@@ -71,12 +73,12 @@ FR-15 & Device pages can be backed up encrypted with a recovery key only the use
   \node[usecase] (del)     at (3.75,-5.0)  {Delete a page / all data};
   \node[usecase] (report)  at (3.75,-6.25) {Report a problem};
   \begin{scope}[on background layer]
-    \node[group, fill=gray!4, fit=(signin)(undo), inner sep=7pt] (extbox) {};
+    \node[group, fill=gray!4, fit=(signin)(where)(backup), inner sep=7pt] (extbox) {};
     \node[group, fill=gray!4, fit=(search)(report), inner sep=7pt] (webbox) {};
   \end{scope}
   \node[font=\small\bfseries, anchor=south] at (extbox.north) {Chrome extension};
   \node[font=\small\bfseries, anchor=south] at (webbox.north) {Web app};
-  \foreach \u in {signin,save,auto,exclude,yt,undo}
+  \foreach \u in {signin,save,auto,exclude,yt,undo,where,backup}
     \draw (-0.35,-3.1) -- (\u.east);
   \foreach \u in {search,voice,summ,lib,del,report}
     \draw (0.35,-3.1) -- (\u.west);
@@ -87,8 +89,10 @@ FR-15 & Device pages can be backed up encrypted with a recovery key only the use
 \label{fig:usecases}
 \end{figure}
 
-The diagram shows the two actors and the twelve use cases, grouped by where
+The diagram shows the two actors and the fourteen use cases, grouped by where
 they happen. Voice search extends search: it only fills the search box.
+Choosing where pages are kept and backing them up happen in the extension's
+settings, because the pages on the device live in the extension.
 
 \subsection{Use Case Templates}
 
@@ -209,7 +213,8 @@ Figure~\ref{fig:activity} follows one search from query to result, with the
 parallel searches as a fork and join. Figure~\ref{fig:swimlane} follows an
 automatic capture across the four parties involved; a decision that says
 ``no'' ends the flow there (flow-final node), so a page that fails any test
-is never sent or stored.
+is never sent or stored. A page that passes is kept on the device by default,
+or sent to the server if the reader chose that.
 
 \begin{figure}[H]
 \centering
@@ -239,11 +244,13 @@ entities and the data that crosses the boundary.
 
 \subsection{DFD Level 1}
 
-Level 1 splits the system into six processes and three data stores. It is
+Level 1 splits the system into six processes and four data stores. It is
 balanced with level 0: the reader's pages, queries and deletes go in, and
 results, snippets and summaries come out; tokens flow with Cognito,
 page text with Gemini and reports to SES. Every flow that touches D1 carries
-the caller's verified library id.
+the caller's verified library id. D4 is the encrypted store in the browser:
+pages are saved there by default, searched and listed from there, and the
+oldest move to D1 past the size limit.
 
 \begin{figure}[H]
 \centering
@@ -397,8 +404,8 @@ FR-09 & UC-3 & US-6 & Fig.~\ref{fig:activity} & TC-14 \\
 FR-10 & UC-4 & US-7 & Fig.~\ref{fig:collab-delete}, \ref{fig:state-page}, \ref{fig:class-client} & TC-08, TC-09, TC-10 \\
 FR-11 & -- & US-9 & Fig.~\ref{fig:dfd1} (6) & TC-15 \\
 FR-12 & -- & -- & Fig.~\ref{fig:components} & TC-19 \\
-FR-13 & UC-1, UC-3 & US-1, US-4 & Table~\ref{tab:local-engine} & TC-21, TC-22, TC-23 \\
-FR-14 & -- & -- & Table~\ref{tab:local-engine} & TC-24 \\
+FR-13 & UC-1, UC-3 & US-1, US-4 & Fig.~\ref{fig:class-engine}, \ref{fig:seq-save-device}, \ref{fig:seq-search} & TC-21, TC-22, TC-23 \\
+FR-14 & -- & -- & Fig.~\ref{fig:dfd1} (D4), \ref{fig:seq-save-device} & TC-24 \\
 FR-15 & -- & -- & Table~\ref{tab:local-engine} & TC-24 \\
 \bottomrule
 \end{tabularx}

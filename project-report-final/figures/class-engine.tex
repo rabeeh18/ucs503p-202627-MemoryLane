@@ -1,0 +1,53 @@
+\begin{tikzpicture}[>={Stealth[length=2mm]}]
+  % three columns, 44 mm wide, 6 mm apart
+  \def\ca{0} \def\cb{5.0} \def\cc{10.0}
+  % ---- row 1: the engine and what it uses --------------------------------------
+  \node[umlclass=40mm, anchor=north west] (emb) at (\ca,0) {%
+    \centering$\ll$module$\gg$\\\textbf{embedder}
+    \nodepart{second}bge-small; WebGPU or WASM
+    \nodepart{third}+ embedQuery(q)\\+ embedPassages(texts)};
+  \node[umlclass=44mm, anchor=north west] (engine) at (\cb,0) {%
+    \textbf{LocalEngine}
+    \nodepart{second}+ libraryId: str\\-- queue: one write at a time
+    \nodepart{third}+ open(): stats\\+ save(body): \{status, page\}\\+ search(query, n): results\\+ status(url, canonical)\\+ list(limit, offset)\\+ exportPage(id) / importPage(p)\\+ deletePage(id)};
+  \node[umlclass=40mm, anchor=north west] (ing) at (\cc,0) {%
+    \centering$\ll$module$\gg$\\\textbf{ingest}
+    \nodepart{second}Pyodide + backend/ingest.py
+    \nodepart{third}+ preparePage(request,\\\quad lookupHead)};
+  % ---- row 2: what the engine is made of ---------------------------------------
+  \node[umlclass=40mm, anchor=north west] (store) at (\ca,-4.9) {%
+    \textbf{PageStore}
+    \nodepart{second}-- key: CryptoKey (device key)\\-- sizes: Map\textless id, bytes\textgreater
+    \nodepart{third}+ loadAll(): pages\\+ putPage(page, chunks)\\+ readPage(id) / deletePage(id)};
+  \node[umlclass=44mm, anchor=north west] (index) at (\cb,-4.9) {%
+    \textbf{LocalIndex}
+    \nodepart{second}-- chunks, pages: Map\\-- vectors: int8 + scale
+    \nodepart{third}+ bm25Search(q, \{rows, filters\})\\+ knnSearch(v, \{k, pageIds\})\\+ recentPages(f) / listDomains()\\+ getPageHead(id)};
+  \node[umlclass=40mm, anchor=north west] (bm25) at (\cc,-4.9) {%
+    \textbf{Bm25Index}
+    \nodepart{second}-- title, text: postings, norms
+    \nodepart{third}+ add(doc, title, text)\\+ remove(doc)};
+  % ---- row 3: storage behind an interface --------------------------------------
+  \node[umlclass=40mm, anchor=north west] (storage) at (\ca,-8.6) {%
+    \centering$\ll$interface$\gg$\\\textbf{Storage}
+    \nodepart{second}\textit{(none)}
+    \nodepart{third}+ getAll() / get(id)\\+ put(record) / delete(id)};
+  \node[umlclass=44mm, anchor=north west] (idb) at (\cb,-8.6) {%
+    \textbf{IdbStorage}
+    \nodepart{second}-- db: one IndexedDB per library
+    \nodepart{third}+ destroy()};
+  \node[umlclass=40mm, anchor=north west] (mem) at (\cc,-8.6) {%
+    \textbf{MemoryStorage}
+    \nodepart{second}-- records: Map
+    \nodepart{third}\textit{for tests}};
+
+  % ---- relationships -----------------------------------------------------------
+  \draw[->, densely dashed] (engine.west |- emb.text split) -- (emb.east |- emb.text split);
+  \draw[->, densely dashed] (engine.east |- ing.text split) -- (ing.west |- ing.text split);
+  \draw[-{Diamond[fill=black, length=2.6mm]}] (store.north) -- ++(0,0.35) -| ([xshift=-6mm]engine.south);
+  \draw[-{Diamond[fill=black, length=2.6mm]}] (index.north) -- (index.north |- engine.south);
+  \draw[-{Diamond[fill=black, length=2.6mm]}] (bm25.west |- index.text split) -- (index.east |- index.text split);
+  \draw[->, densely dashed] (store.south) -- node[font=\tiny, right] {$\ll$use$\gg$} (storage.north);
+  \draw[-{Triangle[open, length=2.6mm]}, densely dashed] (idb.west |- storage.text split) -- (storage.east |- storage.text split);
+  \draw[-{Triangle[open, length=2.6mm]}, densely dashed] (mem.south) -- ++(0,-0.35) -| ([xshift=6mm]storage.south);
+\end{tikzpicture}

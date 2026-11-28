@@ -7,7 +7,7 @@
 
   \node[startdot] (s) at (0,0) {};
   \node[action] (a1) at (0,-0.9)  {Type or speak a query};
-  \node[action] (a2) at (0,-2.0)  {Send it with the access token};
+  \node[action] (a2) at (0,-2.0)  {Send to the server and the extension};
   \node[adecide] (d1) at (0,-3.2) {token\\valid?};
   \node[action] (a3) at (0,-4.45) {Read site, time and URL hints in the query};
   \node[bar, minimum width=96mm] (fork) at (0,-5.45) {};
@@ -18,7 +18,7 @@
   \node[action] (a4) at (0,-8.3)  {Fuse ranks (RRF); group chunks into pages};
   \node[action] (a5) at (0,-9.4)  {Drop weak matches (relevance floor)};
   \node[adecide] (d2) at (0,-10.6) {any page\\left?};
-  \node[action] (a6) at (0,-11.85) {Pick snippets; show up to 10 pages};
+  \node[action] (a6) at (0,-11.85) {Merge with the device list; show up to 10};
   \node[adecide] (d3) at (0,-13.05) {summary\\wanted?};
   \node[action] (a7) at (3.6,-13.05) {Summarise that page with Gemini};
   \node[action] (a8) at (0,-14.3) {Open the page};

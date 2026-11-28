@@ -34,7 +34,7 @@ YouTube data is fetched by the extension inside the user's YouTube tab, so it re
 
 ## Level 1: main processes
 
-Level 1 opens the system into six processes and three data stores. It's drawn in two halves so the lines stay readable. A two-headed arrow is a request and its answer, labelled *request / answer*.
+Level 1 opens the system into six processes and four data stores (D4 is the encrypted store in the browser, for pages kept on the device). It's drawn in two halves so the lines stay readable. A two-headed arrow is a request and its answer, labelled *request / answer*.
 
 ### Saving and finding pages
 
@@ -52,19 +52,24 @@ flowchart TB
 
     d1[("D1 accounts.db<br/>sign-in links")]
     d2[("D2 Solr<br/>chunks, vectors, metadata")]
+    d4[("D4 Device store<br/>IndexedDB, encrypted")]
 
     user -->|"access token"| p1
     p1 <-->|"token / email, verified"| cognito
-    p1 <-->|"sub / library"| d1
+    p1 <-->|"sub / library, device key"| d1
 
     user <-->|"page / saved status"| p2
     youtube -->|"captions + details"| p2
-    p2 -->|"chunks, embeddings, description"| d2
+    p2 -->|"chunks, embeddings (default)"| d4
+    p2 -->|"chunks, embeddings (server)"| d2
+    d4 -->|"oldest pages past the limit"| d2
 
     user <-->|"query / ranked pages + snippets"| p3
-    d2 -->|"BM25 + KNN matches"| p3
+    d4 -->|"BM25 + vector matches"| p3
+    d2 -->|"BM25 + vector matches"| p3
 
     user <-->|"page id / summary"| p4
+    d4 -->|"page text"| p4
     d2 -->|"page text"| p4
     p4 <-->|"text + query / summary"| gemini
 ```
@@ -82,9 +87,11 @@ flowchart LR
     d1[("D1 accounts.db<br/>sign-in links")]
     d2[("D2 Solr<br/>chunks, vectors, metadata")]
     d3[("D3 reports.db<br/>problem reports")]
+    d4[("D4 Device store<br/>IndexedDB, encrypted")]
 
     user <-->|"list, delete, delete all /<br/>pages"| p5
     p5 <-->|"pages"| d2
+    p5 <-->|"pages on the device"| d4
     p5 -->|"delete links"| d1
     p5 <-->|"user's reports"| d3
 
@@ -98,8 +105,8 @@ Processes 2.0 to 6.0 all get the `user_id` from 1.0 Authenticate; those arrows a
 | Process | Code | What it does |
 | --- | --- | --- |
 | 1.0 Authenticate | `backend/auth.py`, `backend/accounts.py` | Verifies the token; maps the sign-in to its library, linking Google and email sign-ins with the same verified email |
-| 2.0 Save page | `extension/background.js`, `backend/ingest.py` | Captures the page (or a video's captions), cleans, chunks, embeds and stores it |
-| 3.0 Search | `backend/retrieval.py`, `backend/query_intent.py`, `backend/snippets.py` | Hybrid BM25 + vector search, fusion, relevance floor, snippets |
+| 2.0 Save page | `extension/background.js`, `backend/ingest.py` (also run in the extension by `extension/engine/`) | Captures the page (or a video's captions), cleans, chunks, embeds and stores it: on the device (D4) by default, or on the server (D2) |
+| 3.0 Search | `backend/retrieval.py`, `backend/query_intent.py`, `backend/snippets.py`; `extension/engine/retrieval.js` for D4 | Hybrid BM25 + vector search, fusion, relevance floor, snippets; the website fuses device and server results |
 | 4.0 Summarise | `backend/summarizer.py` | Sends one page's stored text to Gemini |
 | 5.0 Manage library | `backend/main.py` | Lists pages, deletes one, and deletes everything |
 | 6.0 Report a problem | `backend/reports.py` | Stores the report, then emails it in the background with retries |

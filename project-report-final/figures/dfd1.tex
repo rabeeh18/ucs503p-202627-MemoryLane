@@ -1,10 +1,11 @@
-\begin{tikzpicture}[scale=0.86, transform shape, proc/.append style={minimum size=18mm, font=\scriptsize}]
+\begin{tikzpicture}[scale=0.8, transform shape, proc/.append style={minimum size=18mm, font=\scriptsize}]
   \newcommand{\dstore}[2]{\makebox[6.6mm][l]{#1}#2}
+  \tikzset{wl/.style={lbl, fill=white, inner sep=1pt}}
   % external entities
   \node[entity] (user) at (-5.7, 0)   {Reader};
   \node[entity] (cog)  at (-5.7, 4.2) {Cognito};
-  \node[entity] (gem)  at (7.5, 1.05) {Gemini};
-  \node[entity] (ses)  at (7.5,-4.2)  {SES};
+  \node[entity] (gem)  at (8.9, 0)    {Gemini};
+  \node[entity] (ses)  at (8.6,-4.2)  {SES};
 
   % processes
   \node[proc] (p1) at (-2.3, 4.2) {\textbf{1}\\Authenticate};
@@ -12,12 +13,13 @@
   \node[proc] (p3) at (-2.3, 0.0) {\textbf{3}\\Search};
   \node[proc] (p5) at (-2.3,-2.1) {\textbf{5}\\Manage\\library};
   \node[proc] (p6) at (-2.3,-4.2) {\textbf{6}\\Report a\\problem};
-  \node[proc] (p4) at (5.0, 1.05) {\textbf{4}\\Summarise};
+  \node[proc] (p4) at (6.1, 0)    {\textbf{4}\\Summarise};
 
   % data stores
-  \node[store, minimum width=31mm] (d2) at (1.6, 4.2)  {\dstore{D2}{accounts.db}};
-  \node[store, minimum width=31mm] (d1) at (1.6, 1.05) {\dstore{D1}{Solr index}};
-  \node[store, minimum width=31mm] (d3) at (1.6,-4.2)  {\dstore{D3}{reports.db}};
+  \node[store, minimum width=31mm] (d2) at (2.6, 4.2)  {\dstore{D2}{accounts.db}};
+  \node[store, minimum width=31mm] (d1) at (2.6, 1.4)  {\dstore{D1}{Solr index}};
+  \node[store, minimum width=31mm] (d4) at (2.6,-1.4)  {\dstore{D4}{device store}};
+  \node[store, minimum width=31mm] (d3) at (2.6,-4.2)  {\dstore{D3}{reports.db}};
 
   % flows from the reader
   \foreach \p/\t in {p1/sign-in, p2/page, p3/query, p5/delete, p6/message}
@@ -25,10 +27,19 @@
 
   \draw[flow, <->] (p1) -- node[lbl, above] {code, tokens} (cog);
   \draw[flow, <->] (p1) -- node[lbl, above] {library id} (d2);
-  \draw[flow] (p2.east) -- node[lbl, sloped, above, pos=0.45] {chunks, vectors} ([yshift=1.5mm]d1.west);
-  \draw[flow] ([yshift=-1.5mm]d1.west) -- node[lbl, sloped, below, pos=0.5] {ranked chunks} (p3.east);
-  \draw[flow, <->] (p5.east) -- node[lbl, sloped, below, pos=0.5] {list, delete} (d1.south west);
-  \draw[flow] (d1) -- node[lbl, above] {page text} (p4);
+  % capture writes to the device store (default) or to Solr
+  \draw[flow] (p2.east) -- node[wl, pos=0.3] {chunks (server)} ([yshift=1.5mm]d1.west);
+  \draw[flow] (p2.south east) -- node[wl, pos=0.78] {chunks (default)} ([yshift=1.5mm]d4.west);
+  % search reads both stores
+  \draw[flow] ([yshift=-1.5mm]d1.west) -- node[wl, pos=0.25] {ranked chunks} (p3.north east);
+  \draw[flow] ([yshift=-1.5mm]d4.west) -- node[wl, pos=0.25] {ranked chunks} (p3.south east);
+  % manage lists and deletes in both
+  \draw[flow, <->] (p5.north east) -- node[wl, pos=0.75] {list, delete} ([xshift=6mm]d1.south west);
+  \draw[flow, <->] (p5.east) -- node[wl, pos=0.45] {list, delete} ([xshift=6mm]d4.south west);
+  % overflow and summaries
+  \draw[flow] ([xshift=-5mm]d4.north east) -- node[lbl, left] {oldest past the limit} ([xshift=-5mm]d1.south east);
+  \draw[flow] (d1.east) -- node[lbl, sloped, above] {page text} (p4);
+  \draw[flow] (d4.east) -- node[lbl, sloped, below] {page text} (p4);
   \draw[flow, <->] (p4) -- node[lbl, above] {summary} (gem);
   \draw[flow] (p6) -- node[lbl, above] {report} (d3);
   \draw[flow] (d3) -- node[lbl, above] {email} (ses);

@@ -44,6 +44,9 @@ erDiagram
     LIBRARY ||--o{ SIGN_IN : "reached by"
     LIBRARY ||--o| EMAIL_LINK : "claimed by"
     LIBRARY ||--o{ REPORT : sends
+    LIBRARY ||--o{ DEVICE_PAGE : "keeps in a browser"
+    LIBRARY ||--|| DEVICE_KEY : "encrypts device pages with"
+    LIBRARY ||--o| BACKUP : "backs up to"
 
     LIBRARY {
         string user_id PK "Cognito sub of the first sign-in"
@@ -78,6 +81,21 @@ erDiagram
         string email PK "accounts.db libraries"
         string library FK
         real created_at
+    }
+    DEVICE_PAGE {
+        string page_id PK "same id as on the server"
+        blob data "AES-GCM: metadata, chunk texts, keyword statistics, vectors"
+    }
+    DEVICE_KEY {
+        string library PK "device.db device_keys"
+        blob key "32 random bytes"
+        real created_at
+    }
+    BACKUP {
+        string library PK "device.db backups"
+        int bytes
+        string sha256
+        real updated_at
     }
     REPORT {
         int id PK "reports.db reports"
