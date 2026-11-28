@@ -536,6 +536,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../user-guide/storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage & Backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../user-guide/summarization/" class="md-nav__link">
         
   
@@ -766,6 +794,34 @@
     
   
     Storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-it-works/local-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pages on Your Device
   
 
     
@@ -1466,6 +1522,146 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../decisions/0012-local-first-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0012 Pages on the device by default
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../decisions/0013-exact-vector-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0013 Exact vector search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../decisions/0014-own-bm25-no-orama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0014 Own BM25, no Orama
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../decisions/0015-server-code-in-the-browser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0015 Server code in the browser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../decisions/0016-encrypt-local-pages-and-backups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0016 Encrypting device pages and backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2029,6 +2225,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#where-pages-are-kept" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where pages are kept
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-is-stored" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2187,9 +2394,17 @@
 <li>Every read, write, search, summary and delete in Solr is filtered by that user id. A page id is derived from your user id and the URL, so two people saving the same page get separate copies.</li>
 <li>Asking for another person's page returns <code>404</code>, the same as a page that doesn't exist.</li>
 </ul>
+<h2 id="where-pages-are-kept">Where pages are kept<a class="headerlink" href="#where-pages-are-kept" title="Permanent link">&para;</a></h2>
+<p>With the browser extension, pages are kept <strong>on your device</strong> by default: saved, stored and searched in your browser, never sent to the server (<a href="../how-it-works/local-search/">Pages on Your Device</a>).</p>
+<ul>
+<li>The browser's copy is <strong>encrypted</strong>, one record per page, with a device key the server gives after you sign in. The extension keeps that key in memory and forgets it when you sign out, so a signed-out browser profile can't read your pages. The server has the key but never the pages.</li>
+<li>You can choose the server instead (Settings in the extension), and past a size limit you set, the oldest device pages can move to the server, after you agree.</li>
+<li><strong>Encrypted backups</strong> of the device's pages are locked with a recovery key that only you have. The server stores them and can't open them; without the key, nobody can.</li>
+<li>For a page on the device, <strong>Summarise</strong> sends that page's text to the server for that one summary; it is not stored or logged.</li>
+</ul>
 <h2 id="what-is-stored">What is stored<a class="headerlink" href="#what-is-stored" title="Permanent link">&para;</a></h2>
 <p>For each page you save: its URL, title, cleaned text, a short description, the time you saved it, and the <abbr title="lists of 384 numbers that represent the meaning of passages; similar meanings give nearby embeddings">embeddings</abbr> used for search and related pages.</p>
-<p>The data lives in Solr on the MemoryLane server (AWS, Mumbai region). The server's logs record page ids, not the URLs you save. Solr is bound to the server's localhost and is not reachable from the internet; only Caddy (HTTPS) is public.</p>
+<p>Pages kept on the server live in Solr on the MemoryLane server (AWS, Mumbai region). The server's logs record page ids, not the URLs you save. Solr is bound to the server's localhost and is not reachable from the internet; only Caddy (HTTPS) is public.</p>
 <h2 id="automatic-capture">Automatic capture<a class="headerlink" href="#automatic-capture" title="Permanent link">&para;</a></h2>
 <p>Automatic capture is <strong>off by default</strong>. It only runs when you're signed in and have turned it on in the extension. Even then, the extension skips:</p>
 <ul>

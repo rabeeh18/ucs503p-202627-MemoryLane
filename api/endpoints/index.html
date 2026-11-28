@@ -536,6 +536,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage & Backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -766,6 +794,34 @@
     
   
     Storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-it-works/local-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pages on Your Device
   
 
     
@@ -1466,6 +1522,146 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0012-local-first-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0012 Pages on the device by default
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0013-exact-vector-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0013 Exact vector search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0014-own-bm25-no-orama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0014 Own BM25, no Orama
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0015-server-code-in-the-browser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0015 Server code in the browser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0016-encrypt-local-pages-and-backups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0016 Encrypting device pages and backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1985,6 +2181,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pages-kept-on-your-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pages kept on your device
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#post-reports" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2352,7 +2559,56 @@
 <p><code>404</code> if the page isn't yours, <code>503</code> if Gemini isn't configured, <code>502</code> if it failed.</p>
 <hr />
 <h2 id="delete-medata"><code>DELETE /me/data</code><a class="headerlink" href="#delete-medata" title="Permanent link">&para;</a></h2>
-<p>Deletes all your pages and the problem reports you sent. Returns <code>204</code>. Rate limit: 5/minute.</p>
+<p>Deletes all your pages, the problem reports you sent, your encrypted backup and your device key (so a copy kept in a browser can't be read again). Returns <code>204</code>. Rate limit: 5/minute. The website also tells the extension to delete the pages kept in that browser.</p>
+<hr />
+<h2 id="pages-kept-on-your-device">Pages kept on your device<a class="headerlink" href="#pages-kept-on-your-device" title="Permanent link">&para;</a></h2>
+<p>The extension can keep pages in the browser instead of on the server (<a href="../../how-it-works/local-search/">Pages on Your Device</a>). These endpoints support it; none of them stores a page except <code>POST /memory/transfer</code>, which you ask for.</p>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>What it does</th>
+<th>Rate limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /search-settings</code></td>
+<td>The numbers search runs with (<abbr title="Reciprocal Rank Fusion: combines several ranked lists by adding 1 / (60 + rank) from each list">RRF</abbr> k, weights, the <abbr title="the rule that drops results which are neither a strong keyword match nor close enough in meaning">relevance floor</abbr>, <abbr title="a passage of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunk</abbr> sizes, the model and its query prefix), so local search uses the server's. Public.</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>GET /me</code></td>
+<td><code>{library_id, device_key}</code>: page ids are derived from the library id; the device key (32 random bytes, base64url) encrypts the browser's copy</td>
+<td>60/minute</td>
+</tr>
+<tr>
+<td><code>POST /memory/transfer</code></td>
+<td>Store a page moving from the device, as its exact <abbr title="passages of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunks</abbr>: <code>{url, title, chunks, description, timestamp, content_hash}</code>. Answers like <code>POST /memory</code></td>
+<td>120/minute</td>
+</tr>
+<tr>
+<td><code>GET /memory/{page_id}/content</code></td>
+<td>One of your pages with its <abbr title="passages of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunks</abbr>, for moving it to the device. <code>404</code> if it isn't yours</td>
+<td>120/minute</td>
+</tr>
+<tr>
+<td><code>POST /summarize/text</code></td>
+<td><code>{query, title, text}</code>: a summary of a page kept on the device. The text is used for this request only, not stored or logged</td>
+<td>20/minute</td>
+</tr>
+<tr>
+<td><code>PUT /backup</code></td>
+<td>Store your encrypted backup (raw bytes, up to 200 MB). The server can't open it</td>
+<td>10/hour</td>
+</tr>
+<tr>
+<td><code>GET /backup</code>, <code>GET /backup/info</code>, <code>DELETE /backup</code></td>
+<td>Download it, its size and date, or delete it</td>
+<td>10/hour, 60/minute, 10/minute</td>
+</tr>
+</tbody>
+</table>
 <hr />
 <h2 id="post-reports"><code>POST /reports</code><a class="headerlink" href="#post-reports" title="Permanent link">&para;</a></h2>
 <p>Report a problem. The report is written to the server's database before the reply, then emailed to the maintainer in the background (retried with backoff if the mail server is down, also after a restart). Returns <code>202</code>. Rate limit: 5/hour.</p>

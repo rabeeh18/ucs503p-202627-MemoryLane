@@ -536,6 +536,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage & Backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -766,6 +794,34 @@
     
   
     Storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-it-works/local-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pages on Your Device
   
 
     
@@ -1554,6 +1610,146 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0012-local-first-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0012 Pages on the device by default
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0013-exact-vector-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0013 Exact vector search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0014-own-bm25-no-orama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0014 Own BM25, no Orama
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0015-server-code-in-the-browser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0015 Server code in the browser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0016-encrypt-local-pages-and-backups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0016 Encrypting device pages and backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2181,7 +2377,23 @@
 <tbody>
 <tr>
 <td><code>background.js</code></td>
-<td>Service worker: sign-in, save, undo, auto-capture, excluded sites, <code>Alt+Shift+M</code></td>
+<td>Service worker: sign-in, save (to this device or the server), undo, auto-capture, excluded sites, <code>Alt+Shift+M</code>, the website's requests, idle and backup alarms</td>
+</tr>
+<tr>
+<td><code>local.js</code></td>
+<td>Local-first storage: opens the engine for the signed-in library, saves locally, moves the oldest pages to the server past the size limit, encrypted backups</td>
+</tr>
+<tr>
+<td><code>engine.html</code>, <code>engine/host.js</code></td>
+<td>Offscreen document hosting the local engine (model, Pyodide, index)</td>
+</tr>
+<tr>
+<td><code>engine/</code></td>
+<td>The local search engine: <code>analyzer.js</code>, <code>porter.js</code>, <code>bm25.js</code> (Solr's keyword scoring), <code>local_index.js</code>, <code>retrieval.js</code>, <code>query_intent.js</code>, <code>snippets.js</code>, <code>url.js</code> (ports of the server's), <code>ingest.js</code> + <code>py/local_ingest.py</code> (the server's saving code in Pyodide), <code>embedder.js</code> (transformers.js), <code>store.js</code> and <code>crypto.js</code> (encrypted IndexedDB), <code>core.js</code></td>
+</tr>
+<tr>
+<td><code>tools/vendor.mjs</code></td>
+<td>Build step: bundles Pyodide, the Python packages, the backend's saving modules and transformers.js into <code>vendor/</code></td>
 </tr>
 <tr>
 <td><code>auth.js</code></td>
@@ -2205,11 +2417,11 @@
 </tr>
 <tr>
 <td><code>site_marker.js</code></td>
-<td>Runs only on memorylane.site; tells the site the extension is installed</td>
+<td>Runs only on memorylane.site; tells the site the extension is installed and its id</td>
 </tr>
 <tr>
-<td><code>popup.*</code>, <code>options.*</code></td>
-<td>The popup (with <strong>Auto-saved today</strong>) and the excluded-sites page</td>
+<td><code>popup.*</code>, <code>options.*</code>, <code>options_storage.js</code></td>
+<td>The popup (with <strong>Auto-saved today</strong> and the size-limit prompt) and Settings (storage, backups, excluded sites)</td>
 </tr>
 <tr>
 <td><code>config.js</code></td>
@@ -2217,7 +2429,7 @@
 </tr>
 </tbody>
 </table>
-<p>The extension's ID is fixed by the public <code>key</code> in <code>manifest.json</code> (<code>igdbkkmpnplmboeccgigbjgoefecdhck</code>), so its Cognito redirect URL is the same on every machine.</p>
+<p>The extension's ID is fixed by the public <code>key</code> in <code>manifest.json</code> (<code>igdbkkmpnplmboeccgigbjgoefecdhck</code>), so its Cognito redirect URL is the same on every machine, and the website can message it (<code>externally_connectable</code>) for pages kept on the device. See <a href="../../how-it-works/local-search/">Pages on Your Device</a>.</p>
 
 
 

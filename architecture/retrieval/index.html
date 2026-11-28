@@ -536,6 +536,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage & Backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -766,6 +794,34 @@
     
   
     Storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-it-works/local-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pages on Your Device
   
 
     
@@ -1625,6 +1681,146 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0012-local-first-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0012 Pages on the device by default
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0013-exact-vector-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0013 Exact vector search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0014-own-bm25-no-orama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0014 Own BM25, no Orama
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0015-server-code-in-the-browser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0015 Server code in the browser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0016-encrypt-local-pages-and-backups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0016 Encrypting device pages and backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2269,7 +2465,7 @@
 <h2 id="lexical-retrieval">Lexical retrieval<a class="headerlink" href="#lexical-retrieval" title="Permanent link">&para;</a></h2>
 <p>Solr's <strong><abbr title="Solr's extended DisMax query parser, used for the keyword search across title and text">edismax</abbr></strong> parser searches <code>title^2 text</code>, with a phrase boost <code>pf=text^2 title^3</code> so pages containing the query as a phrase rank higher. Both fields use <code>text_en</code> (possessives, stopwords, Porter stemming), so <em>learning</em> matches <em>learn</em>. Field queries in user input are disabled (<code>uf=-*</code>).</p>
 <h2 id="semantic-retrieval">Semantic retrieval<a class="headerlink" href="#semantic-retrieval" title="Permanent link">&para;</a></h2>
-<p>The query is embedded with <code>BAAI/bge-small-en-v1.5</code> (with BGE's search instruction in front) into the same 384-dimensional space as the <abbr title="passages of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunks</abbr>. Solr runs <code>{!knn f=embedding topK=50}</code> with the user filter as a <strong>pre-filter</strong>, so the 50 nearest <abbr title="passages of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunks</abbr> are all the user's own.</p>
+<p>The query is embedded with <code>BAAI/bge-small-en-v1.5</code> (with BGE's search instruction in front) into the same 384-dimensional space as the <abbr title="passages of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunks</abbr>. Solr scores every one of the user's <abbr title="passages of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunks</abbr> by cosine (<code>{!func}vectorSimilarity(...)</code>, the same <code>(1 + cos) / 2</code> score as <code>{!knn}</code>) and returns the 50 nearest, all the user's own. The search is <strong>exact</strong>: Solr's <abbr title="Hierarchical Navigable Small World: the graph index Solr uses to find nearest vectors quickly">HNSW</abbr> <code>{!knn}</code> is approximate and missed a true neighbour in most SciFact queries, and the browser engine, which scans exactly, must return the same pages (<a href="../../decisions/0013-exact-vector-search/"><abbr title="Architecture Decision Record: a short note of one design choice, why it was made and what it costs">ADR</abbr> 0013</a>). The extension runs this same pipeline on pages kept on the device (<a href="../../how-it-works/local-search/">Pages on Your Device</a>).</p>
 <h2 id="site-time-and-url-in-the-query">Site, time and URL in the query<a class="headerlink" href="#site-time-and-url-in-the-query" title="Permanent link">&para;</a></h2>
 <p><code>backend/query_intent.py</code> reads the parts of a query that say where or when a page was seen:</p>
 <ul>

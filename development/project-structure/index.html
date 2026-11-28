@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://rabeeh18.github.io/ucs503p-202627-MemoryLane/development/project-structure/">
       
       
-        <link rel="prev" href="../../decisions/0011-auto-capture-keeps-only-content/">
+        <link rel="prev" href="../../decisions/0016-encrypt-local-pages-and-backups/">
       
       
         <link rel="next" href="../installation/">
@@ -536,6 +536,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage & Backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -766,6 +794,34 @@
     
   
     Storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-it-works/local-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pages on Your Device
   
 
     
@@ -1453,6 +1509,146 @@
     
   
     0011 Auto-capture keeps only content
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0012-local-first-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0012 Pages on the device by default
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0013-exact-vector-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0013 Exact vector search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0014-own-bm25-no-orama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0014 Own BM25, no Orama
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0015-server-code-in-the-browser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0015 Server code in the browser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0016-encrypt-local-pages-and-backups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0016 Encrypting device pages and backups
   
 
     
@@ -2277,7 +2473,15 @@
 </tr>
 <tr>
 <td><code>extension/</code></td>
-<td>Chrome extension (Manifest V3): popup, options page, service worker, content scripts</td>
+<td>Chrome extension (Manifest V3): popup, options page, service worker, content scripts, and the local engine for pages kept on the device</td>
+</tr>
+<tr>
+<td><code>extension/engine/</code></td>
+<td>The local engine: Solr-identical text analysis and <abbr title="Best Matching 25: a keyword ranking that scores pages by how often they use the query's words, favouring rare words and short passages">BM25</abbr>, vector index, ports of the server's search, the server's saving code in Pyodide, transformers.js embedder, encrypted IndexedDB store</td>
+</tr>
+<tr>
+<td><code>extension/tools/vendor.mjs</code></td>
+<td>Bundles Pyodide, the Python packages, the backend's saving modules and transformers.js into <code>extension/vendor/</code></td>
 </tr>
 <tr>
 <td><code>tests/</code></td>
@@ -2290,6 +2494,10 @@
 <tr>
 <td><code>evaluation/</code></td>
 <td>SciFact benchmark, personal-library evaluation and the compare tool</td>
+</tr>
+<tr>
+<td><code>evaluation/parity/</code></td>
+<td>Checks that the browser engine matches the server (analysis, <abbr title="Best Matching 25: a keyword ranking that scores pages by how often they use the query's words, favouring rare words and short passages">BM25</abbr>, hybrid search, saving, storage)</td>
 </tr>
 <tr>
 <td><code>evaluation/scifact_report.json</code></td>
@@ -2403,6 +2611,10 @@
 <td>Storing problem reports and emailing them</td>
 </tr>
 <tr>
+<td><code>device_data.py</code></td>
+<td>Device keys and encrypted backups for pages kept in the browser</td>
+</tr>
+<tr>
 <td><code>youtube_utils.py</code></td>
 <td>YouTube video ids and transcripts</td>
 </tr>
@@ -2446,8 +2658,12 @@
 <td><code>npm run build</code> (the Caddy image builds it during deployment)</td>
 </tr>
 <tr>
+<td><code>code/src/extension/node_modules/</code>, <code>code/src/extension/vendor/</code></td>
+<td><code>npm ci --ignore-scripts &amp;&amp; npm run vendor</code> in <code>extension/</code> (the Caddy image does it during deployment)</td>
+</tr>
+<tr>
 <td><code>code/src/data/</code></td>
-<td>Local SQLite databases (<code>accounts.db</code>, <code>reports.db</code>)</td>
+<td>Local SQLite databases (<code>accounts.db</code>, <code>reports.db</code>, <code>device.db</code>) and encrypted backups</td>
 </tr>
 <tr>
 <td><code>code/src/.env</code></td>
@@ -2492,7 +2708,7 @@
 </tr>
 </tbody>
 </table>
-<p>Downloaded at install or build time, not stored in the repository: the <abbr title="a list of 384 numbers that represents the meaning of a passage; similar meanings give nearby embeddings">embedding</abbr> model <code>BAAI/bge-small-en-v1.5</code> (MIT), the optional reranker <code>cross-encoder/ms-marco-MiniLM-L-6-v2</code>, the docs-search model Model2Vec <code>potion-base-8M</code> (MIT), and the Python and npm packages listed in <code>requirements*.txt</code> and <code>package.json</code>.</p>
+<p>Downloaded at install or build time, not stored in the repository: the <abbr title="a list of 384 numbers that represents the meaning of a passage; similar meanings give nearby embeddings">embedding</abbr> model <code>BAAI/bge-small-en-v1.5</code> (MIT; its ONNX conversion <code>Xenova/bge-small-en-v1.5</code> is served to the extension from <code>/models/</code>), Pyodide (MPL 2.0) with lxml (BSD), regex (Apache 2.0), <abbr title="the Python library that extracts a page's main text and drops menus, footers and ads">trafilatura</abbr> (Apache 2.0) and their dependencies, transformers.js and ONNX Runtime Web (Apache 2.0/MIT), bundled into the extension at build time, the optional reranker <code>cross-encoder/ms-marco-MiniLM-L-6-v2</code>, the docs-search model Model2Vec <code>potion-base-8M</code> (MIT), and the Python and npm packages listed in <code>requirements*.txt</code> and <code>package.json</code>.</p>
 <h2 id="where-to-look">Where to look<a class="headerlink" href="#where-to-look" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2574,7 +2790,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../decisions/0011-auto-capture-keeps-only-content/" class="md-footer__link md-footer__link--prev" aria-label="Previous: 0011 Auto-capture keeps only content">
+          <a href="../../decisions/0016-encrypt-local-pages-and-backups/" class="md-footer__link md-footer__link--prev" aria-label="Previous: 0016 Encrypting device pages and backups">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2584,7 +2800,7 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                0011 Auto-capture keeps only content
+                0016 Encrypting device pages and backups
               </div>
             </div>
           </a>

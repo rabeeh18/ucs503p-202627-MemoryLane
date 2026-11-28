@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://rabeeh18.github.io/ucs503p-202627-MemoryLane/architecture/overview/">
       
       
-        <link rel="prev" href="../../how-it-works/storage/">
+        <link rel="prev" href="../../how-it-works/local-search/">
       
       
         <link rel="next" href="../data-flow/">
@@ -536,6 +536,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage & Backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -766,6 +794,34 @@
     
   
     Storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-it-works/local-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pages on Your Device
   
 
     
@@ -1011,6 +1067,17 @@
     <span class="md-ellipsis">
       
         Design principles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pages-on-the-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pages on the device
       
     </span>
   </a>
@@ -1631,6 +1698,146 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0012-local-first-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0012 Pages on the device by default
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0013-exact-vector-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0013 Exact vector search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0014-own-bm25-no-orama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0014 Own BM25, no Orama
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0015-server-code-in-the-browser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0015 Server code in the browser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0016-encrypt-local-pages-and-backups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0016 Encrypting device pages and backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2231,7 +2438,7 @@
     subgraph server["One EC2 instance · Docker Compose"]
         caddy["Caddy&lt;br/&gt;HTTPS, static web app, /api proxy"]
         api["FastAPI backend&lt;br/&gt;token check → user_id&lt;br/&gt;ingest · retrieval · summaries · reports&lt;br/&gt;Sentence Transformers (bge-small)"]
-        solr[("Apache Solr 9.7&lt;br/&gt;BM25 + HNSW vectors")]
+        solr[("Apache Solr 9.7&lt;br/&gt;BM25 + exact vector scoring")]
         sqlite[("SQLite&lt;br/&gt;accounts.db, reports.db")]
         caddy --&gt; api
         api --&gt;|"always filtered by user_id"| solr
@@ -2278,6 +2485,8 @@
 <li><strong>Search is page-level.</strong> Retrieval works on <abbr title="passages of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunks</abbr>, but users see pages.</li>
 <li><strong>Optional parts stay optional.</strong> Gemini and the reranker can be off without breaking search.</li>
 </ul>
+<h2 id="pages-on-the-device">Pages on the device<a class="headerlink" href="#pages-on-the-device" title="Permanent link">&para;</a></h2>
+<p>The extension also contains a complete search engine for pages kept in the browser (<code>extension/engine/</code>): the server's saving code in Pyodide, the same model in transformers.js, <abbr title="Best Matching 25: a keyword ranking that scores pages by how often they use the query's words, favouring rare words and short passages">BM25</abbr> and vector search that score exactly as Solr, and encrypted IndexedDB storage. It runs in an offscreen document; the website reaches it through site-to-extension messaging. See <a href="../../how-it-works/local-search/">Pages on Your Device</a> and ADRs <a href="../../decisions/0012-local-first-storage/">0012</a>–<a href="../../decisions/0016-encrypt-local-pages-and-backups/">0016</a>.</p>
 
 
 
@@ -2315,7 +2524,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../../how-it-works/storage/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Storage">
+          <a href="../../how-it-works/local-search/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Pages on Your Device">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -2325,7 +2534,7 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Storage
+                Pages on Your Device
               </div>
             </div>
           </a>

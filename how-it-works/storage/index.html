@@ -16,7 +16,7 @@
         <link rel="prev" href="../processing/">
       
       
-        <link rel="next" href="../../architecture/overview/">
+        <link rel="next" href="../local-search/">
       
       
         
@@ -536,6 +536,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage & Backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -874,10 +902,49 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#pages-kept-on-your-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pages kept on your device
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../local-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pages on Your Device
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1570,6 +1637,146 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0012-local-first-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0012 Pages on the device by default
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0013-exact-vector-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0013 Exact vector search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0014-own-bm25-no-orama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0014 Own BM25, no Orama
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0015-server-code-in-the-browser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0015 Server code in the browser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0016-encrypt-local-pages-and-backups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0016 Encrypting device pages and backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -2162,7 +2369,7 @@
 <p>One system covers what MemoryLane needs:</p>
 <ul>
 <li>Full-text search with <abbr title="Best Matching 25: a keyword ranking that scores pages by how often they use the query's words, favouring rare words and short passages">BM25</abbr>, English stemming and stopwords (<code>text_en</code>)</li>
-<li>Dense-vector <abbr title="k-nearest neighbours: finds the stored vectors closest to the query's vector, i.e. the passages closest in meaning">KNN</abbr> search (<code>DenseVectorField</code>, <abbr title="Hierarchical Navigable Small World: the graph index Solr uses to find nearest vectors quickly">HNSW</abbr>, cosine) <strong>with pre-filtering</strong>, so a vector search only ever looks at one user's pages</li>
+<li>Dense-vector search (<code>DenseVectorField</code>, cosine), scored exactly over one user's pages (<a href="../../decisions/0013-exact-vector-search/"><abbr title="Architecture Decision Record: a short note of one design choice, why it was made and what it costs">ADR</abbr> 0013</a>)</li>
 <li>Updates and deletes by query, and cursor-based scans</li>
 </ul>
 <h2 id="document-model">Document model<a class="headerlink" href="#document-model" title="Permanent link">&para;</a></h2>
@@ -2314,6 +2521,8 @@
 </ul>
 <h2 id="isolation">Isolation<a class="headerlink" href="#isolation" title="Permanent link">&para;</a></h2>
 <p>Every read, search, delete and scan in <code>backend/solr_client.py</code> adds a <code>user_id</code> filter, and refuses to run if the user id is missing or malformed. Vector searches pass the filter as a <abbr title="k-nearest neighbours: finds the stored vectors closest to the query's vector, i.e. the passages closest in meaning">KNN</abbr> pre-filter, so other users' vectors are never considered.</p>
+<h2 id="pages-kept-on-your-device">Pages kept on your device<a class="headerlink" href="#pages-kept-on-your-device" title="Permanent link">&para;</a></h2>
+<p>With the extension, pages are stored on your device by default, not in Solr: one encrypted record per page in the browser's IndexedDB, holding the text, keyword statistics and vectors. See <a href="../local-search/">Pages on Your Device</a>.</p>
 
 
 
@@ -2368,13 +2577,13 @@
         
         
           
-          <a href="../../architecture/overview/" class="md-footer__link md-footer__link--next" aria-label="Next: System Architecture">
+          <a href="../local-search/" class="md-footer__link md-footer__link--next" aria-label="Next: Pages on Your Device">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                System Architecture
+                Pages on Your Device
               </div>
             </div>
             <div class="md-footer__button md-icon">

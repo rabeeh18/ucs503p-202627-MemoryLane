@@ -536,6 +536,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage & Backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -766,6 +794,34 @@
     
   
     Storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-it-works/local-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pages on Your Device
   
 
     
@@ -1466,6 +1522,146 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0012-local-first-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0012 Pages on the device by default
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0013-exact-vector-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0013 Exact vector search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0014-own-bm25-no-orama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0014 Own BM25, no Orama
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0015-server-code-in-the-browser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0015 Server code in the browser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0016-encrypt-local-pages-and-backups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0016 Encrypting device pages and backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1746,6 +1942,17 @@
     <span class="md-ellipsis">
       
         Retrieval quality
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#local-engine-parity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Local engine parity
       
     </span>
   </a>
@@ -2258,6 +2465,20 @@
 <p><code>.github/workflows/ci.yml</code> runs the backend tests and the frontend tests and checks on every push and pull request. <code>.github/workflows/mkdocs.yml</code> builds this documentation with <code>mkdocs build --strict</code> on every push that changes it, so broken links or config fail the check. It doesn't publish: the site is published by hand from the repository root with <code>mkdocs gh-deploy --strict</code>, which builds it and pushes it to the <code>gh-pages</code> branch.</p>
 <h2 id="retrieval-quality">Retrieval quality<a class="headerlink" href="#retrieval-quality" title="Permanent link">&para;</a></h2>
 <p>Retrieval quality is measured separately, with the <a href="../../evaluation/methodology/">SciFact evaluation</a>, because it needs a real Solr core and the <abbr title="a list of 384 numbers that represents the meaning of a passage; similar meanings give nearby embeddings">embedding</abbr> model.</p>
+<h2 id="local-engine-parity">Local engine parity<a class="headerlink" href="#local-engine-parity" title="Permanent link">&para;</a></h2>
+<p>The browser engine (<code>extension/engine/</code>) must rank exactly as the server. <code>code/src/evaluation/parity/</code> compares them against a throwaway Solr (with the extension's <code>npm ci --ignore-scripts &amp;&amp; npm run vendor</code> done first):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>run<span class="w"> </span>-d<span class="w"> </span>--name<span class="w"> </span>ml-parity-solr<span class="w"> </span>-p<span class="w"> </span><span class="m">127</span>.0.0.1:8984:8983<span class="w"> </span>solr:9.7
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>docker<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>ml-parity-solr<span class="w"> </span>solr<span class="w"> </span>create<span class="w"> </span>-c<span class="w"> </span>parity<span class="w"> </span>-d<span class="w"> </span>_default
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nv">SOLR_PORT</span><span class="o">=</span><span class="m">8984</span><span class="w"> </span><span class="nv">CORE_NAME</span><span class="o">=</span>parity<span class="w"> </span>./scripts/setup_solr.sh
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>python<span class="w"> </span>-m<span class="w"> </span>evaluation.parity.solr_corpus<span class="w"> </span>--solr<span class="w"> </span>http://localhost:8984/solr/parity<span class="w"> </span>--out<span class="w"> </span>/tmp/chunks.json
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>node<span class="w"> </span>evaluation/parity/bm25_check.mjs<span class="w"> </span>/tmp/chunks.json<span class="w">           </span><span class="c1"># keyword search: 119/119 identical</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>python<span class="w"> </span>-m<span class="w"> </span>evaluation.parity.server_results<span class="w"> </span>--solr<span class="w"> </span>http://localhost:8984/solr/parity<span class="w"> </span>--out<span class="w"> </span>/tmp/server.json
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>node<span class="w"> </span>evaluation/parity/hybrid_check.mjs<span class="w"> </span>/tmp/chunks.json<span class="w"> </span>/tmp/server.json<span class="w">   </span><span class="c1"># full search: 117/117</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>python<span class="w"> </span>-m<span class="w"> </span>evaluation.parity.ingest_reference<span class="w"> </span>&lt;pages<span class="w"> </span>dir&gt;<span class="w"> </span>/tmp/cases.json
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>node<span class="w"> </span>evaluation/parity/ingest_check.mjs<span class="w"> </span>/tmp/cases.json<span class="w">         </span><span class="c1"># saving: identical chunks</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>node<span class="w"> </span>evaluation/parity/engine_check.mjs<span class="w"> </span>&lt;pages<span class="w"> </span>dir&gt;<span class="w">             </span><span class="c1"># store, reopen, move, delete</span>
+</span></code></pre></div>
+<p><code>tests/test_extension_settings.py</code> keeps the extension's default search settings equal to <code>backend/config.py</code>.</p>
 <h2 id="manual-check">Manual check<a class="headerlink" href="#manual-check" title="Permanent link">&para;</a></h2>
 <ol>
 <li><code>GET /health</code> → all <code>true</code></li>
@@ -2266,6 +2487,11 @@
 <li>Search with different wording from the page → it's found, with a sensible snippet</li>
 <li><strong>Summarise</strong> → a summary (with a Gemini key)</li>
 <li>Sign in as a second user → none of the first user's pages are visible</li>
+<li>With the extension's storage on <strong>this device</strong> (the default): save a page → the popup says <em>on this device</em>; it is found on memorylane.site in that browser, marked <em>on this device</em> in the library, and not on the server (<code>/memories</code>)</li>
+<li>Settings → <strong>Move pages here to the server</strong> → the page is now <em>on the server</em> and still found; <strong>Bring server pages to this device</strong> moves it back</li>
+<li>Set the size limit below the device's usage with <strong>Ask before moving pages</strong> → the popup asks; <strong>Move oldest pages</strong> moves them</li>
+<li><strong>Back up now</strong> → a recovery key is shown; delete the page, <strong>Restore from backup</strong> with the key → it's back</li>
+<li>Sign out of the extension → memorylane.site no longer shows device pages; sign in → they're back</li>
 </ol>
 
 

@@ -536,6 +536,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage & Backups
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/summarization/" class="md-nav__link">
         
   
@@ -766,6 +794,34 @@
     
   
     Storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-it-works/local-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Pages on Your Device
   
 
     
@@ -1453,6 +1509,146 @@
     
   
     0011 Auto-capture keeps only content
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0012-local-first-storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0012 Pages on the device by default
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0013-exact-vector-search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0013 Exact vector search
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0014-own-bm25-no-orama/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0014 Own BM25, no Orama
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0015-server-code-in-the-browser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0015 Server code in the browser
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../decisions/0016-encrypt-local-pages-and-backups/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    0016 Encrypting device pages and backups
   
 
     
@@ -2191,7 +2387,7 @@
 
 
 <h1 id="evaluation-results">Evaluation Results<a class="headerlink" href="#evaluation-results" title="Permanent link">&para;</a></h1>
-<p>These are SciFact results for the <strong>current</strong> search: <code>bge-small-en-v1.5</code>, 150-word overlapping <abbr title="passages of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunks</abbr> embedded with the page title, Reciprocal Rank Fusion, the <abbr title="the rule that drops results which are neither a strong keyword match nor close enough in meaning">relevance floor</abbr>, and pages scored by their best <abbr title="a passage of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunk</abbr>. They were measured on 19 November 2026 with <code>evaluation.scifact_evaluate</code> (see <a href="../methodology/">Methodology</a>): 100 claims over 999 indexed abstracts. One of the 1,000 abstracts failed to index, and it isn't the answer to any claim.</p>
+<p>These are SciFact results for the <strong>current</strong> search: <code>bge-small-en-v1.5</code>, 150-word overlapping <abbr title="passages of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunks</abbr> embedded with the page title, Reciprocal Rank Fusion, the <abbr title="the rule that drops results which are neither a strong keyword match nor close enough in meaning">relevance floor</abbr>, and pages scored by their best <abbr title="a passage of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunk</abbr>. They were measured on 28 November 2026, with the exact vector search of <a href="../../decisions/0013-exact-vector-search/"><abbr title="Architecture Decision Record: a short note of one design choice, why it was made and what it costs">ADR</abbr> 0013</a>, using <code>evaluation.scifact_evaluate</code> (see <a href="../methodology/">Methodology</a>): 100 claims over 999 indexed abstracts. One of the 1,000 abstracts failed to index, and it isn't the answer to any claim.</p>
 <h2 id="current-search">Current search<a class="headerlink" href="#current-search" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2211,10 +2407,10 @@
 <td><strong>Hybrid (live search)</strong></td>
 <td style="text-align: right;">0.71</td>
 <td style="text-align: right;">0.84</td>
-<td style="text-align: right;">0.93</td>
-<td style="text-align: right;">0.786</td>
-<td style="text-align: right;">0.922</td>
-<td style="text-align: right;">0.810</td>
+<td style="text-align: right;">0.92</td>
+<td style="text-align: right;">0.785</td>
+<td style="text-align: right;">0.917</td>
+<td style="text-align: right;">0.809</td>
 <td style="text-align: right;">0.768</td>
 </tr>
 <tr>
@@ -2241,10 +2437,10 @@
 <td>Hybrid, no <abbr title="the rule that drops results which are neither a strong keyword match nor close enough in meaning">relevance floor</abbr></td>
 <td style="text-align: right;">0.71</td>
 <td style="text-align: right;">0.84</td>
-<td style="text-align: right;">0.93</td>
+<td style="text-align: right;">0.92</td>
 <td style="text-align: right;">0.785</td>
-<td style="text-align: right;">0.922</td>
-<td style="text-align: right;">0.810</td>
+<td style="text-align: right;">0.917</td>
+<td style="text-align: right;">0.809</td>
 <td style="text-align: right;">0.768</td>
 </tr>
 <tr>
@@ -2252,13 +2448,14 @@
 <td style="text-align: right;">0.44</td>
 <td style="text-align: right;">0.73</td>
 <td style="text-align: right;">0.92</td>
-<td style="text-align: right;">0.601</td>
+<td style="text-align: right;">0.603</td>
 <td style="text-align: right;">0.897</td>
-<td style="text-align: right;">0.663</td>
-<td style="text-align: right;">0.578</td>
+<td style="text-align: right;">0.664</td>
+<td style="text-align: right;">0.580</td>
 </tr>
 </tbody>
 </table>
+<p>Before vector search became exact (19 November, with Solr's approximate <abbr title="Hierarchical Navigable Small World: the graph index Solr uses to find nearest vectors quickly">HNSW</abbr>), hybrid search measured Hit@10 0.93, <abbr title="Mean Reciprocal Rank: the average of 1 / (rank of the first relevant result); 1.0 means it was always first">MRR</abbr>@10 0.786, Recall@10 0.922 and <abbr title="normalised Discounted Cumulative Gain: a 0 to 1 score for how well a ranking puts relevant results near the top">nDCG</abbr>@10 0.810: the change moved every measure by at most 0.01, as the confidence intervals would allow either way. The same exact search now runs in the browser for pages kept on the device, with identical results (<a href="../../how-it-works/local-search/">Pages on Your Device</a>).</p>
 <p>In plain words:</p>
 <ul>
 <li><strong>Hit@1</strong>: how often the right abstract is the very first result. <strong>Hit@3</strong> and <strong>Hit@10</strong> are the same for the top 3 and the top 10.</li>
@@ -2349,9 +2546,9 @@
 </table>
 <p>So the weight is now <strong>0</strong>, and a page is scored by its best-matching <abbr title="a passage of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunk</abbr> alone. The bonus held back <abbr title="Best Matching 25: a keyword ranking that scores pages by how often they use the query's words, favouring rare words and short passages">BM25</abbr>-only and vector-only runs just as much: they went from <abbr title="Mean Reciprocal Rank: the average of 1 / (rank of the first relevant result); 1.0 means it was always first">MRR</abbr>@10 0.414 and 0.455 to 0.705 and 0.812.</p>
 <h3 id="the-relevance-floor-costs-nothing-here">The <abbr title="the rule that drops results which are neither a strong keyword match nor close enough in meaning">relevance floor</abbr> costs nothing here<a class="headerlink" href="#the-relevance-floor-costs-nothing-here" title="Permanent link">&para;</a></h3>
-<p>Turning the floor off changed almost nothing (<abbr title="Mean Reciprocal Rank: the average of 1 / (rank of the first relevant result); 1.0 means it was always first">MRR</abbr>@10 0.786 → 0.785), and no claim lost all its results. The floor only drops weak vector-only matches, and the right abstract is rarely one of them.</p>
+<p>Turning the floor off changed almost nothing (<abbr title="Mean Reciprocal Rank: the average of 1 / (rank of the first relevant result); 1.0 means it was always first">MRR</abbr>@10 0.7851 → 0.7846), and no claim lost all its results. The floor only drops weak vector-only matches, and the right abstract is rarely one of them.</p>
 <h3 id="hybrid-and-vector-only-are-level-on-scifact">Hybrid and vector-only are level on SciFact<a class="headerlink" href="#hybrid-and-vector-only-are-level-on-scifact" title="Permanent link">&para;</a></h3>
-<p>Vector-only is slightly ahead (<abbr title="Mean Reciprocal Rank: the average of 1 / (rank of the first relevant result); 1.0 means it was always first">MRR</abbr>@10 0.812 against 0.786), within the margin of error. SciFact claims rarely share exact words with their abstracts, which plays to meaning-based search. Hybrid is kept for everyday searches, where keywords matter: exact names, error messages, product codes and site names, which a meaning-only search can miss. The <a href="../methodology/#second-evaluation-your-own-library">personal-library evaluation</a> measures those kinds of queries.</p>
+<p>Vector-only is slightly ahead (<abbr title="Mean Reciprocal Rank: the average of 1 / (rank of the first relevant result); 1.0 means it was always first">MRR</abbr>@10 0.812 against 0.785), within the margin of error. SciFact claims rarely share exact words with their abstracts, which plays to meaning-based search. Hybrid is kept for everyday searches, where keywords matter: exact names, error messages, product codes and site names, which a meaning-only search can miss. The <a href="../methodology/#second-evaluation-your-own-library">personal-library evaluation</a> measures those kinds of queries.</p>
 <h2 id="earlier-pipeline">Earlier pipeline<a class="headerlink" href="#earlier-pipeline" title="Permanent link">&para;</a></h2>
 <p>The numbers published before November 2026 came from the earlier pipeline: <code>all-MiniLM-L6-v2</code> <abbr title="lists of 384 numbers that represent the meaning of passages; similar meanings give nearby embeddings">embeddings</abbr>, 300–500-word <abbr title="passages of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunks</abbr> (so most abstracts were a single <abbr title="a passage of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunk</abbr>, and the second-<abbr title="a passage of up to 150 words from a page; each page is split into overlapping chunks before it's embedded">chunk</abbr> bonus rarely applied), and min-max score fusion (0.5 / 0.5).</p>
 <table>
@@ -2384,7 +2581,7 @@
 </tr>
 </tbody>
 </table>
-<p>The current search beats it on every measure. Hybrid: <abbr title="Mean Reciprocal Rank: the average of 1 / (rank of the first relevant result); 1.0 means it was always first">MRR</abbr>@10 0.786 against 0.754, Recall@10 0.922 against 0.917, <abbr title="normalised Discounted Cumulative Gain: a 0 to 1 score for how well a ranking puts relevant results near the top">nDCG</abbr>@10 0.810 against 0.789. Vector-only: 0.812, 0.932 and 0.837.</p>
+<p>The current search beats or matches it on every measure. Hybrid: <abbr title="Mean Reciprocal Rank: the average of 1 / (rank of the first relevant result); 1.0 means it was always first">MRR</abbr>@10 0.785 against 0.754, Recall@10 0.917 against 0.917 (level), <abbr title="normalised Discounted Cumulative Gain: a 0 to 1 score for how well a ranking puts relevant results near the top">nDCG</abbr>@10 0.809 against 0.789. Vector-only: 0.812, 0.932 and 0.837, ahead on all three.</p>
 
 
 
