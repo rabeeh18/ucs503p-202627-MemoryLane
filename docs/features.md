@@ -8,6 +8,14 @@ The Chrome extension saves the current page with **Remember this page**, and let
 
 ---
 
+## Pages on your device
+
+By default the extension keeps your pages in your browser, encrypted, and searches them there: the server never receives them. Search is the same as on the server, down to the order of results. You can keep pages on the server instead, set a size limit past which the oldest move there (after you agree), and make encrypted backups that only your recovery key opens.
+
+[More on storage and backups](user-guide/storage.md)
+
+---
+
 ## Content extraction
 
 Each saved page is cleaned with trafilatura, so menus, footers, cookie banners and adverts stay out of your library. YouTube videos are saved through their transcripts.

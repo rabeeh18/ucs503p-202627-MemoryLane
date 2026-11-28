@@ -17,6 +17,11 @@ A decision that changes later isn't edited away. A new record replaces it, and t
 | [0009](0009-remove-library-map.md) | Remove the library map | Accepted | Nov 2026 |
 | [0010](0010-remove-export.md) | Remove Export my data | Accepted | Nov 2026 |
 | [0011](0011-auto-capture-keeps-only-content.md) | Automatic capture keeps only pages that read like content | Accepted | Nov 2026 |
+| [0012](0012-local-first-storage.md) | Keep pages on the device by default, with the server as a fallback | Accepted | Nov 2026 |
+| [0013](0013-exact-vector-search.md) | Score vectors exactly instead of with HNSW | Accepted | Nov 2026 |
+| [0014](0014-own-bm25-no-orama.md) | Own BM25 and a plain vector scan in the browser, not Orama | Accepted | Nov 2026 |
+| [0015](0015-server-code-in-the-browser.md) | Run the server's saving code in the browser with Pyodide | Accepted | Nov 2026 |
+| [0016](0016-encrypt-local-pages-and-backups.md) | Encrypt pages on the device, and back them up with a key only the user has | Accepted | Nov 2026 |
 
 ## Template
 

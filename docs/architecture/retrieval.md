@@ -68,7 +68,7 @@ Solr's **edismax** parser searches `title^2 text`, with a phrase boost `pf=text^
 
 ## Semantic retrieval
 
-The query is embedded with `BAAI/bge-small-en-v1.5` (with BGE's search instruction in front) into the same 384-dimensional space as the chunks. Solr runs `{!knn f=embedding topK=50}` with the user filter as a **pre-filter**, so the 50 nearest chunks are all the user's own.
+The query is embedded with `BAAI/bge-small-en-v1.5` (with BGE's search instruction in front) into the same 384-dimensional space as the chunks. Solr scores every one of the user's chunks by cosine (`{!func}vectorSimilarity(...)`, the same `(1 + cos) / 2` score as `{!knn}`) and returns the 50 nearest, all the user's own. The search is **exact**: Solr's HNSW `{!knn}` is approximate and missed a true neighbour in most SciFact queries, and the browser engine, which scans exactly, must return the same pages ([ADR 0013](../decisions/0013-exact-vector-search.md)). The extension runs this same pipeline on pages kept on the device ([Pages on Your Device](../how-it-works/local-search.md)).
 
 ## Site, time and URL in the query
 

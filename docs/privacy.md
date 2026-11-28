@@ -11,11 +11,20 @@ MemoryLane holds personal browsing information, so privacy is part of the design
 - Every read, write, search, summary and delete in Solr is filtered by that user id. A page id is derived from your user id and the URL, so two people saving the same page get separate copies.
 - Asking for another person's page returns `404`, the same as a page that doesn't exist.
 
+## Where pages are kept
+
+With the browser extension, pages are kept **on your device** by default: saved, stored and searched in your browser, never sent to the server ([Pages on Your Device](how-it-works/local-search.md)).
+
+- The browser's copy is **encrypted**, one record per page, with a device key the server gives after you sign in. The extension keeps that key in memory and forgets it when you sign out, so a signed-out browser profile can't read your pages. The server has the key but never the pages.
+- You can choose the server instead (Settings in the extension), and past a size limit you set, the oldest device pages can move to the server, after you agree.
+- **Encrypted backups** of the device's pages are locked with a recovery key that only you have. The server stores them and can't open them; without the key, nobody can.
+- For a page on the device, **Summarise** sends that page's text to the server for that one summary; it is not stored or logged.
+
 ## What is stored
 
 For each page you save: its URL, title, cleaned text, a short description, the time you saved it, and the embeddings used for search and related pages.
 
-The data lives in Solr on the MemoryLane server (AWS, Mumbai region). The server's logs record page ids, not the URLs you save. Solr is bound to the server's localhost and is not reachable from the internet; only Caddy (HTTPS) is public.
+Pages kept on the server live in Solr on the MemoryLane server (AWS, Mumbai region). The server's logs record page ids, not the URLs you save. Solr is bound to the server's localhost and is not reachable from the internet; only Caddy (HTTPS) is public.
 
 ## Automatic capture
 

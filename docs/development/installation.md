@@ -54,6 +54,14 @@ The web app reads its `VITE_*` settings from the same `.env` file in `code/src`.
 
 ## 4. Extension
 
-`chrome://extensions` → turn on **Developer mode** → **Load unpacked** → choose `code/src/extension`.
+The extension bundles the runtimes local storage needs (Pyodide, the server's saving code, transformers.js). Put them in `extension/vendor/` first (Node 20+; this downloads the pinned, hash-checked packages):
+
+```bash
+cd code/src/extension
+npm ci --ignore-scripts
+npm run vendor
+```
+
+Then `chrome://extensions` → turn on **Developer mode** → **Load unpacked** → choose `code/src/extension`. Run `npm run vendor` again after changing the backend's saving code (`backend/ingest.py`, `cleaning.py`, `chunking.py`, ...), since the extension carries a copy.
 
 The extension talks to the hosted site by default. To point it at a local backend, change the endpoints in `extension/config.js`. See [Configuration](configuration.md#extension).

@@ -7,7 +7,7 @@ MemoryLane stores everything in **Apache Solr 9.7**, in a standalone core named 
 One system covers what MemoryLane needs:
 
 - Full-text search with BM25, English stemming and stopwords (`text_en`)
-- Dense-vector KNN search (`DenseVectorField`, HNSW, cosine) **with pre-filtering**, so a vector search only ever looks at one user's pages
+- Dense-vector search (`DenseVectorField`, cosine), scored exactly over one user's pages ([ADR 0013](../decisions/0013-exact-vector-search.md))
 - Updates and deletes by query, and cursor-based scans
 
 ## Document model
@@ -105,3 +105,7 @@ erDiagram
 ## Isolation
 
 Every read, search, delete and scan in `backend/solr_client.py` adds a `user_id` filter, and refuses to run if the user id is missing or malformed. Vector searches pass the filter as a KNN pre-filter, so other users' vectors are never considered.
+
+## Pages kept on your device
+
+With the extension, pages are stored on your device by default, not in Solr: one encrypted record per page in the browser's IndexedDB, holding the text, keyword statistics and vectors. See [Pages on Your Device](local-search.md).

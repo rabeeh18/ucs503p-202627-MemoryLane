@@ -38,14 +38,18 @@ The extension is Manifest V3, in `code/src/extension`, written as plain ES modul
 
 | File | Role |
 | --- | --- |
-| `background.js` | Service worker: sign-in, save, undo, auto-capture, excluded sites, `Alt+Shift+M` |
+| `background.js` | Service worker: sign-in, save (to this device or the server), undo, auto-capture, excluded sites, `Alt+Shift+M`, the website's requests, idle and backup alarms |
+| `local.js` | Local-first storage: opens the engine for the signed-in library, saves locally, moves the oldest pages to the server past the size limit, encrypted backups |
+| `engine.html`, `engine/host.js` | Offscreen document hosting the local engine (model, Pyodide, index) |
+| `engine/` | The local search engine: `analyzer.js`, `porter.js`, `bm25.js` (Solr's keyword scoring), `local_index.js`, `retrieval.js`, `query_intent.js`, `snippets.js`, `url.js` (ports of the server's), `ingest.js` + `py/local_ingest.py` (the server's saving code in Pyodide), `embedder.js` (transformers.js), `store.js` and `crypto.js` (encrypted IndexedDB), `core.js` |
+| `tools/vendor.mjs` | Build step: bundles Pyodide, the Python packages, the backend's saving modules and transformers.js into `vendor/` |
 | `auth.js` | Cognito PKCE through `chrome.identity.launchWebAuthFlow`; tokens in `chrome.storage.local` |
 | `api.js` | Authenticated fetch with one refresh-and-retry |
 | `content.js` | Injected on demand; returns the page's HTML, text, canonical URL and measurements for auto-capture (words, links, password fields, editors, `noindex`) |
 | `engagement.js` | Injected when auto-capture is on; reports once the page has been read (30 s in view, or scrolled halfway) |
 | `page_filter.js` | Auto-capture rules (private addresses, `assessContent` for what's on the page), saveable pages, excluded-site matching |
-| `site_marker.js` | Runs only on memorylane.site; tells the site the extension is installed |
-| `popup.*`, `options.*` | The popup (with **Auto-saved today**) and the excluded-sites page |
+| `site_marker.js` | Runs only on memorylane.site; tells the site the extension is installed and its id |
+| `popup.*`, `options.*`, `options_storage.js` | The popup (with **Auto-saved today** and the size-limit prompt) and Settings (storage, backups, excluded sites) |
 | `config.js` | Website, API and Cognito endpoints |
 
-The extension's ID is fixed by the public `key` in `manifest.json` (`igdbkkmpnplmboeccgigbjgoefecdhck`), so its Cognito redirect URL is the same on every machine.
+The extension's ID is fixed by the public `key` in `manifest.json` (`igdbkkmpnplmboeccgigbjgoefecdhck`), so its Cognito redirect URL is the same on every machine, and the website can message it (`externally_connectable`) for pages kept on the device. See [Pages on Your Device](../how-it-works/local-search.md).

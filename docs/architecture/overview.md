@@ -15,7 +15,7 @@ flowchart TB
     subgraph server["One EC2 instance · Docker Compose"]
         caddy["Caddy<br/>HTTPS, static web app, /api proxy"]
         api["FastAPI backend<br/>token check → user_id<br/>ingest · retrieval · summaries · reports<br/>Sentence Transformers (bge-small)"]
-        solr[("Apache Solr 9.7<br/>BM25 + HNSW vectors")]
+        solr[("Apache Solr 9.7<br/>BM25 + exact vector scoring")]
         sqlite[("SQLite<br/>accounts.db, reports.db")]
         caddy --> api
         api -->|"always filtered by user_id"| solr
@@ -81,3 +81,7 @@ Sends problem reports to the maintainer by email over SMTP. Reports are stored i
 - **One ingest path.** The API, scripts and evaluation all save pages through `ingest_page`, so they behave identically.
 - **Search is page-level.** Retrieval works on chunks, but users see pages.
 - **Optional parts stay optional.** Gemini and the reranker can be off without breaking search.
+
+## Pages on the device
+
+The extension also contains a complete search engine for pages kept in the browser (`extension/engine/`): the server's saving code in Pyodide, the same model in transformers.js, BM25 and vector search that score exactly as Solr, and encrypted IndexedDB storage. It runs in an offscreen document; the website reaches it through site-to-extension messaging. See [Pages on Your Device](../how-it-works/local-search.md) and ADRs [0012](../decisions/0012-local-first-storage.md)–[0016](../decisions/0016-encrypt-local-pages-and-backups.md).

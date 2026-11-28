@@ -33,7 +33,9 @@ Open any article you'd like to keep. For this tutorial, use the Wikipedia articl
 
 Open the extension and press **Remember this page**.
 
-**You should see** "Saved just now" with an **Undo** button. MemoryLane has extracted the article's text (without menus and footers), split it into passages and indexed them. Back on the website, the page appears under **Recently saved**.
+**You should see** "Saved just now" with an **Undo** button. MemoryLane has extracted the article's text (without menus and footers), split it into passages and indexed them, **in your browser**: by default pages are kept on your device, encrypted, and the server never receives them. The first save downloads the search model once (about 130 MB) and takes a little longer. Back on the website, the page appears under **Recently saved**, marked *on this device*.
+
+(To keep pages on the server instead, so you can search them from your phone, open the extension's **Settings**. [Storage and Backups](../user-guide/storage.md) explains the choice.)
 
 Save two or three more pages on different topics, so the next steps have something to choose between.
 

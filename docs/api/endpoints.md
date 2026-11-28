@@ -172,7 +172,23 @@ Summarise one of your pages with Gemini. Rate limit: 20/minute.
 
 ## `DELETE /me/data`
 
-Deletes all your pages and the problem reports you sent. Returns `204`. Rate limit: 5/minute.
+Deletes all your pages, the problem reports you sent, your encrypted backup and your device key (so a copy kept in a browser can't be read again). Returns `204`. Rate limit: 5/minute. The website also tells the extension to delete the pages kept in that browser.
+
+---
+
+## Pages kept on your device
+
+The extension can keep pages in the browser instead of on the server ([Pages on Your Device](../how-it-works/local-search.md)). These endpoints support it; none of them stores a page except `POST /memory/transfer`, which you ask for.
+
+| Endpoint | What it does | Rate limit |
+| --- | --- | --- |
+| `GET /search-settings` | The numbers search runs with (RRF k, weights, the relevance floor, chunk sizes, the model and its query prefix), so local search uses the server's. Public. | none |
+| `GET /me` | `{library_id, device_key}`: page ids are derived from the library id; the device key (32 random bytes, base64url) encrypts the browser's copy | 60/minute |
+| `POST /memory/transfer` | Store a page moving from the device, as its exact chunks: `{url, title, chunks, description, timestamp, content_hash}`. Answers like `POST /memory` | 120/minute |
+| `GET /memory/{page_id}/content` | One of your pages with its chunks, for moving it to the device. `404` if it isn't yours | 120/minute |
+| `POST /summarize/text` | `{query, title, text}`: a summary of a page kept on the device. The text is used for this request only, not stored or logged | 20/minute |
+| `PUT /backup` | Store your encrypted backup (raw bytes, up to 200 MB). The server can't open it | 10/hour |
+| `GET /backup`, `GET /backup/info`, `DELETE /backup` | Download it, its size and date, or delete it | 10/hour, 60/minute, 10/minute |
 
 ---
 

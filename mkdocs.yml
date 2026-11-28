@@ -112,6 +112,7 @@ nav:
       - Saving Pages: user-guide/automatic-capture.md
       - Searching: user-guide/search.md
       - Library & Account: user-guide/library.md
+      - Storage & Backups: user-guide/storage.md
       - Summaries: user-guide/summarization.md
       - YouTube Videos: user-guide/youtube.md
       - Voice Search: user-guide/voice-search.md
@@ -121,6 +122,7 @@ nav:
       - Capturing Web Content: how-it-works/ingestion.md
       - Content Processing: how-it-works/processing.md
       - Storage: how-it-works/storage.md
+      - Pages on Your Device: how-it-works/local-search.md
 
   - Architecture:
       - System Architecture: architecture/overview.md
@@ -145,6 +147,11 @@ nav:
           - 0009 Removing the library map: decisions/0009-remove-library-map.md
           - 0010 Removing Export my data: decisions/0010-remove-export.md
           - 0011 Auto-capture keeps only content: decisions/0011-auto-capture-keeps-only-content.md
+          - 0012 Pages on the device by default: decisions/0012-local-first-storage.md
+          - 0013 Exact vector search: decisions/0013-exact-vector-search.md
+          - 0014 Own BM25, no Orama: decisions/0014-own-bm25-no-orama.md
+          - 0015 Server code in the browser: decisions/0015-server-code-in-the-browser.md
+          - 0016 Encrypting device pages and backups: decisions/0016-encrypt-local-pages-and-backups.md
 
   - Development:
       - Manifest: development/project-structure.md
