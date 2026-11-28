@@ -11,14 +11,15 @@ export class ApiError extends Error {
     }
 }
 
-function send(path, { method = "GET", body, token }) {
+function send(path, { method = "GET", body, token, bytes = false }) {
+    // `bytes`: the body is binary (an encrypted backup), sent as is.
     return fetch(`${API_BASE}${path}`, {
         method,
         headers: {
             Authorization: `Bearer ${token}`,
-            ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+            ...(body !== undefined ? { "Content-Type": bytes ? "application/octet-stream" : "application/json" } : {}),
         },
-        body: body !== undefined ? JSON.stringify(body) : undefined,
+        body: body === undefined ? undefined : bytes ? body : JSON.stringify(body),
     });
 }
 
@@ -51,5 +52,14 @@ export async function apiFetch(path, opts = {}) {
         const data = await response.json().catch(() => ({}));
         throw new ApiError(typeof data.detail === "string" ? data.detail : "Request failed", response.status);
     }
-    return response.status === 204 ? null : response.json();
+    if (response.status === 204) return null;
+    // `binary`: the response is bytes (an encrypted backup).
+    return opts.binary ? new Uint8Array(await response.arrayBuffer()) : response.json();
+}
+
+/** Public endpoints (no sign-in): the search settings. */
+export async function publicFetch(path) {
+    const response = await fetch(`${API_BASE}${path}`);
+    if (!response.ok) throw new ApiError("Request failed", response.status);
+    return response.json();
 }
