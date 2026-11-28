@@ -57,6 +57,29 @@ find a page by describing it in their own words, for example
 \textit{``the article about reducing database query latency''} or
 \textit{``the reddit post on rust lifetimes from last week''}.
 
+\paragraph{Formal statement.} Let user $u$ own a library
+$L_u = \{p_1, \dots, p_n\}$ of saved pages. Given a natural-language
+description $q$ of a target page $p^{\star} \in L_u$, return a ranking
+$R(q) \subseteq L_u$ with $|R(q)| \le 10$ that maximises the mean reciprocal
+rank of the target,
+\[
+  \operatorname{E}\left[\frac{1}{\operatorname{rank}\bigl(p^{\star} \mid R(q)\bigr)}\right]
+  \qquad \text{(MRR@10; the term is 0 if } p^{\star} \notin R(q)\text{)},
+\]
+subject to:
+\begin{enumerate}[nosep]
+  \item \textbf{Isolation:} $\forall p \in R(q):\ \operatorname{owner}(p) = u$.
+  \item \textbf{Placement:} each page lives whole in one store
+  $s(p) \in \{\text{device}, \text{server}\}$, and
+  $\operatorname{score}(q, p \mid \text{device}) = \operatorname{score}(q, p \mid \text{server})$.
+  \item \textbf{Privacy:} pages on the device and backups are encrypted; the
+  server holds no key to a backup.
+  \item \textbf{Latency:} median response time $\le 100$\,ms.
+\end{enumerate}
+Each part is measured: MRR@10 and latency on SciFact
+(Section~\ref{sec:evaluation}) and placement by the parity checks
+(Section~\ref{sec:local-engine}).
+
 \paragraph{Objectives.}
 \begin{enumerate}
   \item O1: Save pages manually and, optionally, automatically, without ever
