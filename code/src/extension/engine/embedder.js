@@ -23,7 +23,22 @@ export async function createEmbedder(transformers, { modelHost, wasmPath, model 
         env.backends.onnx.wasm.numThreads = 1; // no SharedArrayBuffer in extension pages
         env.backends.onnx.wasm.proxy = false;
     }
-    const extractor = await pipeline("feature-extraction", model, { dtype: "fp32", device: "wasm" });
+    // WebGPU when the browser has it: ~70x faster than WebAssembly on one CPU
+    // thread (11 vs 770 ms a chunk in Chromium), with the same vectors (cosine
+    // 1.0000002). Otherwise WebAssembly.
+    let extractor = null;
+    let device = "wasm";
+    let gpuError = null;
+    if (typeof navigator !== "undefined" && navigator.gpu) {
+        try {
+            extractor = await pipeline("feature-extraction", model, { dtype: "fp32", device: "webgpu" });
+            device = "webgpu";
+        } catch (err) {
+            extractor = null;
+            gpuError = String((err && err.message) || err);
+        }
+    }
+    extractor ||= await pipeline("feature-extraction", model, { dtype: "fp32", device: "wasm" });
 
     async function embed(texts) {
         const out = [];
@@ -38,5 +53,7 @@ export async function createEmbedder(transformers, { modelHost, wasmPath, model 
         embedPassages: embed,
         embedQuery: async (query) => (await embed([`${SETTINGS.EMBEDDING_QUERY_PREFIX}${query}`]))[0],
         dispose: () => extractor.dispose && extractor.dispose(),
+        device,
+        gpuError,
     };
 }
