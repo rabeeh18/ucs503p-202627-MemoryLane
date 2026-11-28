@@ -7,7 +7,7 @@
 //   vendor/py/backend/  the server's own cleaning, chunking and saving code
 //   vendor/transformers/, vendor/ort/   transformers.js and its WebAssembly runtime
 //
-// Usage: cd code/src/extension && npm ci && npm run vendor
+// Usage: cd code/src/extension && npm ci --ignore-scripts && npm run vendor
 // The search model's weights are not code: the extension downloads them once
 // from the MemoryLane site (https://<domain>/models/), see deploy/caddy/Dockerfile.
 import crypto from "node:crypto";

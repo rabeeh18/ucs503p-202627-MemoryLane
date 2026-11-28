@@ -17,3 +17,5 @@ tests
 evaluation/personal*
 evaluation/evaluation_report.json
 /data
+extension/node_modules
+extension/vendor
