@@ -1,59 +1,420 @@
+/* Settings: a sidebar of tabs (Storage, Backup, Excluded sites), one card each. */
+
 .options {
-  max-width: 560px;
+  max-width: 920px;
   margin: 0 auto;
-  padding: 64px 16px;
+  padding: 40px 24px 48px;
 }
 
-h1 {
+.page-title {
   margin: 0;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 500;
 }
 
-.lede {
-  margin: 8px 0 0;
+.page-sub {
+  margin: 4px 0 24px;
+  color: var(--text-2);
   font-size: 14px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+/* ---- sidebar ---- */
+.nav {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-2);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nav button:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.nav button[aria-selected='true'] {
+  background: var(--surface-active);
+  color: var(--text);
+}
+
+.nav svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Styled elements (buttons, cards) would otherwise override `hidden`. */
+.options [hidden] {
+  display: none !important;
+}
+
+/* ---- cards ---- */
+.card {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.card-head {
+  padding: 16px 18px 12px;
+}
+
+.card-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.card-head p {
+  margin: 4px 0 0;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--divider);
+}
+
+.card-foot .spacer {
+  flex: 1;
+}
+
+.msg {
+  margin: 0;
+  padding: 0 18px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.msg:not(:empty) {
+  padding-bottom: 12px;
+}
+
+/* ---- buttons in settings are compact (tokens.css makes .btn full width) ---- */
+.options .btn {
+  display: inline-flex;
+  width: auto;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.options .btn-quiet {
+  padding: 0 6px;
+  border: 0;
+  background: none;
   color: var(--text-2);
 }
 
+.options .btn-quiet:hover {
+  color: var(--text);
+}
+
+.options .btn-outline:hover:not(:disabled) {
+  background: var(--surface-active);
+}
+
+/* ---- where pages go ---- */
+.choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 0 18px 16px;
+}
+
+.choice {
+  position: relative;
+  display: block;
+  padding: 14px 14px 14px 40px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.choice input {
+  position: absolute;
+  top: 16px;
+  left: 14px;
+  accent-color: var(--text);
+}
+
+.choice strong {
+  display: block;
+  font-weight: 500;
+}
+
+.choice span {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.choice:has(input:checked) {
+  border-color: var(--text);
+  background: var(--surface-active);
+}
+
+/* ---- usage against the limit ---- */
+.usage {
+  padding: 12px 18px;
+  border-top: 1px solid var(--divider);
+}
+
+.usage-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.num {
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.bar {
+  height: 6px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--divider);
+}
+
+.bar i {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--text-2);
+  transition: width 0.3s;
+}
+
+.bar i.full {
+  background: var(--text);
+}
+
+.usage small {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+/* ---- setting rows: label left, control right ---- */
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 18px;
+  border-top: 1px solid var(--divider);
+}
+
+.row-label strong {
+  display: block;
+  font-weight: 400;
+}
+
+.row-label span {
+  display: block;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.field input {
+  width: 84px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-align: right;
+}
+
+.unit {
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.options select {
+  height: 36px;
+  padding: 0 30px 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  appearance: none;
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-2) 50%),
+    linear-gradient(135deg, var(--text-2) 50%, transparent 50%);
+  background-position: right 14px center, right 9px center;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* ---- switch ---- */
+.options .switch {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--border-strong);
+  cursor: pointer;
+}
+
+.options .switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-2);
+  transition: transform 0.15s;
+}
+
+.options .switch[aria-checked='true'] {
+  background: var(--text);
+}
+
+.options .switch[aria-checked='true']::after {
+  transform: translateX(16px);
+  background: var(--on-primary);
+}
+
+/* ---- backup ---- */
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+
+.dot.ok {
+  background: #8fbf8f;
+}
+
+.key {
+  margin: 0 18px 14px;
+  padding: 14px 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.key p {
+  margin: 0 0 8px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.key code {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  word-break: break-all;
+  user-select: all;
+}
+
+.key-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.keyform,
 .add {
   display: flex;
   gap: 8px;
-  margin-top: 28px;
+  padding: 0 18px 14px;
 }
 
+.keyform input,
 .add input {
   flex: 1;
   min-width: 0;
-  height: 44px;
-  padding: 0 14px;
+  height: 36px;
+  padding: 0 12px;
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  background: var(--surface);
-  font-size: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-size: 13px;
 }
 
-.add input::placeholder {
+.keyform input {
+  font-family: var(--font-mono);
+}
+
+.add input::placeholder,
+.keyform input::placeholder {
   color: var(--text-3);
 }
 
-.add .btn {
-  width: auto;
-  padding: 0 22px;
-}
-
-.message {
-  min-height: 20px;
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: var(--text-2);
-}
-
+/* ---- excluded sites ---- */
 .sites {
-  margin: 12px 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
-  border-top: 1px solid var(--divider);
 }
 
 .sites li {
@@ -61,13 +422,15 @@ h1 {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 48px;
-  border-bottom: 1px solid var(--divider-soft);
-  font-size: 14px;
+  min-height: 44px;
+  padding: 0 18px;
+  border-top: 1px solid var(--divider);
+  font-size: 13px;
 }
 
 .host {
   overflow: hidden;
+  font-family: var(--font-mono);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -75,21 +438,36 @@ h1 {
 .sites .link-button {
   min-height: 36px;
   font-size: 13px;
+  cursor: pointer;
 }
 
 .empty {
-  margin: 16px 0 0;
-  font-size: 14px;
-  color: var(--text-2);
+  margin: 0;
+  padding: 12px 18px;
+  border-top: 1px solid var(--divider);
+  color: var(--text-3);
+  font-size: 13px;
 }
 
-/* Storage and backup settings */
-.options section { margin-bottom: 36px; }
-.choices { border: 0; padding: 0; margin: 12px 0; display: flex; flex-direction: column; gap: 8px; }
-.row { display: flex; align-items: center; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
-.row input[type="number"] { width: 90px; }
-.usage { color: var(--muted, #9aa0a6); font-size: 13px; margin: 6px 0; }
-.check { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0; font-size: 14px; }
-.key { margin: 12px 0; padding: 12px; border: 1px dashed currentColor; border-radius: 10px; }
-.key code { font-size: 16px; letter-spacing: 0.04em; user-select: all; word-break: break-all; }
-.options .actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+@media (max-width: 720px) {
+  .layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .nav {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .choices {
+    grid-template-columns: 1fr;
+  }
+
+  .row {
+    flex-wrap: wrap;
+  }
+}
